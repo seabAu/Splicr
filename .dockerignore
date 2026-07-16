@@ -1,0 +1,17 @@
+.git
+.agents
+.serena
+.venv
+.env*
+data
+tests
+__pycache__
+*.py[cod]
+*.wav
+*.pcm
+*.sqlite3*
+.pytest_cache
+.test-tmp
+.review-pytest*
+pytest-cache-files-*
+.build-smoke

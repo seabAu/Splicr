@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <title>SPLICR — Speech studio</title>
+    <link rel="stylesheet" href="/assets/app.css">
+    <script src="/assets/app.js" defer></script>
+  </head>
+  <body>
+    <div class="ambient ambient-one" aria-hidden="true"></div>
+    <div class="ambient ambient-two" aria-hidden="true"></div>
+
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="SPLICR home">
+        <span class="brand-mark" aria-hidden="true">
+          <i></i><i></i><i></i><i></i><i></i>
+        </span>
+        <span>SPLICR</span>
+        <span class="brand-context">Speech studio</span>
+      </a>
+      <div class="header-actions">
+        <span class="connection" id="connection-state">
+          <span class="connection-dot" aria-hidden="true"></span>
+          <span id="connection-label">Connecting</span>
+        </span>
+        <a class="quiet-link" href="/docs">API docs</a>
+      </div>
+    </header>
+
+    <main>
+      <div id="global-message" class="global-message" role="status" aria-live="polite"></div>
+
+      <section class="studio-grid" aria-label="Speech synthesis studio">
+        <form id="synthesis-form" class="panel composition-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="step-label">01 · Source</p>
+              <h1>Document</h1>
+            </div>
+            <span class="format-chip">Imported or UTF-8 text</span>
+          </div>
+
+          <input
+            class="sr-only"
+            id="document-file"
+            type="file"
+            accept=".md,.markdown,.doc,.docx,.txt,.odt,.json,text/plain,text/markdown,application/json,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text"
+          >
+          <div
+            class="drop-zone"
+            id="document-drop-zone"
+            role="button"
+            tabindex="0"
+            aria-controls="document-file transcript"
+            aria-describedby="import-help import-status"
+          >
+            <span class="import-icon" aria-hidden="true">↑</span>
+            <span>
+              <strong>Import a document</strong>
+              <small id="import-help">Drop a Markdown, Word, OpenDocument, text, or JSON file here, or choose a file.</small>
+            </span>
+            <span class="secondary-button import-button" aria-hidden="true">Choose file</span>
+          </div>
+          <p class="import-status" id="import-status" role="status" aria-live="polite"></p>
+
+          <label class="sr-only" for="transcript">Document text</label>
+          <textarea
+            id="transcript"
+            name="transcript"
+            required
+            spellcheck="true"
+            placeholder="Paste the document you want to hear…"
+            aria-describedby="transcript-help transcript-stats"
+          ></textarea>
+          <div class="text-meta">
+            <span id="transcript-help">Imported structure is retained for chunk planning and performance cues.</span>
+            <output id="transcript-stats" for="transcript">0 words · 0 bytes</output>
+          </div>
+
+          <label class="preprocessing-option" for="remove-numeric-citations">
+            <input id="remove-numeric-citations" name="remove-numeric-citations" type="checkbox">
+            <span>
+              <strong>Remove numeric citations</strong>
+              <small>Exclude standalone references such as [123] from preview and speech. Markdown links are preserved.</small>
+            </span>
+          </label>
+
+          <section class="chunk-planner" aria-labelledby="chunk-planner-title">
+            <div class="planner-heading">
+              <div>
+                <h2 id="chunk-planner-title">Chunk plan</h2>
+                <p>Choose preferred boundaries, then inspect the exact split before synthesis.</p>
+              </div>
+              <div class="planner-actions">
+                <div class="field split-field">
+                  <label for="split-strategy">Preferred boundary</label>
+                  <select id="split-strategy" name="split-strategy">
+                    <option value="semantic">Semantic (recommended)</option>
+                    <option value="h1">Heading 1</option>
+                    <option value="h2">Heading 2</option>
+                    <option value="h3">Heading 3</option>
+                    <option value="h4">Heading 4</option>
+                    <option value="h5">Heading 5</option>
+                    <option value="h6">Heading 6</option>
+                    <option value="double_newline">Double newline</option>
+                    <option value="newline">Every newline</option>
+                  </select>
+                </div>
+                <button class="secondary-button preview-button" id="preview-chunks" type="button" disabled>
+                  Preview chunks
+                </button>
+              </div>
+            </div>
+
+            <div class="chunk-preview" id="chunk-preview" hidden>
+              <div class="preview-summary">
+                <strong id="preview-summary">No preview yet</strong>
+                <span>Hover or focus a chunk to trace its source range.</span>
+              </div>
+              <div class="preview-grid">
+                <div
+                  class="preview-document"
+                  id="preview-document"
+                  aria-label="Document with chunk boundaries"
+                ></div>
+                <ol class="chunk-list" id="chunk-list" aria-label="Planned chunks"></ol>
+              </div>
+            </div>
+          </section>
+
+          <div class="panel-divider"></div>
+
+          <div class="panel-heading compact-heading">
+            <div>
+              <p class="step-label">02 · Engine</p>
+              <h2>Voice</h2>
+            </div>
+          </div>
+
+          <div class="field-grid three-up">
+            <div class="field">
+              <label for="provider">Provider</label>
+              <select id="provider" name="provider" disabled></select>
+            </div>
+            <div class="field">
+              <label for="model">Model</label>
+              <input id="model" name="model" list="model-options" disabled>
+              <datalist id="model-options"></datalist>
+            </div>
+            <div class="field">
+              <label for="voice">Voice</label>
+              <select id="voice" name="voice" disabled></select>
+            </div>
+          </div>
+
+          <div class="panel-divider"></div>
+
+          <fieldset class="delivery-fieldset" disabled>
+            <legend>
+              <span class="step-label">03 · Direction</span>
+              <span class="legend-title">Performance</span>
+            </legend>
+
+            <div class="field-grid two-up">
+              <div class="field">
+                <label for="tone">Emotion &amp; tone preset</label>
+                <select id="tone" name="tone"></select>
+                <p class="field-help">A stable SPLICR preset translated for this provider.</p>
+              </div>
+              <div class="field">
+                <label for="vocal-style">Vocal style</label>
+                <select id="vocal-style" name="vocal-style"></select>
+                <p class="field-help">The overall performance profile.</p>
+              </div>
+            </div>
+
+            <div class="slider-grid">
+              <div class="slider-field">
+                <div class="slider-label-row">
+                  <label for="pace">Speaking pace</label>
+                  <output id="pace-output" for="pace">Normal</output>
+                </div>
+                <input id="pace" name="pace" type="range" min="0" max="4" step="1" value="2" list="pace-ticks">
+                <datalist id="pace-ticks">
+                  <option value="0" label="Very slow"></option>
+                  <option value="1" label="Slow"></option>
+                  <option value="2" label="Normal"></option>
+                  <option value="3" label="Fast"></option>
+                  <option value="4" label="Very fast"></option>
+                </datalist>
+                <div class="range-ends" aria-hidden="true"><span>Very slow</span><span>Very fast</span></div>
+              </div>
+
+              <div class="slider-field">
+                <div class="slider-label-row">
+                  <label for="nonverbal-frequency">Non-verbal sounds</label>
+                  <output id="nonverbal-output" for="nonverbal-frequency">Never</output>
+                </div>
+                <input
+                  id="nonverbal-frequency"
+                  name="nonverbal-frequency"
+                  type="range"
+                  min="0"
+                  max="4"
+                  step="1"
+                  value="0"
+                  list="nonverbal-ticks"
+                  aria-describedby="nonverbal-help"
+                >
+                <datalist id="nonverbal-ticks">
+                  <option value="0" label="Never"></option>
+                  <option value="1" label="Rare"></option>
+                  <option value="2" label="Occasional"></option>
+                  <option value="3" label="Frequent"></option>
+                  <option value="4" label="Very frequent"></option>
+                </datalist>
+                <div class="range-ends" aria-hidden="true"><span>Never</span><span>Very frequent</span></div>
+                <p class="field-help" id="nonverbal-help">Deterministic cue placement; rendering remains provider-dependent.</p>
+              </div>
+            </div>
+
+            <div class="field full-field">
+              <label for="instructions">Custom director’s notes <span>Optional</span></label>
+              <textarea
+                id="instructions"
+                name="instructions"
+                rows="3"
+                maxlength="2000"
+                placeholder="For example: emphasize quotations and pause before each new section."
+              ></textarea>
+            </div>
+          </fieldset>
+
+          <p class="privacy-notice" id="submission-privacy">
+            <strong>Privacy:</strong> Transcript chunks and optional director’s notes are sent to
+            the selected external provider. They are also saved locally in plaintext and are not
+            purged automatically.
+          </p>
+
+          <button class="primary-button" id="submit-button" type="submit" aria-describedby="submission-privacy" disabled>
+            <span>Create speech job</span>
+            <span aria-hidden="true">→</span>
+          </button>
+        </form>
+
+        <aside class="side-column" aria-label="Job activity">
+          <section class="panel job-panel" aria-labelledby="job-title">
+            <div class="panel-heading">
+              <div>
+                <p class="step-label">Live output</p>
+                <h2 id="job-title">Current job</h2>
+              </div>
+              <span class="status-badge idle" id="job-status">Idle</span>
+            </div>
+
+            <div class="empty-job" id="empty-job">
+              <div class="empty-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+              <p>Your next synthesis job will appear here.</p>
+            </div>
+
+            <div class="job-details" id="job-details" hidden>
+              <div class="job-id-row">
+                <span>Job</span>
+                <code id="job-id"></code>
+              </div>
+              <progress id="job-progress" max="1" value="0" aria-label="Document synthesis progress">0%</progress>
+              <div class="progress-copy">
+                <span id="job-progress-text">Waiting to start</span>
+                <span id="job-progress-percent">0%</span>
+              </div>
+              <div class="job-activity" id="job-activity" hidden>
+                <span class="activity-pulse" aria-hidden="true"></span>
+                <div class="job-activity-copy">
+                  <strong id="job-activity-title" aria-live="polite">Preparing synthesis</strong>
+                  <span id="job-activity-detail">Waiting for the worker</span>
+                  <small id="job-activity-excerpt" hidden></small>
+                </div>
+              </div>
+              <div class="document-position" aria-live="polite">
+                <div class="position-track" aria-hidden="true"><span id="position-fill"></span></div>
+                <span id="document-position-text">Document position unavailable</span>
+              </div>
+              <p class="job-error" id="job-error" role="alert" tabindex="-1" hidden></p>
+
+              <section class="media-player" id="media-player" aria-labelledby="player-title" hidden>
+                <div class="player-heading">
+                  <div>
+                    <span class="player-kicker" id="player-state">Audio preview</span>
+                    <h3 id="player-title">Playback</h3>
+                  </div>
+                  <output id="player-time" aria-live="off">0:00 / 0:00</output>
+                </div>
+                <audio id="job-audio" controls preload="metadata"></audio>
+                <div class="player-tools">
+                  <label for="playback-rate">Speed</label>
+                  <select id="playback-rate">
+                    <option value="0.75">0.75×</option>
+                    <option value="1" selected>1×</option>
+                    <option value="1.25">1.25×</option>
+                    <option value="1.5">1.5×</option>
+                    <option value="2">2×</option>
+                  </select>
+                  <button class="text-button" id="refresh-audio" type="button">Refresh audio</button>
+                </div>
+              </section>
+
+              <div class="job-actions">
+                <a class="secondary-button" id="download-audio" href="#" download hidden>Download WAV</a>
+                <button class="secondary-button" id="resume-job" type="button" hidden>Resume</button>
+                <button class="secondary-button danger-button" id="cancel-job" type="button" hidden>Cancel</button>
+                <button class="secondary-button" id="retry-job" type="button" hidden>Retry failed job</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel recent-panel" aria-labelledby="recent-title">
+            <div class="panel-heading">
+              <div>
+                <p class="step-label">Persisted locally</p>
+                <h2 id="recent-title">Recent jobs</h2>
+              </div>
+              <button class="icon-button" id="refresh-jobs" type="button" aria-label="Refresh recent jobs">↻</button>
+            </div>
+            <ol class="job-list" id="job-list">
+              <li class="job-list-empty">No jobs yet.</li>
+            </ol>
+          </section>
+        </aside>
+      </section>
+    </main>
+
+    <dialog class="error-modal" id="error-modal" aria-labelledby="error-title" aria-describedby="error-detail">
+      <div class="modal-heading">
+        <div>
+          <p class="step-label">Synthesis paused</p>
+          <h2 id="error-title">The provider reported an error</h2>
+        </div>
+        <button class="modal-close" id="close-error-modal" type="button" aria-label="Close error details">×</button>
+      </div>
+      <dl class="error-facts">
+        <div>
+          <dt>Error code</dt>
+          <dd><code id="error-code">UNKNOWN</code></dd>
+        </div>
+        <div>
+          <dt>Details</dt>
+          <dd id="error-detail">No additional detail was supplied.</dd>
+        </div>
+      </dl>
+      <p class="error-guidance" id="error-guidance"></p>
+      <p class="modal-note">Completed chunks remain checkpointed. Resuming continues from the next unfinished chunk.</p>
+      <div class="modal-actions">
+        <button class="primary-button modal-primary" id="modal-resume" type="button">Resume job</button>
+        <a class="secondary-button" id="modal-export" href="#" download hidden>Export completed audio</a>
+        <button class="secondary-button danger-button" id="modal-cancel" type="button">Cancel job</button>
+      </div>
+    </dialog>
+
+    <footer>
+      <span>Resumable · provider-neutral · locally checkpointed</span>
+      <span>Audio: mono PCM · 24 kHz · 16-bit WAV</span>
+    </footer>
+  </body>
+</html>
