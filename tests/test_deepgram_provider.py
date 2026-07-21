@@ -7,6 +7,7 @@ from typing import Callable
 import httpx
 import pytest
 
+import splicr.providers.deepgram as deepgram_module
 from splicr.domain import (
     CANONICAL_AUDIO_FORMAT,
     DeliveryControls,
@@ -284,17 +285,31 @@ def test_classifies_http_errors(status_code: int, retryable: bool) -> None:
 
     assert raised.value.retryable is retryable
     assert raised.value.status_code == status_code
+    assert raised.value.diagnostic is not None
+    assert raised.value.diagnostic.category == "http_error"
+    assert raised.value.diagnostic.response is not None
+    assert raised.value.diagnostic.response["status_code"] == status_code
 
 
 def test_network_errors_are_retryable() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
-        raise httpx.ConnectError("offline", request=request)
+        raise httpx.ConnectError("offline using deepgram-secret", request=request)
 
     with pytest.raises(ProviderError, match="offline") as raised:
         _run_with_transport(handler)
 
     assert raised.value.retryable is True
     assert raised.value.status_code is None
+    diagnostic = raised.value.diagnostic
+    assert diagnostic is not None
+    assert diagnostic.category == "network_error"
+    assert diagnostic.phase == "connect"
+    assert diagnostic.request is not None
+    assert diagnostic.request["headers"]["Authorization"] == "[REDACTED]"  # type: ignore[index]
+    assert diagnostic.request["body"] == {"text": "Hello world."}
+    assert diagnostic.response is not None
+    assert diagnostic.response["received"] is False
+    assert "deepgram-secret" not in json.dumps(diagnostic, default=str)
 
 
 def test_custom_instructions_are_rejected_before_request() -> None:
@@ -333,3 +348,18 @@ def test_close_does_not_close_injected_client() -> None:
         await client.aclose()
 
     asyncio.run(run())
+
+
+def test_owned_client_ignores_environment_proxies_by_default(monkeypatch) -> None:
+    captured: list[dict[str, object]] = []
+    sentinel = object()
+
+    def create_client(**kwargs):
+        captured.append(kwargs)
+        return sentinel
+
+    monkeypatch.setattr(deepgram_module.httpx, "AsyncClient", create_client)
+    provider = DeepgramTtsProvider(api_key="secret")
+
+    assert provider._get_client() is sentinel
+    assert captured == [{"timeout": 300.0, "trust_env": False}]

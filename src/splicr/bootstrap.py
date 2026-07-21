@@ -1,35 +1,26 @@
 from __future__ import annotations
 
+from .api_resources import SqliteApiResourceStore
 from .config import Settings
-from .providers import ProviderRegistry
-from .providers.deepgram import DeepgramTtsProvider
-from .providers.gemini import GeminiTtsProvider
-from .providers.inworld import InworldTtsProvider
+from .resource_registry import ResourceProviderRegistry
+from .secret_vault import EncryptedFileSecretVault
 from .service import SynthesisService
 
 
 def create_service(settings: Settings) -> SynthesisService:
-    providers = ProviderRegistry(
-        [
-            GeminiTtsProvider(
-                default_model=settings.gemini_model,
-                default_voice=settings.gemini_voice,
-                request_timeout_seconds=settings.provider_timeout_seconds,
-            ),
-            DeepgramTtsProvider(
-                default_model=settings.deepgram_model,
-                default_voice=settings.deepgram_voice,
-                api_url=settings.deepgram_api_url,
-                request_timeout_seconds=settings.provider_timeout_seconds,
-                minimum_request_interval_seconds=settings.deepgram_pacing_seconds,
-            ),
-            InworldTtsProvider(
-                default_model=settings.inworld_model,
-                default_voice=settings.inworld_voice,
-                api_url=settings.inworld_api_url,
-                request_timeout_seconds=settings.provider_timeout_seconds,
-                minimum_request_interval_seconds=settings.inworld_pacing_seconds,
-            ),
-        ]
-    )
+    vault = None
+    if settings.secret_vault_backend == "encrypted-file":
+        if settings.secret_vault_key_file is None:
+            raise ValueError(
+                "SPLICR_SECRET_VAULT_KEY_FILE is required for the encrypted-file vault"
+            )
+        vault = EncryptedFileSecretVault(
+            settings.encrypted_vault_path,
+            key_file=settings.secret_vault_key_file,
+        )
+    elif settings.secret_vault_backend != "keyring":
+        raise ValueError(f"unknown secret vault backend: {settings.secret_vault_backend}")
+    resource_store = SqliteApiResourceStore(settings.database_path, vault=vault)
+    resource_store.initialize(seed_builtins=True)
+    providers = ResourceProviderRegistry(resource_store, settings=settings)
     return SynthesisService(settings=settings, providers=providers)

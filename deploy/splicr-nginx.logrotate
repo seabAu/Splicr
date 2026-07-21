@@ -1,0 +1,15 @@
+/home/logs/nginx/splicr.access.log /home/logs/nginx/splicr.error.log {
+    daily
+    missingok
+    rotate 14
+    compress
+    delaycompress
+    notifempty
+    create 0640 www-data adm
+    sharedscripts
+    postrotate
+        if [ -s /run/nginx.pid ]; then
+            /usr/sbin/nginx -s reopen
+        fi
+    endscript
+}

@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import json
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
 import google.genai
+import httpx
 from google.genai.interactions import Interaction
 
 from splicr.domain import (
@@ -40,6 +42,17 @@ class FakeInteractions:
         return self.interaction or SimpleNamespace(
             status=self.status,
             output_audio=self.output_audio,
+        )
+
+
+class FailingInteractions:
+    async def create(self, **_: Any) -> Any:
+        request = httpx.Request(
+            "POST", "https://generativelanguage.googleapis.com/v1beta/interactions"
+        )
+        raise httpx.ConnectError(
+            "connection failed using gemini-secret",
+            request=request,
         )
 
 
@@ -109,6 +122,48 @@ def test_installed_google_sdk_exposes_the_v2_audio_contract() -> None:
     )
 
     assert audio.pcm == pcm
+
+
+def test_network_failure_includes_redacted_request_and_exception_diagnostics() -> None:
+    provider = GeminiTtsProvider(
+        api_key="gemini-secret",
+        client=SimpleNamespace(aio=SimpleNamespace(interactions=FailingInteractions())),
+    )
+
+    with pytest.raises(ProviderError, match="connection failed") as raised:
+        asyncio.run(
+            provider.synthesize(
+                "Diagnostic text.",
+                SynthesisOptions(model="gemini-model", voice="Kore"),
+            )
+        )
+
+    diagnostic = raised.value.diagnostic
+    assert diagnostic is not None
+    assert diagnostic.category == "network_error"
+    assert diagnostic.phase == "connect"
+    assert diagnostic.request is not None
+    assert diagnostic.request["headers"]["X-Goog-Api-Key"] == "[REDACTED]"  # type: ignore[index]
+    assert "Diagnostic text." in diagnostic.request["body"]["input"]  # type: ignore[index,operator]
+    assert diagnostic.response is not None
+    assert diagnostic.response["received"] is False
+    assert "gemini-secret" not in json.dumps(diagnostic, default=str)
+
+
+def test_sdk_clients_ignore_environment_proxies_by_default(monkeypatch) -> None:
+    captured: list[Any] = []
+    sentinel = object()
+
+    def create_client(**kwargs: Any) -> object:
+        captured.append(kwargs["http_options"])
+        return sentinel
+
+    monkeypatch.setattr(google.genai, "Client", create_client)
+    provider = GeminiTtsProvider(api_key="gemini-secret")
+
+    assert provider._get_client() is sentinel
+    assert captured[0].client_args == {"trust_env": False}
+    assert captured[0].async_client_args == {"trust_env": False}
 
 
 def test_accepts_documented_default_pcm_when_optional_metadata_is_omitted() -> None:

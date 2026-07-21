@@ -12,6 +12,12 @@ Despite the source document's use of “transcription,” this service performs 
 
 - FastAPI job submission, progress, retry, listing, and audio download endpoints
 - A provider-neutral `TtsProvider` boundary with Gemini, Deepgram, and Inworld adapters
+- Versioned API resources with editable endpoints, auth placement, JSON templates, variables,
+  limits, pacing, retry policy, response extraction, and per-revision job pinning
+- A Generic REST TTS adapter for raw PCM, WAV, and JSON-base64 audio responses, including
+  channel/sample-width/sample-rate normalization to canonical 24 kHz mono PCM16
+- Write-only API keys stored in the host operating-system credential vault, with environment
+  variables retained as a server-side fallback for the built-in resources
 - UTF-8-byte- and provider-character-aware paragraph → sentence → clause → word fallback chunking
 - Provider-specific chunk limits layered over the conservative 3,800-byte/350-word defaults
 - Sequential provider calls, provider-specific pacing, and exponential backoff with jitter
@@ -26,7 +32,11 @@ Despite the source document's use of “transcription,” this service performs 
 - Optional provider-neutral removal of standalone numeric citations such as `[123]`
 - Preflight chunk visualization with semantic, heading-level, newline, and paragraph boundaries
 - Durable paused/cancelled states, structured error codes, checkpoint resume, and partial WAV export
+- A durable, redacted error center with unobtrusive toasts, unread/history views, full request and
+  response diagnostics, occurrence counts, and direct links from paused jobs
 - Character-position progress and in-progress/completed playback in the browser studio
+- Studio profiles that restore the source text, resource revision, model, voice, direction,
+  custom variables, split settings, and an optional durable in-progress job link
 
 Gemini remains available as a Preview provider. Deepgram Aura-2 and Inworld TTS-2 are also
 registered, and every provider's model and voice defaults can be changed through environment
@@ -46,12 +56,17 @@ uv run splicr serve --reload
 Open `http://127.0.0.1:8000/` for the SPLICR studio. The generated interactive API remains at
 `http://127.0.0.1:8000/docs`.
 
-The studio populates every control from `/v1/providers`. Gemini and Inworld TTS-2 support directed
+The studio populates every control from `/v1/api-resources`. Use the adjacent **+** button to add a
+TTS-compatible JSON REST resource, or **Edit** to create a new immutable revision of an existing
+one. Gemini and Inworld TTS-2 support directed
 delivery; Deepgram exposes its native speaking-speed control but does not publish runtime
 emotion/style/non-verbal controls. Tone and vocal style remain curated SPLICR presets rather than
 an exhaustive provider vocabulary.
 
-Provider credentials stay server-side:
+Provider credentials stay server-side. Keys typed into the resource modal are masked by default,
+automatically re-hidden, written to Windows Credential Manager (or the host OS keyring), and never
+returned to the browser or stored in SQLite. Leaving the field blank while editing keeps the
+existing key. Built-in environment-variable fallback remains available:
 
 - `GEMINI_API_KEY` is the Gemini API key.
 - `DEEPGRAM_API_KEY` is sent with Deepgram's `Token` authorization scheme.
@@ -61,6 +76,16 @@ Provider credentials stay server-side:
 Deepgram and Inworld each impose a 2,000-Unicode-character request ceiling. SPLICR plans at a
 1,900-character target and accounts for Inworld steering text before submitting a chunk. Both are
 called sequentially by default, so a single SPLICR worker consumes one concurrent request slot.
+
+Generic REST resources must be TTS endpoints whose responses can be configured as raw PCM, WAV,
+JSON-base64 PCM, or JSON-base64 WAV. SPLICR can normalize uncompressed 8/16/24/32-bit PCM sample
+rates and channel counts. Compressed MP3/Opus responses require a dedicated native adapter or an
+endpoint option that requests PCM/WAV. Arbitrary non-audio APIs cannot enter the speech pipeline.
+
+Resource edits append a revision instead of rewriting history. New jobs use the current revision;
+jobs and profiles pinned to an older revision keep using that endpoint shape after edits or a soft
+delete. Credential rotation intentionally applies to all revisions so a resumed job does not retain
+an expired key.
 
 Imported DOCX and ODT headings, emphasis, lists, quotations, tables, and paragraph boundaries are
 normalized to Markdown-like structure. Gemini is directed to perform that structure without
@@ -76,22 +101,28 @@ sentence, clause, word, and Unicode-safe splitting so provider limits are never 
 
 ### Run with Docker
 
-Build the image, then publish it only on the host loopback interface:
+Create the ignored Compose vault key once, then build and start the single container:
 
 ```powershell
-docker build -t splicr-tts .
-docker run --rm `
-  --env-file .env `
-  --publish 127.0.0.1:8000:8000 `
-  --volume splicr-data:/data `
-  splicr-tts
+Copy-Item .env.example .env
+# Edit .env and fill only the provider keys you intend to use.
+New-Item -ItemType Directory -Force .secrets | Out-Null
+uv run python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())" |
+  Set-Content -NoNewline .secrets/vault.key
+docker compose up --build -d
+docker compose ps
 ```
 
 Open `http://127.0.0.1:8000/`. The container listens on `0.0.0.0` internally, but the explicit
-`127.0.0.1` host publishing keeps this unauthenticated service off the LAN. Do not replace it with
-an unrestricted host publish such as `-p 8000:8000` unless authentication and request-size
-enforcement are placed in front of SPLICR. The `splicr-data` volume persists plaintext job data;
-remove that volume when its jobs are no longer needed.
+`127.0.0.1` Compose publishing keeps this unauthenticated service off the LAN. The named
+`splicr-data` volume persists jobs, checkpoints, audio, and the encrypted custom-resource credential
+vault. Do not publish port 8000 on all interfaces unless an authenticated reverse proxy and request
+limits are in front of SPLICR.
+
+The production Compose/GHCR/GitHub Actions setup, exact GitHub variables and secrets, the
+`splicr-deploy` server bootstrap, managed hostname-based NGINX/TLS configuration, health-gated rollout, and
+rollback procedure are in
+[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
 Submit a job:
 
@@ -138,9 +169,18 @@ uv run splicr synthesize .\input_document.md .\continuous_reading.wav `
 | `GET` | `/` | Local browser studio |
 | `GET` | `/health` | Liveness check |
 | `GET` | `/v1/providers` | Provider defaults and capabilities |
+| `GET`, `POST` | `/v1/api-resources` | List or create versioned TTS API resources |
+| `GET`, `PUT`, `DELETE` | `/v1/api-resources/{id}` | Inspect, revise, or soft-delete a resource |
+| `GET`, `POST` | `/v1/profiles` | List or save complete studio profiles |
+| `GET`, `PUT`, `DELETE` | `/v1/profiles/{id}` | Load, update, or delete a studio profile |
 | `POST` | `/v1/documents/import` | Normalize an uploaded document into structured text |
 | `POST` | `/v1/speech/preview` | Preview exact chunk boundaries without creating a job |
 | `GET` | `/v1/speech/error-codes` | List stable processing error codes and guidance |
+| `GET`, `DELETE` | `/v1/errors` | List or clear the bounded diagnostic history |
+| `POST` | `/v1/errors/client` | Record a redacted browser/API failure |
+| `GET` | `/v1/errors/{id}` | Read one full redacted diagnostic report |
+| `POST` | `/v1/errors/{id}/read` | Mark one diagnostic as read |
+| `POST` | `/v1/errors/read-all` | Mark every diagnostic as read |
 | `POST` | `/v1/speech/jobs` | Queue a raw-text synthesis job |
 | `GET` | `/v1/speech/jobs` | List recent jobs |
 | `GET` | `/v1/speech/jobs/{id}` | Read status and progress |
@@ -155,10 +195,17 @@ The API returns `202 Accepted` immediately. One in-process worker handles jobs a
 which deliberately prevents request floods. Run a single Uvicorn worker for this MVP; multiple
 processes need a distributed queue/lease before they are safe.
 
-Jobs, chunk state, and PCM checkpoints survive service restarts. A job interrupted while running is
+Jobs, chunk state, resource revisions, studio profiles, and PCM checkpoints survive service
+restarts. A job interrupted while running is
 requeued automatically; a deliberately paused or cancelled job keeps that state. New processing
 errors pause the job and expose a stable error code rather than discarding completed work. Partial
 audio is assembled into a separate snapshot and never sets the job's completed output path.
+
+The error center retains at most 500 records in SQLite. Matching unread occurrences update one
+stable record and increment its count; marking it read means a later recurrence becomes a new
+alert. Provider credentials, authentication headers, cookies, URL credentials, and sensitive query
+values are redacted before persistence and again before API responses. Only the failed transcript
+chunk—not the full document—is eligible for provider-request diagnostics.
 
 ## Configuration
 
@@ -167,6 +214,10 @@ under `SPLICR_DATA_DIR` (`data/` by default) and are ignored by Git. Source docu
 and custom director's notes are stored locally in plaintext across job storage and SQLite. This MVP
 has no retention or purge endpoint; delete the complete data directory when its jobs are no longer
 needed.
+
+Desktop runs store custom-resource API keys in the operating-system keyring. Compose deployments
+use a Fernet-encrypted file under `/data` with its key supplied separately as a mounted Compose
+secret. Back up both, but store the vault key separately from ordinary job-data backups.
 
 Every transcript chunk and any custom director's notes are sent to the selected external TTS
 provider. Gemini requests set `store=false`, which prevents creation of a retained Interaction
@@ -189,6 +240,8 @@ The important tuning controls are:
 - `SPLICR_PACING_SECONDS`
 - `SPLICR_DEEPGRAM_PACING_SECONDS` and `SPLICR_INWORLD_PACING_SECONDS`
 - `SPLICR_PROVIDER_TIMEOUT_SECONDS`
+- `SPLICR_TRUST_ENV_PROXIES` (default `false`) to opt native HTTP providers into ambient
+  `HTTP_PROXY`, `HTTPS_PROXY`, and `ALL_PROXY` variables
 - `SPLICR_MAX_ATTEMPTS`
 - `SPLICR_BACKOFF_BASE_SECONDS`, `SPLICR_BACKOFF_MAX_SECONDS`, and
   `SPLICR_BACKOFF_JITTER_SECONDS`
@@ -200,14 +253,21 @@ already calls them sequentially; their provider-specific variables can add a del
 needs one. All request pacing is separate from the five-step speaking-pace control stored with each
 synthesis job.
 
+Ambient proxy variables are ignored by default so a shell, IDE, or automation harness cannot
+silently redirect provider traffic through a stale proxy. Set `SPLICR_TRUST_ENV_PROXIES=true` only
+when SPLICR should intentionally use the host environment's proxy configuration.
+
 ## Adding another provider
 
-Implement `TtsProvider` and register it in `splicr.bootstrap.create_service`. The adapter must turn
-its native response (MP3, Opus, WAV, or PCM) into the canonical `AudioChunk`: mono signed 16-bit
-little-endian PCM at 24 kHz. The chunker, queue, retries, checkpointing, assembly, API, and CLI do
-not need to change. Publish the provider's models, voices, control presets, and implementation modes
-through `ProviderCapabilities`, then translate `DeliveryControls` inside the adapter. A provider
-that cannot emit canonical PCM will need decoding/resampling inside its adapter.
+For a JSON-over-HTTP endpoint that can return raw PCM or WAV, add it from the resource modal. The
+recursive template builder supports nested objects/arrays and placeholders including `text`,
+`model`, `voice`, `instructions`, delivery controls, `api_key`, and job variables. Configure whether
+limits apply to source text or the rendered body, plus response extraction and rate limits.
+
+For an API requiring a non-JSON protocol, compressed codec, streaming transport, or provider-only
+logic, implement `TtsProvider` and add an `AdapterType` factory mapping in
+`splicr.resource_registry`. The provider-neutral chunker, queue, revision persistence, retries,
+checkpointing, and assembly do not need to change.
 
 ## Verify
 

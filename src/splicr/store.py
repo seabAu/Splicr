@@ -3,14 +3,17 @@ from __future__ import annotations
 import json
 import sqlite3
 import threading
+import uuid
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable, Mapping
 
 from .chunking import utf8_size, word_count
 from .domain import (
     ChunkRecord,
     ChunkStatus,
     DeliveryControls,
+    ErrorEventDraft,
+    ErrorEventRecord,
     InvalidJobStateError,
     JobErrorDetail,
     JobNotFoundError,
@@ -26,6 +29,8 @@ from .domain import (
 
 _CONTROLS_SCHEMA_VERSION = 1
 _ERROR_SCHEMA_VERSION = 1
+_DATABASE_SCHEMA_VERSION = 4
+_ERROR_EVENT_RETENTION_LIMIT = 500
 
 
 def _encode_controls(controls: DeliveryControls) -> str:
@@ -56,6 +61,44 @@ def _decode_controls(value: str | None) -> DeliveryControls:
     )
 
 
+def _encode_variables(variables: Mapping[str, Any] | None) -> str:
+    return json.dumps(
+        dict(variables or {}),
+        ensure_ascii=False,
+        allow_nan=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+
+
+def _decode_variables(value: str | None) -> dict[str, Any]:
+    payload = json.loads(value or "{}")
+    if not isinstance(payload, dict):
+        raise ValueError("persisted job variables must be a JSON object")
+    return payload
+
+
+def _encode_json_mapping(value: Mapping[str, Any] | None) -> str | None:
+    if value is None:
+        return None
+    return json.dumps(
+        dict(value),
+        ensure_ascii=False,
+        allow_nan=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+
+
+def _decode_json_mapping(value: str | None, *, field_name: str) -> dict[str, Any] | None:
+    if value is None:
+        return None
+    payload = json.loads(value)
+    if not isinstance(payload, dict):
+        raise ValueError(f"persisted error-event {field_name} must be a JSON object")
+    return payload
+
+
 def _encode_error(error: JobErrorDetail | None) -> str | None:
     if error is None:
         return None
@@ -67,6 +110,7 @@ def _encode_error(error: JobErrorDetail | None) -> str | None:
             "retryable": error.retryable,
             "status_code": error.status_code,
             "chunk_index": error.chunk_index,
+            "event_id": error.event_id,
             "occurred_at": error.occurred_at,
         },
         separators=(",", ":"),
@@ -86,12 +130,14 @@ def _decode_error(value: str | None, legacy_message: str | None) -> JobErrorDeta
     payload = json.loads(value)
     if payload.get("version") != _ERROR_SCHEMA_VERSION:
         raise ValueError("unsupported persisted job-error version")
+    event_id = payload.get("event_id")
     return JobErrorDetail(
         code=str(payload["code"]),
         message=str(payload["message"]),
         retryable=bool(payload["retryable"]),
         status_code=payload.get("status_code"),
         chunk_index=payload.get("chunk_index"),
+        event_id=str(event_id) if event_id is not None else None,
         occurred_at=str(payload["occurred_at"]),
     )
 
@@ -115,6 +161,8 @@ class SqliteJobStore:
                     voice TEXT NOT NULL,
                     instructions TEXT,
                     controls_json TEXT NOT NULL DEFAULT '{}',
+                    resource_revision INTEGER,
+                    variables_json TEXT NOT NULL DEFAULT '{}',
                     total_chunks INTEGER NOT NULL DEFAULT 0,
                     completed_chunks INTEGER NOT NULL DEFAULT 0,
                     error TEXT,
@@ -139,6 +187,44 @@ class SqliteJobStore:
 
                 CREATE INDEX IF NOT EXISTS jobs_status_created_idx
                     ON jobs(status, created_at);
+
+                CREATE TABLE IF NOT EXISTS error_event_meta (
+                    key TEXT PRIMARY KEY,
+                    value INTEGER NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS error_events (
+                    id TEXT PRIMARY KEY,
+                    sequence INTEGER NOT NULL UNIQUE,
+                    fingerprint TEXT NOT NULL,
+                    source TEXT NOT NULL,
+                    severity TEXT NOT NULL,
+                    code TEXT NOT NULL,
+                    category TEXT,
+                    message TEXT NOT NULL,
+                    retryable INTEGER NOT NULL,
+                    status_code INTEGER,
+                    method TEXT,
+                    endpoint TEXT,
+                    request_json TEXT,
+                    response_json TEXT,
+                    exception_json TEXT,
+                    context_json TEXT,
+                    provider TEXT,
+                    resource_revision INTEGER,
+                    job_id TEXT,
+                    chunk_index INTEGER,
+                    attempt INTEGER,
+                    count INTEGER NOT NULL DEFAULT 1,
+                    first_occurred_at TEXT NOT NULL,
+                    last_occurred_at TEXT NOT NULL,
+                    read_at TEXT
+                );
+
+                CREATE UNIQUE INDEX IF NOT EXISTS error_events_unread_fingerprint_idx
+                    ON error_events(fingerprint) WHERE read_at IS NULL;
+                CREATE INDEX IF NOT EXISTS error_events_sequence_idx
+                    ON error_events(sequence DESC);
                 """
             )
             columns = {
@@ -150,7 +236,234 @@ class SqliteJobStore:
                 )
             if "error_json" not in columns:
                 connection.execute("ALTER TABLE jobs ADD COLUMN error_json TEXT")
-            connection.execute("PRAGMA user_version = 2")
+            if "resource_revision" not in columns:
+                connection.execute("ALTER TABLE jobs ADD COLUMN resource_revision INTEGER")
+            if "variables_json" not in columns:
+                connection.execute(
+                    "ALTER TABLE jobs ADD COLUMN variables_json TEXT NOT NULL DEFAULT '{}'"
+                )
+            latest_sequence = connection.execute(
+                "SELECT COALESCE(MAX(sequence), 0) FROM error_events"
+            ).fetchone()[0]
+            connection.execute(
+                "INSERT OR IGNORE INTO error_event_meta(key, value) VALUES ('sequence', ?)",
+                (latest_sequence,),
+            )
+            connection.execute(
+                """
+                UPDATE error_event_meta
+                SET value = CASE WHEN value < ? THEN ? ELSE value END
+                WHERE key = 'sequence'
+                """,
+                (latest_sequence, latest_sequence),
+            )
+            connection.execute(f"PRAGMA user_version = {_DATABASE_SCHEMA_VERSION}")
+
+    def record_error_event(self, draft: ErrorEventDraft) -> ErrorEventRecord:
+        """Record an occurrence, refreshing an existing matching unread event in place.
+
+        The public ID remains stable while ``sequence`` advances for every occurrence. This lets
+        cursor-based clients observe deduplicated updates as new activity. Only the 500 records
+        with the greatest sequences are retained.
+        """
+
+        if not draft.fingerprint:
+            raise ValueError("an error event fingerprint must not be empty")
+
+        request_json = _encode_json_mapping(draft.request)
+        response_json = _encode_json_mapping(draft.response)
+        exception_json = _encode_json_mapping(draft.exception)
+        context_json = _encode_json_mapping(draft.context)
+
+        with self._lock, self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            sequence = self._next_error_event_sequence(connection)
+            existing = connection.execute(
+                """
+                SELECT id FROM error_events
+                WHERE fingerprint = ? AND read_at IS NULL
+                LIMIT 1
+                """,
+                (draft.fingerprint,),
+            ).fetchone()
+
+            if existing is None:
+                event_id = f"error_{uuid.uuid4().hex}"
+                connection.execute(
+                    """
+                    INSERT INTO error_events (
+                        id, sequence, fingerprint, source, severity, code, category, message,
+                        retryable, status_code, method, endpoint, request_json, response_json,
+                        exception_json, context_json, provider, resource_revision, job_id,
+                        chunk_index, attempt, count, first_occurred_at, last_occurred_at, read_at
+                    ) VALUES (
+                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                        1, ?, ?, NULL
+                    )
+                    """,
+                    (
+                        event_id,
+                        sequence,
+                        draft.fingerprint,
+                        draft.source,
+                        draft.severity,
+                        draft.code,
+                        draft.category,
+                        draft.message,
+                        int(draft.retryable),
+                        draft.status_code,
+                        draft.method,
+                        draft.endpoint,
+                        request_json,
+                        response_json,
+                        exception_json,
+                        context_json,
+                        draft.provider,
+                        draft.resource_revision,
+                        draft.job_id,
+                        draft.chunk_index,
+                        draft.attempt,
+                        draft.occurred_at,
+                        draft.occurred_at,
+                    ),
+                )
+            else:
+                event_id = str(existing["id"])
+                connection.execute(
+                    """
+                    UPDATE error_events
+                    SET sequence = ?, source = ?, severity = ?, code = ?, category = ?,
+                        message = ?, retryable = ?, status_code = ?, method = ?, endpoint = ?,
+                        request_json = ?, response_json = ?, exception_json = ?, context_json = ?,
+                        provider = ?, resource_revision = ?, job_id = ?, chunk_index = ?,
+                        attempt = ?, count = count + 1, last_occurred_at = ?
+                    WHERE id = ?
+                    """,
+                    (
+                        sequence,
+                        draft.source,
+                        draft.severity,
+                        draft.code,
+                        draft.category,
+                        draft.message,
+                        int(draft.retryable),
+                        draft.status_code,
+                        draft.method,
+                        draft.endpoint,
+                        request_json,
+                        response_json,
+                        exception_json,
+                        context_json,
+                        draft.provider,
+                        draft.resource_revision,
+                        draft.job_id,
+                        draft.chunk_index,
+                        draft.attempt,
+                        draft.occurred_at,
+                        event_id,
+                    ),
+                )
+
+            connection.execute(
+                """
+                DELETE FROM error_events
+                WHERE id IN (
+                    SELECT id FROM error_events
+                    ORDER BY sequence DESC
+                    LIMIT -1 OFFSET ?
+                )
+                """,
+                (_ERROR_EVENT_RETENTION_LIMIT,),
+            )
+            row = connection.execute(
+                "SELECT * FROM error_events WHERE id = ?", (event_id,)
+            ).fetchone()
+
+        if row is None:  # pragma: no cover - the just-recorded newest event cannot be pruned
+            raise RuntimeError("recorded error event was unexpectedly unavailable")
+        return self._error_event_from_row(row)
+
+    def list_error_events(
+        self,
+        after_sequence: int = 0,
+        limit: int = 100,
+        unread_only: bool = False,
+    ) -> list[ErrorEventRecord]:
+        """List events with newer sequences first; ``after_sequence`` is an exclusive cursor."""
+
+        if after_sequence < 0:
+            raise ValueError("after_sequence must be non-negative")
+        if limit < 1:
+            raise ValueError("limit must be at least 1")
+        effective_limit = min(limit, _ERROR_EVENT_RETENTION_LIMIT)
+        unread_clause = " AND read_at IS NULL" if unread_only else ""
+        with self._lock, self._connect() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT * FROM error_events
+                WHERE sequence > ?{unread_clause}
+                ORDER BY sequence DESC
+                LIMIT ?
+                """,
+                (after_sequence, effective_limit),
+            ).fetchall()
+        return [self._error_event_from_row(row) for row in rows]
+
+    def get_error_event(self, event_id: str) -> ErrorEventRecord | None:
+        with self._lock, self._connect() as connection:
+            row = connection.execute(
+                "SELECT * FROM error_events WHERE id = ?", (event_id,)
+            ).fetchone()
+        return self._error_event_from_row(row) if row is not None else None
+
+    def error_event_counts(self) -> tuple[int, int]:
+        """Return ``(unread records, total records)`` within the retained event log."""
+
+        with self._lock, self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT
+                    SUM(CASE WHEN read_at IS NULL THEN 1 ELSE 0 END) AS unread,
+                    COUNT(*) AS total
+                FROM error_events
+                """
+            ).fetchone()
+        return int(row["unread"] or 0), int(row["total"] or 0)
+
+    def mark_error_event_read(self, event_id: str) -> ErrorEventRecord | None:
+        with self._lock, self._connect() as connection:
+            connection.execute(
+                """
+                UPDATE error_events
+                SET read_at = COALESCE(read_at, ?)
+                WHERE id = ?
+                """,
+                (utc_now(), event_id),
+            )
+            row = connection.execute(
+                "SELECT * FROM error_events WHERE id = ?", (event_id,)
+            ).fetchone()
+        return self._error_event_from_row(row) if row is not None else None
+
+    def mark_all_error_events_read(self) -> int:
+        with self._lock, self._connect() as connection:
+            cursor = connection.execute(
+                "UPDATE error_events SET read_at = ? WHERE read_at IS NULL",
+                (utc_now(),),
+            )
+        return cursor.rowcount
+
+    def clear_error_events(self, scope: str) -> int:
+        if scope not in {"read", "all"}:
+            raise ValueError("error-event clear scope must be 'read' or 'all'")
+        query = (
+            "DELETE FROM error_events"
+            if scope == "all"
+            else ("DELETE FROM error_events WHERE read_at IS NOT NULL")
+        )
+        with self._lock, self._connect() as connection:
+            cursor = connection.execute(query)
+        return cursor.rowcount
 
     def create_job(
         self,
@@ -161,6 +474,8 @@ class SqliteJobStore:
         voice: str,
         instructions: str | None,
         controls: DeliveryControls | None = None,
+        resource_revision: int | None = None,
+        variables: Mapping[str, Any] | None = None,
     ) -> JobRecord:
         now = utc_now()
         with self._lock, self._connect() as connection:
@@ -168,8 +483,9 @@ class SqliteJobStore:
                 """
                 INSERT INTO jobs (
                     id, status, provider, model, voice, instructions, controls_json,
-                    total_chunks, completed_chunks, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?)
+                    resource_revision, variables_json, total_chunks, completed_chunks,
+                    created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?)
                 """,
                 (
                     job_id,
@@ -179,6 +495,8 @@ class SqliteJobStore:
                     voice,
                     instructions,
                     _encode_controls(controls or DeliveryControls()),
+                    resource_revision,
+                    _encode_variables(variables),
                     now,
                     now,
                 ),
@@ -194,6 +512,8 @@ class SqliteJobStore:
         voice: str,
         instructions: str | None,
         controls: DeliveryControls | None = None,
+        resource_revision: int | None = None,
+        variables: Mapping[str, Any] | None = None,
         chunks: Iterable[str],
     ) -> JobRecord:
         chunk_list = list(chunks)
@@ -205,8 +525,9 @@ class SqliteJobStore:
                 """
                 INSERT INTO jobs (
                     id, status, provider, model, voice, instructions, controls_json,
-                    total_chunks, completed_chunks, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
+                    resource_revision, variables_json, total_chunks, completed_chunks,
+                    created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
                 """,
                 (
                     job_id,
@@ -216,6 +537,8 @@ class SqliteJobStore:
                     voice,
                     instructions,
                     _encode_controls(controls or DeliveryControls()),
+                    resource_revision,
+                    _encode_variables(variables),
                     len(chunk_list),
                     now,
                     now,
@@ -570,6 +893,16 @@ class SqliteJobStore:
         return connection
 
     @staticmethod
+    def _next_error_event_sequence(connection: sqlite3.Connection) -> int:
+        connection.execute("UPDATE error_event_meta SET value = value + 1 WHERE key = 'sequence'")
+        row = connection.execute(
+            "SELECT value FROM error_event_meta WHERE key = 'sequence'"
+        ).fetchone()
+        if row is None:
+            raise RuntimeError("error-event sequence metadata is unavailable")
+        return int(row["value"])
+
+    @staticmethod
     def _job_from_row(row: sqlite3.Row) -> JobRecord:
         return JobRecord(
             id=row["id"],
@@ -586,6 +919,8 @@ class SqliteJobStore:
             output_path=row["output_path"],
             created_at=row["created_at"],
             updated_at=row["updated_at"],
+            resource_revision=row["resource_revision"],
+            variables=_decode_variables(row["variables_json"]),
         )
 
     @staticmethod
@@ -600,4 +935,34 @@ class SqliteJobStore:
             attempts=row["attempts"],
             pcm_path=row["pcm_path"],
             error=row["error"],
+        )
+
+    @staticmethod
+    def _error_event_from_row(row: sqlite3.Row) -> ErrorEventRecord:
+        return ErrorEventRecord(
+            id=str(row["id"]),
+            sequence=int(row["sequence"]),
+            fingerprint=str(row["fingerprint"]),
+            source=str(row["source"]),
+            severity=str(row["severity"]),
+            code=str(row["code"]),
+            category=row["category"],
+            message=str(row["message"]),
+            retryable=bool(row["retryable"]),
+            status_code=row["status_code"],
+            method=row["method"],
+            endpoint=row["endpoint"],
+            request=_decode_json_mapping(row["request_json"], field_name="request"),
+            response=_decode_json_mapping(row["response_json"], field_name="response"),
+            exception=_decode_json_mapping(row["exception_json"], field_name="exception"),
+            context=_decode_json_mapping(row["context_json"], field_name="context"),
+            provider=row["provider"],
+            resource_revision=row["resource_revision"],
+            job_id=row["job_id"],
+            chunk_index=row["chunk_index"],
+            attempt=row["attempt"],
+            count=int(row["count"]),
+            first_occurred_at=str(row["first_occurred_at"]),
+            last_occurred_at=str(row["last_occurred_at"]),
+            read_at=row["read_at"],
         )

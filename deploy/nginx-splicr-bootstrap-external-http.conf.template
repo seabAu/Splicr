@@ -1,0 +1,4 @@
+# SPLICR-MANAGED-SITE v1
+# Bootstrap is intentionally empty because an existing SPLICR hostname port-80 vhost
+# serves /home/sites/splicr/shared/acme for this certificate.
+# SPLICR-EXTERNAL-HTTP-VHOST

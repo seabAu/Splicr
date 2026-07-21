@@ -50,12 +50,18 @@ def test_worker_reconstructs_persisted_delivery_controls_for_every_chunk(tmp_pat
                 text="one two. three four. five six.",
                 provider_name="fake",
                 controls=controls,
+                variables={"seed": 17, "locale": "en-US"},
             )
             finished = await _terminal(service, submitted.id)
             assert finished.status is JobStatus.COMPLETED
             assert len(provider.options) == 3
             assert all(options.controls == controls for options in provider.options)
-            assert service.get_job(submitted.id).controls == controls
+            assert all(
+                options.variables == {"seed": 17, "locale": "en-US"} for options in provider.options
+            )
+            persisted = service.get_job(submitted.id)
+            assert persisted.controls == controls
+            assert persisted.variables == {"seed": 17, "locale": "en-US"}
         finally:
             await service.stop()
 

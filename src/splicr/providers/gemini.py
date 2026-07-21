@@ -5,10 +5,26 @@ import base64
 import binascii
 import os
 import re
+import time
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from typing import Any
 
+import httpx
+
+from ..diagnostics import (
+    error_fingerprint,
+    exception_chain,
+    no_response_diagnostic,
+    proxy_environment_diagnostic,
+    request_diagnostic,
+    response_diagnostic,
+    sanitize_diagnostic,
+    sanitize_url,
+    transport_error_category,
+    transport_error_phase,
+    with_provider_diagnostic,
+)
 from ..domain import (
     AudioChunk,
     AudioFormat,
@@ -17,8 +33,9 @@ from ..domain import (
     NONVERBAL_CUE_MARKER_PREFIX,
     NONVERBAL_CUE_MARKER_SUFFIX,
     NonverbalFrequency,
-    ProviderError,
     ProviderCapabilities,
+    ProviderDiagnostic,
+    ProviderError,
     ProviderInfo,
     SpeechPace,
     SynthesisOptions,
@@ -30,6 +47,7 @@ from ..domain import (
 
 _TRANSIENT_STATUS_CODES = {408, 409, 425, 429, 500, 502, 503, 504}
 _TRANSIENT_RPC_CODES = {4, 8, 10, 13, 14}
+_DEFAULT_API_URL = "https://generativelanguage.googleapis.com/v1beta/interactions"
 _MARKDOWN_STRUCTURE_RE = re.compile(
     r"(?m)^(?:#{1,6}[ \t]+|[-*+][ \t]+|\d+\.[ \t]+|>[ \t]+)|(?:\*\*|__|(?<!\*)\*(?!\*))\S"
 )
@@ -109,15 +127,20 @@ class GeminiTtsProvider:
         *,
         default_model: str = "gemini-3.1-flash-tts-preview",
         default_voice: str = "Kore",
+        provider_name: str = "gemini",
         request_timeout_seconds: float = 300.0,
+        trust_env_proxies: bool = False,
         api_key: str | None = None,
         client: Any | None = None,
     ) -> None:
         voices = _GEMINI_VOICES
         if all(voice.id != default_voice for voice in voices):
             voices = (VoiceOption(default_voice, ("configured",)), *voices)
+        normalized_name = provider_name.strip().lower()
+        if not normalized_name:
+            raise ValueError("provider_name cannot be empty")
         self._info = ProviderInfo(
-            name="gemini",
+            name=normalized_name,
             default_model=default_model,
             default_voice=default_voice,
             max_input_bytes=None,
@@ -140,6 +163,7 @@ class GeminiTtsProvider:
         )
         self._api_key = api_key
         self._request_timeout_seconds = request_timeout_seconds
+        self._trust_env_proxies = trust_env_proxies
         self._client = client
         self._owns_client = client is None
 
@@ -157,6 +181,22 @@ class GeminiTtsProvider:
 
     async def synthesize(self, text: str, options: SynthesisOptions) -> AudioChunk:
         prompt = self._render_prompt(text, options)
+        body = {
+            "model": options.model,
+            "input": prompt,
+            "response_format": {"type": "audio"},
+            "generation_config": {"speech_config": [{"voice": options.voice}]},
+            "store": False,
+        }
+        credential = self._resolved_api_key()
+        safe_request = request_diagnostic(
+            method="POST",
+            endpoint=_DEFAULT_API_URL,
+            headers=({"X-Goog-Api-Key": credential} if credential else None),
+            body=body,
+            known_secrets=self._known_secrets(),
+        )
+        started = time.perf_counter()
         try:
             interaction = await self._get_client().aio.interactions.create(
                 model=options.model,
@@ -167,8 +207,13 @@ class GeminiTtsProvider:
                 timeout=self._request_timeout_seconds,
             )
         except Exception as error:
-            raise self._provider_error(error) from error
+            raise self._provider_error(
+                error,
+                request=safe_request,
+                elapsed_ms=(time.perf_counter() - started) * 1_000,
+            ) from error
 
+        elapsed_ms = (time.perf_counter() - started) * 1_000
         interaction_status = self._string_value(getattr(interaction, "status", None))
         if interaction_status != "completed":
             failure_code, failure_message = self._interaction_failure(interaction)
@@ -176,13 +221,53 @@ class GeminiTtsProvider:
                 interaction_status == "failed" and failure_code in _TRANSIENT_RPC_CODES
             )
             detail = f": {failure_message}" if failure_message else ""
+            diagnostic = self._failure_diagnostic(
+                category="provider_error",
+                phase="response",
+                request=safe_request,
+                elapsed_ms=elapsed_ms,
+                status_code=failure_code,
+                response_data={
+                    "received": True,
+                    "status_code": failure_code,
+                    "status_text": interaction_status or "missing",
+                    "body": {
+                        "interaction_status": interaction_status or "missing",
+                        "failure_code": failure_code,
+                        "failure_message": failure_message,
+                    },
+                },
+            )
             raise ProviderError(
                 f"Gemini interaction ended with status: {interaction_status or 'missing'}{detail}",
                 retryable=retryable,
                 status_code=failure_code,
+                diagnostic=diagnostic,
             )
 
-        return self._parse_audio(interaction)
+        try:
+            return self._parse_audio(interaction)
+        except ProviderError as error:
+            output_audio = getattr(interaction, "output_audio", None)
+            diagnostic = self._failure_diagnostic(
+                category="invalid_audio",
+                phase="decode_audio",
+                request=safe_request,
+                elapsed_ms=elapsed_ms,
+                error=error,
+                response_data={
+                    "received": True,
+                    "status_code": None,
+                    "status_text": interaction_status,
+                    "body": {
+                        "mime_type": getattr(output_audio, "mime_type", None),
+                        "sample_rate": getattr(output_audio, "sample_rate", None),
+                        "channels": getattr(output_audio, "channels", None),
+                        "audio_data": getattr(output_audio, "data", None),
+                    },
+                },
+            )
+            raise with_provider_diagnostic(error, diagnostic) from error
 
     async def close(self) -> None:
         if not self._owns_client or self._client is None:
@@ -260,6 +345,8 @@ class GeminiTtsProvider:
             # precedence between GOOGLE_API_KEY and GEMINI_API_KEY.
             http_options = types.HttpOptions(
                 timeout=int(self._request_timeout_seconds * 1_000),
+                client_args={"trust_env": self._trust_env_proxies},
+                async_client_args={"trust_env": self._trust_env_proxies},
                 # The 2.x Interactions bridge maps attempts directly to max_retries;
                 # zero keeps SPLICR as the sole retry/backoff owner.
                 retry_options=types.HttpRetryOptions(attempts=0),
@@ -270,6 +357,64 @@ class GeminiTtsProvider:
                 else genai.Client(http_options=http_options)
             )
         return self._client
+
+    def _resolved_api_key(self) -> str | None:
+        return self._api_key or os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
+
+    def _known_secrets(self) -> tuple[str, ...]:
+        return tuple(
+            value
+            for value in (
+                self._api_key,
+                os.getenv("GOOGLE_API_KEY"),
+                os.getenv("GEMINI_API_KEY"),
+            )
+            if value
+        )
+
+    def _failure_diagnostic(
+        self,
+        *,
+        category: str,
+        phase: str,
+        request: dict[str, Any],
+        elapsed_ms: float,
+        status_code: int | None = None,
+        response: Any | None = None,
+        response_data: dict[str, Any] | None = None,
+        error: BaseException | None = None,
+        no_response_reason: str | None = None,
+    ) -> ProviderDiagnostic:
+        secrets = self._known_secrets()
+        if response_data is not None:
+            safe_response = sanitize_diagnostic(response_data, known_secrets=secrets)
+        elif response is not None:
+            safe_response = response_diagnostic(response, known_secrets=secrets)
+        else:
+            safe_response = no_response_diagnostic(
+                no_response_reason or "No HTTP response was received."
+            )
+        return ProviderDiagnostic(
+            category=category,
+            phase=phase,
+            provider=self.info.name,
+            method="POST",
+            endpoint=sanitize_url(_DEFAULT_API_URL, known_secrets=secrets),
+            request=request,
+            response=safe_response if isinstance(safe_response, dict) else {"body": safe_response},
+            exception=(exception_chain(error, known_secrets=secrets) if error else None),
+            metadata={
+                "elapsed_ms": round(max(0.0, elapsed_ms), 3),
+                "proxy": proxy_environment_diagnostic(trust_env=self._trust_env_proxies),
+                "fingerprint": error_fingerprint(
+                    category=category,
+                    provider=self.info.name,
+                    phase=phase,
+                    status_code=status_code,
+                    exception=error,
+                ),
+            },
+        )
 
     @staticmethod
     def _render_prompt(text: str, options: SynthesisOptions) -> str:
@@ -328,10 +473,13 @@ class GeminiTtsProvider:
             return code, str(message)[:1000] if message else None
         return None, None
 
-    @staticmethod
-    def _provider_error(error: Exception) -> ProviderError:
-        if isinstance(error, ProviderError):
-            return error
+    def _provider_error(
+        self,
+        error: Exception,
+        *,
+        request: dict[str, Any],
+        elapsed_ms: float,
+    ) -> ProviderError:
         raw_status = getattr(error, "status_code", None) or getattr(error, "code", None)
         try:
             status_code = int(raw_status) if raw_status is not None else None
@@ -364,11 +512,63 @@ class GeminiTtsProvider:
                         except (TypeError, ValueError, OverflowError):
                             retry_after = None
 
-        retryable = status_code is None or status_code in _TRANSIENT_STATUS_CODES
-        message = str(error).strip() or error.__class__.__name__
+        retryable = (
+            error.retryable
+            if isinstance(error, ProviderError)
+            else status_code is None or status_code in _TRANSIENT_STATUS_CODES
+        )
+        response = getattr(error, "response", None)
+        if isinstance(error, ProviderError) and error.diagnostic is not None:
+            return error
+        is_transport = isinstance(
+            error,
+            (httpx.RequestError, TimeoutError, OSError),
+        ) or any(
+            token in (str(error).lower())
+            for token in (
+                "connection",
+                "connecterror",
+                "network",
+                "dns",
+                "getaddrinfo",
+                "proxy",
+                "timed out",
+                "timeout",
+                "tls",
+                "ssl",
+            )
+        )
+        category = (
+            transport_error_category(error)
+            if is_transport and status_code is None
+            else "http_error"
+            if status_code is not None
+            else "provider_error"
+        )
+        phase = transport_error_phase(error) if is_transport else "response"
+        diagnostic = self._failure_diagnostic(
+            category=category,
+            phase=phase,
+            request=request,
+            elapsed_ms=elapsed_ms,
+            status_code=status_code,
+            response=response,
+            error=error,
+            no_response_reason=(
+                "No HTTP response was received; the provider request failed before a response "
+                "was available."
+            ),
+        )
+        safe_message = sanitize_diagnostic(
+            str(error).strip() or error.__class__.__name__,
+            known_secrets=self._known_secrets(),
+        )
+        if isinstance(error, ProviderError):
+            return with_provider_diagnostic(error, diagnostic)
         return ProviderError(
-            f"Gemini request failed: {message[:1000]}",
+            f"Gemini request failed: {str(safe_message)[:1000]}",
             retryable=retryable,
             status_code=status_code,
             retry_after=retry_after,
+            diagnostic=diagnostic,
         )

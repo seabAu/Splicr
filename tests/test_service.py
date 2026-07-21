@@ -4,12 +4,29 @@ import asyncio
 import struct
 import wave
 
+from splicr.api_resources import RetryPolicy
 from splicr.config import Settings
 from splicr.domain import JobStatus
 from splicr.providers import ProviderRegistry
 from splicr.service import SynthesisService
 from splicr.storage import LocalJobStorage
 from tests.fakes import RecordingProvider
+
+
+class ResourcePolicyRegistry(ProviderRegistry):
+    def current_revision(self, _name: str) -> int:
+        return 1
+
+    def get_revision(self, name: str, _revision: int):
+        return self.get(name)
+
+    def retry_policy(self, _name: str, _revision: int | None = None) -> RetryPolicy:
+        return RetryPolicy(
+            max_attempts=1,
+            backoff_initial_seconds=0,
+            backoff_max_seconds=0,
+            jitter_seconds=0,
+        )
 
 
 def _settings(tmp_path, **overrides) -> Settings:
@@ -76,6 +93,26 @@ def test_transient_failure_retries_same_chunk(tmp_path) -> None:
             assert finished.status is JobStatus.COMPLETED
             assert provider.calls == ["retry me", "retry me", "retry me"]
             assert service.store.chunks_for_job(submitted.id)[0].attempts == 3
+        finally:
+            await service.stop()
+
+    asyncio.run(scenario())
+
+
+def test_versioned_resource_retry_budget_overrides_global_settings(tmp_path) -> None:
+    async def scenario() -> None:
+        provider = RecordingProvider(transient_failures=2)
+        service = SynthesisService(
+            settings=_settings(tmp_path, max_attempts=3, chunk_max_words=100),
+            providers=ResourcePolicyRegistry([provider]),
+        )
+        await service.start()
+        try:
+            submitted = await service.submit(text="one provider attempt", provider_name="fake")
+            finished = await _wait_for_terminal(service, submitted.id)
+            assert finished.status is JobStatus.PAUSED
+            assert provider.calls == ["one provider attempt"]
+            assert finished.resource_revision == 1
         finally:
             await service.stop()
 

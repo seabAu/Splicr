@@ -32,10 +32,15 @@ def test_controls_round_trip_with_job_and_chunks(tmp_path) -> None:
         voice="voice",
         instructions="Be clear.",
         controls=controls,
+        resource_revision=4,
+        variables={"seed": 7, "metadata": {"language": "en"}},
         chunks=["One.", "Two."],
     )
 
-    assert store.get_job("round-trip").controls == controls
+    job = store.get_job("round-trip")
+    assert job.controls == controls
+    assert job.resource_revision == 4
+    assert job.variables == {"seed": 7, "metadata": {"language": "en"}}
 
 
 def test_initialize_migrates_legacy_jobs_without_losing_progress(tmp_path) -> None:
@@ -97,7 +102,9 @@ def test_initialize_migrates_legacy_jobs_without_losing_progress(tmp_path) -> No
         version = connection.execute("PRAGMA user_version").fetchone()[0]
     assert "controls_json" in columns
     assert "error_json" in columns
-    assert version == 2
+    assert "resource_revision" in columns
+    assert "variables_json" in columns
+    assert version == 4
 
 
 def test_paused_error_round_trips_and_survives_restart_requeue(tmp_path) -> None:

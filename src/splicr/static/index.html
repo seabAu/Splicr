@@ -21,6 +21,20 @@
         <span class="brand-context">Speech studio</span>
       </a>
       <div class="header-actions">
+        <button
+          class="quiet-button error-log-button"
+          id="error-log-button"
+          type="button"
+          aria-label="Open error log, 0 unread errors"
+          aria-haspopup="dialog"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M12 8v5m0 3.5v.01M10.3 3.8 2.4 17.5A2 2 0 0 0 4.1 20h15.8a2 2 0 0 0 1.7-2.5L13.7 3.8a2 2 0 0 0-3.4 0Z"></path>
+          </svg>
+          <span>Error log</span>
+          <span class="error-unread-badge" id="error-unread-badge" aria-hidden="true" hidden>0</span>
+        </button>
+        <button class="quiet-button" id="open-profiles" type="button">Profiles</button>
         <span class="connection" id="connection-state">
           <span class="connection-dot" aria-hidden="true"></span>
           <span id="connection-label">Connecting</span>
@@ -139,10 +153,14 @@
             </div>
           </div>
 
-          <div class="field-grid three-up">
-            <div class="field">
-              <label for="provider">Provider</label>
-              <select id="provider" name="provider" disabled></select>
+          <div class="field-grid three-up engine-grid">
+            <div class="field resource-field">
+              <label for="provider">API resource</label>
+              <div class="resource-picker">
+                <select id="provider" name="provider" disabled></select>
+                <button class="compact-button" id="add-resource" type="button" aria-label="Add API resource" disabled>+</button>
+                <button class="compact-button resource-edit-button" id="edit-resource" type="button" disabled>Edit</button>
+              </div>
             </div>
             <div class="field">
               <label for="model">Model</label>
@@ -154,6 +172,13 @@
               <select id="voice" name="voice" disabled></select>
             </div>
           </div>
+
+          <details class="variables-panel" id="variables-panel">
+            <summary>API variables <span>Optional per-job values</span></summary>
+            <p class="field-help">Variables can be referenced by a custom resource's request template.</p>
+            <div class="key-value-list" id="job-variables-list"></div>
+            <button class="text-button" id="add-job-variable" type="button">+ Add variable</button>
+          </details>
 
           <div class="panel-divider"></div>
 
@@ -235,7 +260,7 @@
 
           <p class="privacy-notice" id="submission-privacy">
             <strong>Privacy:</strong> Transcript chunks and optional director’s notes are sent to
-            the selected external provider. They are also saved locally in plaintext and are not
+            the selected external API resource. They are also saved locally in plaintext and are not
             purged automatically.
           </p>
 
@@ -252,7 +277,7 @@
                 <p class="step-label">Live output</p>
                 <h2 id="job-title">Current job</h2>
               </div>
-              <span class="status-badge idle" id="job-status">Idle</span>
+              <span class="status-badge idle" id="job-status" tabindex="-1">Idle</span>
             </div>
 
             <div class="empty-job" id="empty-job">
@@ -331,6 +356,14 @@
       </section>
     </main>
 
+    <section
+      class="error-toast-region"
+      id="error-toast-region"
+      aria-label="Error notifications"
+      aria-live="polite"
+      aria-relevant="additions text"
+    ></section>
+
     <dialog class="error-modal" id="error-modal" aria-labelledby="error-title" aria-describedby="error-detail">
       <div class="modal-heading">
         <div>
@@ -353,9 +386,324 @@
       <p class="modal-note">Completed chunks remain checkpointed. Resuming continues from the next unfinished chunk.</p>
       <div class="modal-actions">
         <button class="primary-button modal-primary" id="modal-resume" type="button">Resume job</button>
+        <button class="secondary-button" id="view-job-diagnostics" type="button" hidden>View diagnostics</button>
         <a class="secondary-button" id="modal-export" href="#" download hidden>Export completed audio</a>
         <button class="secondary-button danger-button" id="modal-cancel" type="button">Cancel job</button>
       </div>
+    </dialog>
+
+    <dialog
+      class="settings-modal error-log-modal"
+      id="error-log-modal"
+      aria-labelledby="error-log-title"
+      aria-describedby="error-log-description"
+    >
+      <div class="modal-heading sticky-modal-heading">
+        <div>
+          <p class="step-label">Diagnostics</p>
+          <h2 id="error-log-title">Error log</h2>
+          <p id="error-log-description">Provider, API, and browser errors are retained locally for troubleshooting.</p>
+        </div>
+        <button class="modal-close" id="close-error-log" type="button" aria-label="Close error log">×</button>
+      </div>
+      <div class="error-log-toolbar">
+        <div class="error-filter-group" role="group" aria-label="Filter errors">
+          <button class="error-filter-button is-active" id="show-unread-errors" type="button" aria-pressed="true">Unread</button>
+          <button class="error-filter-button" id="show-all-errors" type="button" aria-pressed="false">All</button>
+        </div>
+        <p class="error-log-count" id="error-log-count" role="status">No errors</p>
+        <div class="error-log-actions">
+          <button class="text-button" id="mark-all-errors-read" type="button">Mark all read</button>
+          <button class="text-button" id="clear-read-errors" type="button">Clear read</button>
+          <button class="text-button danger-text-button" id="clear-all-errors" type="button">Clear all</button>
+        </div>
+      </div>
+      <ol class="error-log-list" id="error-log-list">
+        <li class="error-log-empty">No unread errors.</li>
+      </ol>
+    </dialog>
+
+    <dialog
+      class="settings-modal error-details-modal"
+      id="error-details-modal"
+      aria-labelledby="error-details-title"
+      aria-describedby="error-details-description"
+    >
+      <div class="modal-heading sticky-modal-heading">
+        <div>
+          <p class="step-label" id="error-details-kicker">Diagnostic report</p>
+          <h2 id="error-details-title">Error details</h2>
+          <p id="error-details-description">Sensitive credentials are redacted before diagnostic data is displayed.</p>
+        </div>
+        <button class="modal-close" id="close-error-details" type="button" aria-label="Close error details">×</button>
+      </div>
+      <div class="error-details-content">
+        <section class="error-details-message" aria-labelledby="error-details-message-title">
+          <div class="error-section-heading">
+            <h3 id="error-details-message-title">Message</h3>
+            <button class="copy-error-button" id="copy-error-message" type="button">Copy</button>
+          </div>
+          <pre id="error-details-message">No error selected.</pre>
+        </section>
+
+        <dl class="error-details-facts" id="error-details-facts"></dl>
+
+        <section class="error-detail-section" id="error-request-section" aria-labelledby="error-request-title" hidden>
+          <div class="error-section-heading">
+            <h3 id="error-request-title">Request sent</h3>
+            <button class="copy-error-button" data-error-copy="request" type="button">Copy</button>
+          </div>
+          <pre id="error-details-request"></pre>
+        </section>
+        <section class="error-detail-section" id="error-response-section" aria-labelledby="error-response-title" hidden>
+          <div class="error-section-heading">
+            <h3 id="error-response-title">Response received</h3>
+            <button class="copy-error-button" data-error-copy="response" type="button">Copy</button>
+          </div>
+          <pre id="error-details-response"></pre>
+        </section>
+        <section class="error-detail-section" id="error-exception-section" aria-labelledby="error-exception-title" hidden>
+          <div class="error-section-heading">
+            <h3 id="error-exception-title">Exception</h3>
+            <button class="copy-error-button" data-error-copy="exception" type="button">Copy</button>
+          </div>
+          <pre id="error-details-exception"></pre>
+        </section>
+        <section class="error-detail-section" id="error-context-section" aria-labelledby="error-context-title" hidden>
+          <div class="error-section-heading">
+            <h3 id="error-context-title">Context and data</h3>
+            <button class="copy-error-button" data-error-copy="context" type="button">Copy</button>
+          </div>
+          <pre id="error-details-context"></pre>
+        </section>
+        <section class="error-detail-section" aria-labelledby="error-raw-title">
+          <div class="error-section-heading">
+            <h3 id="error-raw-title">Raw diagnostic report</h3>
+            <button class="copy-error-button" data-error-copy="raw" type="button">Copy</button>
+          </div>
+          <pre id="error-details-raw"></pre>
+        </section>
+        <p class="error-redaction-note">Credentials and oversized or binary values are redacted, summarized, or truncated. Copy diagnostic reports carefully because document excerpts may still be present.</p>
+      </div>
+      <div class="modal-actions sticky-modal-actions error-details-actions">
+        <button class="secondary-button" id="copy-all-error-details" type="button">Copy all details</button>
+        <button class="primary-button modal-primary" id="mark-error-read" type="button">Mark as read</button>
+        <button class="secondary-button" id="done-error-details" type="button">Done</button>
+      </div>
+    </dialog>
+
+    <dialog class="settings-modal resource-modal" id="resource-modal" aria-labelledby="resource-modal-title" aria-describedby="resource-modal-description">
+      <form id="resource-form">
+        <div class="modal-heading sticky-modal-heading">
+          <div>
+            <p class="step-label">API resources</p>
+            <h2 id="resource-modal-title">Add API resource</h2>
+            <p id="resource-modal-description">Configure a native adapter or a generic JSON REST endpoint. Secrets remain server-side.</p>
+          </div>
+          <button class="modal-close" id="close-resource-modal" type="button" aria-label="Close API resource settings">×</button>
+        </div>
+
+        <div class="modal-section field-grid two-up">
+          <div class="field">
+            <label for="resource-name">Display name</label>
+            <input id="resource-name" name="resource-name" required maxlength="120" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="resource-id">Resource ID</label>
+            <input id="resource-id" name="resource-id" required pattern="[a-z][a-z0-9_.-]*" maxlength="64" autocomplete="off" aria-describedby="resource-id-help">
+            <p class="field-help" id="resource-id-help">Permanent after creation; begin with a lowercase letter, then use lowercase letters, numbers, dots, underscores, or hyphens.</p>
+          </div>
+          <div class="field">
+            <label for="resource-adapter">Adapter</label>
+            <select id="resource-adapter" name="resource-adapter">
+              <option value="generic_rest">Generic JSON REST</option>
+              <option value="gemini">Native · Gemini</option>
+              <option value="deepgram">Native · Deepgram</option>
+              <option value="inworld">Native · Inworld</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="resource-method">HTTP method</label>
+            <select id="resource-method" name="resource-method">
+              <option value="GET">GET</option>
+              <option value="POST">POST</option>
+              <option value="PUT">PUT</option>
+              <option value="PATCH">PATCH</option>
+            </select>
+          </div>
+          <div class="field modal-wide-field">
+            <label for="resource-base-url">Base URL / endpoint</label>
+            <input id="resource-base-url" name="resource-base-url" type="url" required placeholder="https://api.example.com/v1/speech" autocomplete="url">
+          </div>
+          <div class="field">
+            <label for="resource-default-model">Default model</label>
+            <input id="resource-default-model" name="resource-default-model" required autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="resource-default-voice">Default voice</label>
+            <input id="resource-default-voice" name="resource-default-voice" required autocomplete="off">
+          </div>
+        </div>
+
+        <fieldset class="modal-section settings-fieldset">
+          <legend>Authentication</legend>
+          <div class="field-grid three-up">
+            <div class="field">
+              <label for="resource-auth-placement">Placement</label>
+              <select id="resource-auth-placement" name="resource-auth-placement">
+                <option value="header">Header</option>
+                <option value="query">Query parameter</option>
+                <option value="template">Request template ({{ api_key }})</option>
+                <option value="none">None</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="resource-auth-name">Header / parameter name</label>
+              <input id="resource-auth-name" name="resource-auth-name" value="Authorization" autocomplete="off">
+            </div>
+            <div class="field">
+              <label for="resource-auth-prefix">Value prefix</label>
+              <input id="resource-auth-prefix" name="resource-auth-prefix" value="Bearer " autocomplete="off" placeholder="Bearer ">
+            </div>
+          </div>
+          <div class="field secret-field">
+            <label for="resource-api-key">API key <span id="resource-key-status">Not stored</span></label>
+            <div class="secret-input-row">
+              <input id="resource-api-key" name="resource-api-key" type="password" autocomplete="new-password" spellcheck="false" aria-describedby="resource-api-key-help">
+              <button class="compact-button" id="toggle-resource-key" type="button" aria-label="Show API key" aria-pressed="false">Show</button>
+            </div>
+            <p class="field-help" id="resource-api-key-help">A stored key is never returned to the browser. Leave this blank while editing to keep it unchanged.</p>
+            <label class="preprocessing-option secret-clear-option" for="clear-resource-api-key">
+              <input id="clear-resource-api-key" type="checkbox">
+              <span><strong>Clear stored key</strong><small>Existing and historical revisions will no longer be able to authenticate until a replacement is saved.</small></span>
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset class="modal-section settings-fieldset">
+          <legend>Headers, query, and variable defaults</legend>
+          <p class="field-help template-help">Enter JSON objects. Keep credentials in the protected API-key field above, never in these values.</p>
+          <div class="field-grid two-up">
+            <div class="field full-field">
+              <label for="resource-headers-json">Request headers <span>JSON object</span></label>
+              <textarea id="resource-headers-json" rows="5" spellcheck="false">{}</textarea>
+            </div>
+            <div class="field full-field">
+              <label for="resource-query-json">Query parameters <span>JSON object</span></label>
+              <textarea id="resource-query-json" rows="5" spellcheck="false">{}</textarea>
+            </div>
+            <div class="field full-field modal-wide-field">
+              <label for="resource-default-variables-json">Default job variables <span>JSON object</span></label>
+              <textarea id="resource-default-variables-json" rows="5" spellcheck="false">{}</textarea>
+              <p class="field-help">These seed the collapsed API variables editor for each new job and can be overridden before synthesis.</p>
+            </div>
+            <div class="field full-field">
+              <label for="resource-models-json">Available models <span>JSON array</span></label>
+              <textarea id="resource-models-json" rows="5" spellcheck="false">[]</textarea>
+            </div>
+            <div class="field full-field">
+              <label for="resource-voices-json">Available voices <span>JSON array</span></label>
+              <textarea id="resource-voices-json" rows="5" spellcheck="false">[]</textarea>
+              <p class="field-help">Voice entries may be IDs or objects such as <code>{"id":"ember","label":"Ember","traits":["warm"]}</code>.</p>
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset class="modal-section settings-fieldset">
+          <legend>Request JSON template</legend>
+          <p class="field-help template-help">Build nested objects, arrays, and scalar values. Template strings may reference <code>{{ text }}</code>, <code>{{ model }}</code>, <code>{{ voice }}</code>, <code>{{ api_key }}</code> (kept server-side), and job variables.</p>
+          <div class="json-tree" id="request-template-tree" aria-label="Request JSON template builder"></div>
+          <div class="tree-toolbar">
+            <button class="secondary-button" id="add-template-root-field" type="button">+ Root field</button>
+            <button class="text-button" id="refresh-template-json" type="button">Refresh JSON preview</button>
+            <button class="text-button" id="apply-template-json" type="button">Apply edited JSON</button>
+          </div>
+          <div class="field full-field raw-json-field">
+            <label for="resource-template-json">Raw JSON <span>Fallback editor and preview</span></label>
+            <textarea id="resource-template-json" name="resource-template-json" rows="9" spellcheck="false"></textarea>
+            <p class="field-help" id="template-json-status" role="status" aria-live="polite"></p>
+          </div>
+        </fieldset>
+
+        <fieldset class="modal-section settings-fieldset">
+          <legend>Limits and pacing</legend>
+          <div class="field-grid three-up">
+            <div class="field"><label for="resource-max-bytes">Maximum bytes</label><input id="resource-max-bytes" type="number" min="1" step="1"></div>
+            <div class="field"><label for="resource-max-characters">Maximum characters</label><input id="resource-max-characters" type="number" min="1" step="1"></div>
+            <div class="field"><label for="resource-max-tokens">Maximum tokens</label><input id="resource-max-tokens" type="number" min="1" step="1"></div>
+            <div class="field"><label for="resource-max-words">Maximum words</label><input id="resource-max-words" type="number" min="1" step="1"></div>
+            <div class="field"><label for="resource-chunk-bytes">Target chunk bytes</label><input id="resource-chunk-bytes" type="number" min="1" step="1"></div>
+            <div class="field"><label for="resource-chunk-characters">Target chunk characters</label><input id="resource-chunk-characters" type="number" min="1" step="1"></div>
+            <div class="field"><label for="resource-chunk-words">Target chunk words</label><input id="resource-chunk-words" type="number" min="1" step="1"></div>
+            <div class="field"><label for="resource-pacing">Minimum interval (seconds)</label><input id="resource-pacing" type="number" min="0" step="0.1"></div>
+            <div class="field">
+              <label for="resource-limit-basis">Measure limits against</label>
+              <select id="resource-limit-basis"><option value="text">Source text</option><option value="body">Rendered request body</option></select>
+            </div>
+            <div class="field"><label for="resource-timeout">Request timeout (seconds)</label><input id="resource-timeout" type="number" min="0.1" step="0.1"></div>
+            <div class="field"><label for="resource-retry-attempts">Maximum attempts</label><input id="resource-retry-attempts" type="number" min="1" step="1"></div>
+            <div class="field"><label for="resource-requests-minute">Requests per minute</label><input id="resource-requests-minute" type="number" min="1" step="1"></div>
+            <div class="field"><label for="resource-max-concurrency">Maximum concurrency</label><input id="resource-max-concurrency" type="number" min="1" step="1"></div>
+          </div>
+          <p class="field-help">Requests-per-minute and retry settings are enforced per saved resource revision. Chunk dispatch remains sequential today; concurrency above 1 is retained for adapters that add parallel dispatch later.</p>
+        </fieldset>
+
+        <fieldset class="modal-section settings-fieldset">
+          <legend>Audio response</legend>
+          <div class="field-grid two-up">
+            <div class="field">
+              <label for="resource-response-mode">Response mode</label>
+              <select id="resource-response-mode">
+                <option value="raw_pcm">Raw PCM body</option>
+                <option value="wav">WAV body</option>
+                <option value="json_base64_pcm">Base64 raw PCM in JSON</option>
+                <option value="json_base64_wav">Base64 WAV in JSON</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="resource-audio-pointer">Audio JSON pointer</label>
+              <input id="resource-audio-pointer" placeholder="/audioContent" autocomplete="off">
+              <p class="field-help">Used only when the response mode reads audio from JSON.</p>
+            </div>
+            <div class="field"><label for="resource-sample-rate">Sample rate (Hz)</label><input id="resource-sample-rate" type="number" min="8000" step="1" value="24000"></div>
+            <div class="field"><label for="resource-channels">Channels</label><input id="resource-channels" type="number" min="1" max="2" step="1" value="1"></div>
+            <div class="field"><label for="resource-sample-width">Sample width (bytes)</label><input id="resource-sample-width" type="number" min="1" max="4" step="1" value="2"></div>
+          </div>
+        </fieldset>
+
+        <div class="modal-actions sticky-modal-actions">
+          <button class="primary-button modal-primary" id="save-resource" type="submit">Save resource</button>
+          <button class="secondary-button danger-button" id="delete-resource" type="button" hidden>Delete resource</button>
+          <button class="secondary-button" id="cancel-resource" type="button">Cancel</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="settings-modal profiles-modal" id="profiles-modal" aria-labelledby="profiles-title" aria-describedby="profiles-description">
+      <div class="modal-heading">
+        <div>
+          <p class="step-label">Studio snapshots</p>
+          <h2 id="profiles-title">Profiles</h2>
+          <p id="profiles-description">Save or restore the document, API resource revision, direction, variables, and optional in-progress job.</p>
+        </div>
+        <button class="modal-close" id="close-profiles-modal" type="button" aria-label="Close profiles">×</button>
+      </div>
+      <form class="profile-save-form" id="profile-save-form">
+        <div class="field">
+          <label for="profile-name">Profile name</label>
+          <input id="profile-name" required maxlength="100" autocomplete="off" placeholder="For example: Chapter narration">
+        </div>
+        <label class="preprocessing-option compact-option" for="profile-include-job">
+          <input id="profile-include-job" type="checkbox">
+          <span><strong>Include current job</strong><small>Reconnect to its live or checkpointed progress when loaded.</small></span>
+        </label>
+        <button class="primary-button modal-primary" type="submit">Save current studio</button>
+      </form>
+      <div class="profiles-list-heading">
+        <h3>Saved profiles</h3>
+        <button class="text-button" id="refresh-profiles" type="button">Refresh</button>
+      </div>
+      <ol class="profiles-list" id="profiles-list"><li class="job-list-empty">No profiles yet.</li></ol>
     </dialog>
 
     <footer>

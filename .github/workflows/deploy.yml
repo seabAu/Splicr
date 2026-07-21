@@ -1,0 +1,231 @@
+name: Test, publish, and deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: splicr-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image_repository: ${{ steps.image.outputs.repository }}
+      image_tag: ${{ steps.image.outputs.tag }}
+    steps:
+      - name: Check out the release commit
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Compute the immutable image name
+        id: image
+        shell: bash
+        run: |
+          set -euo pipefail
+          repository="${GITHUB_REPOSITORY,,}"
+          tag="sha-${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          echo "repository=$repository" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Run the locked test and lint image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build --target test --tag "splicr-test:${GITHUB_SHA}" .
+          docker run --rm "splicr-test:${GITHUB_SHA}"
+
+      - name: Build and publish the production image
+        shell: bash
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IMAGE_REPOSITORY: ${{ steps.image.outputs.repository }}
+          IMAGE_TAG: ${{ steps.image.outputs.tag }}
+        run: |
+          set -euo pipefail
+          image="ghcr.io/${IMAGE_REPOSITORY}:${IMAGE_TAG}"
+          docker build \
+            --target runtime \
+            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
+            --label "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}" \
+            --tag "$image" \
+            .
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
+          docker push "$image"
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment:
+      name: production
+    permissions:
+      contents: read
+      packages: read
+    env:
+      DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '22' }}
+      DEPLOY_USER: ${{ vars.DEPLOY_USER || 'splicr-deploy' }}
+      DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/home/sites/splicr' }}
+      SPLICR_HTTP_PORT: ${{ vars.SPLICR_HTTP_PORT || '8000' }}
+      SPLICR_PUBLIC_HOST: ${{ vars.SPLICR_PUBLIC_HOST || 'splicr.seangb.com' }}
+      SPLICR_PUBLIC_HTTPS_PORT: ${{ vars.SPLICR_PUBLIC_HTTPS_PORT || '443' }}
+      SPLICR_NGINX_MODE: ${{ vars.SPLICR_NGINX_MODE || 'bootstrap' }}
+      SPLICR_HTTP_VHOST_MODE: ${{ vars.SPLICR_HTTP_VHOST_MODE || 'managed' }}
+      IMAGE_REPOSITORY: ${{ needs.build.outputs.image_repository }}
+      IMAGE_TAG: ${{ needs.build.outputs.image_tag }}
+    steps:
+      - name: Check out the deployed configuration
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Validate deployment settings
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$DEPLOY_HOST" =~ ^[A-Za-z0-9][A-Za-z0-9.-]{0,252}$ ]]; then
+            echo "DEPLOY_HOST must be a DNS name or IPv4 address" >&2
+            exit 1
+          fi
+          if [[ ! "$DEPLOY_USER" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]]; then
+            echo "DEPLOY_USER is invalid" >&2
+            exit 1
+          fi
+          if [[ "$DEPLOY_USER" != "splicr-deploy" ]]; then
+            echo "DEPLOY_USER must be the dedicated splicr-deploy account" >&2
+            exit 1
+          fi
+          if [[ ! "$DEPLOY_PORT" =~ ^[0-9]{1,5}$ ]] || (( DEPLOY_PORT < 1 || DEPLOY_PORT > 65535 )); then
+            echo "DEPLOY_PORT is invalid" >&2
+            exit 1
+          fi
+          if [[ ! "$SPLICR_HTTP_PORT" =~ ^[0-9]{1,5}$ ]] || (( SPLICR_HTTP_PORT < 1 || SPLICR_HTTP_PORT > 65535 )); then
+            echo "SPLICR_HTTP_PORT is invalid" >&2
+            exit 1
+          fi
+          if [[ ! "$SPLICR_PUBLIC_HOST" =~ ^[A-Za-z0-9][A-Za-z0-9.-]{0,252}$ ]]; then
+            echo "SPLICR_PUBLIC_HOST must be a DNS name or IPv4 address" >&2
+            exit 1
+          fi
+          if [[ ! "$SPLICR_PUBLIC_HTTPS_PORT" =~ ^[0-9]{1,5}$ ]] || (( SPLICR_PUBLIC_HTTPS_PORT < 1 || SPLICR_PUBLIC_HTTPS_PORT > 65535 )); then
+            echo "SPLICR_PUBLIC_HTTPS_PORT is invalid" >&2
+            exit 1
+          fi
+          if [[ "$SPLICR_PUBLIC_HTTPS_PORT" == "80" || "$SPLICR_PUBLIC_HTTPS_PORT" == "$DEPLOY_PORT" ]]; then
+            echo "SPLICR_PUBLIC_HTTPS_PORT must be an HTTPS port distinct from SSH" >&2
+            exit 1
+          fi
+          if [[ "$SPLICR_HTTP_PORT" == "80" || "$SPLICR_HTTP_PORT" == "443" || "$SPLICR_HTTP_PORT" == "$DEPLOY_PORT" || "$SPLICR_HTTP_PORT" == "$SPLICR_PUBLIC_HTTPS_PORT" ]]; then
+            echo "SPLICR_HTTP_PORT must be a distinct unprivileged loopback port" >&2
+            exit 1
+          fi
+          if [[ "$SPLICR_NGINX_MODE" != "bootstrap" && "$SPLICR_NGINX_MODE" != "tls" ]]; then
+            echo "SPLICR_NGINX_MODE must be bootstrap or tls" >&2
+            exit 1
+          fi
+          if [[ "$SPLICR_HTTP_VHOST_MODE" != "managed" && "$SPLICR_HTTP_VHOST_MODE" != "external" ]]; then
+            echo "SPLICR_HTTP_VHOST_MODE must be managed or external" >&2
+            exit 1
+          fi
+          if [[ ! "$DEPLOY_PATH" =~ ^/[A-Za-z0-9._/-]+$ ]] || [[ "$DEPLOY_PATH" =~ (^|/)\.\.(/|$) ]]; then
+            echo "DEPLOY_PATH must be a simple absolute path without parent traversal" >&2
+            exit 1
+          fi
+          if [[ "$DEPLOY_PATH" != "/home/sites/splicr" ]]; then
+            echo "DEPLOY_PATH must be /home/sites/splicr for the restricted NGINX installer" >&2
+            exit 1
+          fi
+          release_id="${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          echo "release_id=$release_id" >> "$GITHUB_OUTPUT"
+
+      - name: Configure the pinned SSH identity
+        shell: bash
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          test -n "$DEPLOY_SSH_PRIVATE_KEY"
+          test -n "$DEPLOY_SSH_KNOWN_HOSTS"
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" > "$HOME/.ssh/splicr_deploy"
+          printf '%s\n' "$DEPLOY_SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/splicr_deploy" "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/splicr_deploy" >/dev/null
+
+      - name: Verify remote prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i "$HOME/.ssh/splicr_deploy" -p "$DEPLOY_PORT" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "command -v docker >/dev/null && command -v curl >/dev/null && command -v flock >/dev/null && docker compose version && sudo -n /usr/local/sbin/install-splicr-nginx-site check '$DEPLOY_PATH'"
+
+      - name: Stage the versioned Compose release
+        shell: bash
+        env:
+          RELEASE_ID: ${{ steps.release.outputs.release_id }}
+        run: |
+          set -euo pipefail
+          remote_release="$DEPLOY_PATH/incoming/$RELEASE_ID"
+          ssh -i "$HOME/.ssh/splicr_deploy" -p "$DEPLOY_PORT" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            "$DEPLOY_USER@$DEPLOY_HOST" "install -d -m 0750 '$remote_release'"
+          scp -i "$HOME/.ssh/splicr_deploy" -P "$DEPLOY_PORT" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            compose.deploy.yaml deploy/remote-deploy.sh \
+            deploy/nginx-splicr.conf.template deploy/nginx-splicr-bootstrap.conf.template \
+            deploy/nginx-splicr-external-http.conf.template \
+            deploy/nginx-splicr-bootstrap-external-http.conf.template \
+            "$DEPLOY_USER@$DEPLOY_HOST:$remote_release/"
+
+      - name: Sign the server in to GHCR for this rollout
+        shell: bash
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_ID: ${{ steps.release.outputs.release_id }}
+        run: |
+          set -euo pipefail
+          remote_config="$DEPLOY_PATH/incoming/$RELEASE_ID/.docker"
+          printf '%s' "$GHCR_TOKEN" | ssh -i "$HOME/.ssh/splicr_deploy" -p "$DEPLOY_PORT" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "install -d -m 0700 '$remote_config' && DOCKER_CONFIG='$remote_config' docker login ghcr.io --username '$GITHUB_ACTOR' --password-stdin"
+
+      - name: Apply and verify the release
+        shell: bash
+        env:
+          RELEASE_ID: ${{ steps.release.outputs.release_id }}
+        run: |
+          set -euo pipefail
+          remote_script="$DEPLOY_PATH/incoming/$RELEASE_ID/remote-deploy.sh"
+          ssh -i "$HOME/.ssh/splicr_deploy" -p "$DEPLOY_PORT" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "chmod 0700 '$remote_script' && '$remote_script' '$DEPLOY_PATH' '$RELEASE_ID' '$IMAGE_REPOSITORY' '$IMAGE_TAG' '$SPLICR_HTTP_PORT' '$SPLICR_PUBLIC_HOST' '$SPLICR_PUBLIC_HTTPS_PORT' '$SPLICR_NGINX_MODE' '$SPLICR_HTTP_VHOST_MODE'"
+
+      - name: Remove the isolated registry credential
+        if: always() && steps.release.outputs.release_id != ''
+        continue-on-error: true
+        shell: bash
+        env:
+          RELEASE_ID: ${{ steps.release.outputs.release_id }}
+        run: |
+          remote_incoming_config="$DEPLOY_PATH/incoming/$RELEASE_ID/.docker"
+          remote_release_config="$DEPLOY_PATH/releases/$RELEASE_ID/.docker"
+          ssh -i "$HOME/.ssh/splicr_deploy" -p "$DEPLOY_PORT" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "rm -f '$remote_incoming_config/config.json' '$remote_release_config/config.json'; rmdir '$remote_incoming_config' '$remote_release_config' >/dev/null 2>&1 || true"

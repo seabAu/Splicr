@@ -65,10 +65,7 @@ def test_posts_explicit_wav_request_and_returns_canonical_pcm_frames() -> None:
             vocal_style=VocalStyle.AUDIOBOOK,
         ),
     )
-    text = (
-        "One. "
-        f"{NONVERBAL_CUE_MARKER_PREFIX}sighs{NONVERBAL_CUE_MARKER_SUFFIX} Two."
-    )
+    text = f"One. {NONVERBAL_CUE_MARKER_PREFIX}sighs{NONVERBAL_CUE_MARKER_SUFFIX} Two."
     expected_text = (
         "[Use a warm and reassuring tone. Use polished long-form audiobook narration. "
         "Keep (quoted) words distinct. "
@@ -248,15 +245,20 @@ def test_classifies_provider_failures(
     assert error.retryable is retryable
     assert error.status_code == reported_status
     assert error.retry_after == retry_after
+    assert error.diagnostic is not None
+    assert error.diagnostic.category == "http_error"
+    assert error.diagnostic.response is not None
+    assert error.diagnostic.response["received"] is True
+    assert error.diagnostic.response["status_code"] == status_code
 
 
 def test_classifies_network_failures_as_retryable() -> None:
     def handle(request: httpx.Request) -> httpx.Response:
-        raise httpx.ConnectError("network offline", request=request)
+        raise httpx.ConnectError("network offline using inworld-secret", request=request)
 
     async def scenario() -> ProviderError:
         async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as client:
-            provider = InworldTtsProvider(api_key="key", client=client)
+            provider = InworldTtsProvider(api_key="inworld-secret", client=client)
             with pytest.raises(ProviderError, match="network offline") as raised:
                 await provider.synthesize(
                     "Hello.", SynthesisOptions(model="inworld-tts-2", voice="Dennis")
@@ -267,6 +269,17 @@ def test_classifies_network_failures_as_retryable() -> None:
 
     assert error.retryable is True
     assert error.status_code is None
+    assert error.diagnostic is not None
+    assert error.diagnostic.category == "network_error"
+    assert error.diagnostic.phase == "connect"
+    assert error.diagnostic.request is not None
+    assert error.diagnostic.request["headers"]["Authorization"] == "[REDACTED]"  # type: ignore[index]
+    assert error.diagnostic.request["body"]["text"] == "Hello."  # type: ignore[index]
+    assert error.diagnostic.response == {
+        "received": False,
+        "message": ("No HTTP response was received; the request failed during connection setup."),
+    }
+    assert "inworld-secret" not in json.dumps(error.diagnostic, default=str)
 
 
 def test_classifies_error_payload_on_http_200_as_permanent() -> None:
@@ -351,14 +364,18 @@ def test_closes_only_an_internally_owned_http_client(monkeypatch: pytest.MonkeyP
 
     owned = FakeClient()
     injected = FakeClient()
-    monkeypatch.setattr(inworld_module.httpx, "AsyncClient", lambda **_: owned)
+    construction: list[dict[str, Any]] = []
+
+    def create_client(**kwargs: Any) -> FakeClient:
+        construction.append(kwargs)
+        return owned
+
+    monkeypatch.setattr(inworld_module.httpx, "AsyncClient", create_client)
 
     async def scenario() -> None:
         owner = InworldTtsProvider(api_key="key")
         borrower = InworldTtsProvider(api_key="key", client=injected)  # type: ignore[arg-type]
-        await owner.synthesize(
-            "Hello.", SynthesisOptions(model="inworld-tts-2", voice="Dennis")
-        )
+        await owner.synthesize("Hello.", SynthesisOptions(model="inworld-tts-2", voice="Dennis"))
         await owner.close()
         await borrower.close()
 
@@ -366,3 +383,4 @@ def test_closes_only_an_internally_owned_http_client(monkeypatch: pytest.MonkeyP
 
     assert owned.closed is True
     assert injected.closed is False
+    assert construction == [{"timeout": 300.0, "trust_env": False}]

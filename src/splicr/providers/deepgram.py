@@ -2,17 +2,33 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
+from typing import Any
 
 import httpx
 
+from ..diagnostics import (
+    error_fingerprint,
+    exception_chain,
+    no_response_diagnostic,
+    proxy_environment_diagnostic,
+    request_diagnostic,
+    response_diagnostic,
+    sanitize_diagnostic,
+    sanitize_url,
+    transport_error_category,
+    transport_error_phase,
+    with_provider_diagnostic,
+)
 from ..domain import (
     AudioChunk,
     CANONICAL_AUDIO_FORMAT,
     ControlMode,
     NonverbalFrequency,
     ProviderCapabilities,
+    ProviderDiagnostic,
     ProviderError,
     ProviderInfo,
     SpeechPace,
@@ -155,9 +171,11 @@ class DeepgramTtsProvider:
         *,
         default_model: str = "aura-2",
         default_voice: str = "aura-2-thalia-en",
+        provider_name: str = "deepgram",
         api_url: str = "https://api.deepgram.com/v1/speak",
         request_timeout_seconds: float = 300.0,
         minimum_request_interval_seconds: float = 0.0,
+        trust_env_proxies: bool = False,
         api_key: str | None = None,
         client: httpx.AsyncClient | None = None,
     ) -> None:
@@ -169,8 +187,11 @@ class DeepgramTtsProvider:
         voices = (*_AURA_2_VOICES, *_AURA_1_VOICES)
         if all(voice.id != default_voice for voice in voices):
             voices = (VoiceOption(default_voice, ("configured",)), *voices)
+        normalized_name = provider_name.strip().lower()
+        if not normalized_name:
+            raise ValueError("provider_name cannot be empty")
         self._info = ProviderInfo(
-            name="deepgram",
+            name=normalized_name,
             default_model=default_model,
             default_voice=default_voice,
             max_input_bytes=None,
@@ -189,6 +210,7 @@ class DeepgramTtsProvider:
         self._api_key = api_key
         self._api_url = api_url
         self._request_timeout_seconds = request_timeout_seconds
+        self._trust_env_proxies = trust_env_proxies
         self._client = client
         self._owns_client = client is None
 
@@ -220,26 +242,74 @@ class DeepgramTtsProvider:
         if speed is not None:
             params["speed"] = speed
 
+        headers = {
+            "Authorization": f"Token {api_key}",
+            "Content-Type": "application/json",
+        }
+        body = {"text": text}
+        safe_request = request_diagnostic(
+            method="POST",
+            endpoint=self._api_url,
+            headers=headers,
+            query=params,
+            body=body,
+            known_secrets=self._known_secrets(),
+        )
+        started = time.perf_counter()
         try:
             response = await self._get_client().post(
                 self._api_url,
                 params=params,
-                headers={
-                    "Authorization": f"Token {api_key}",
-                    "Content-Type": "application/json",
-                },
-                json={"text": text},
+                headers=headers,
+                json=body,
                 timeout=self._request_timeout_seconds,
             )
         except httpx.RequestError as error:
-            message = str(error).strip() or error.__class__.__name__
+            category = transport_error_category(error)
+            phase = transport_error_phase(error)
+            diagnostic = self._failure_diagnostic(
+                category=category,
+                phase=phase,
+                request=safe_request,
+                elapsed_ms=(time.perf_counter() - started) * 1_000,
+                error=error,
+                no_response_reason=(
+                    "No HTTP response was received; the request failed before a response was "
+                    "available."
+                ),
+            )
+            safe_message = sanitize_diagnostic(
+                str(error).strip() or error.__class__.__name__,
+                known_secrets=self._known_secrets(),
+            )
             raise ProviderError(
-                f"Deepgram request failed: {message[:1000]}", retryable=True
+                f"Deepgram request failed: {str(safe_message)[:1000]}",
+                retryable=True,
+                diagnostic=diagnostic,
             ) from error
 
+        elapsed_ms = (time.perf_counter() - started) * 1_000
         if response.status_code != httpx.codes.OK:
-            raise self._http_error(response)
-        return self._parse_audio(response)
+            diagnostic = self._failure_diagnostic(
+                category="http_error",
+                phase="response",
+                request=safe_request,
+                elapsed_ms=elapsed_ms,
+                response=response,
+            )
+            raise self._http_error(response, diagnostic=diagnostic)
+        try:
+            return self._parse_audio(response)
+        except ProviderError as error:
+            diagnostic = self._failure_diagnostic(
+                category="invalid_audio",
+                phase="decode_audio",
+                request=safe_request,
+                elapsed_ms=elapsed_ms,
+                response=response,
+                error=error,
+            )
+            raise with_provider_diagnostic(error, diagnostic) from error
 
     async def close(self) -> None:
         if not self._owns_client or self._client is None:
@@ -250,7 +320,10 @@ class DeepgramTtsProvider:
 
     def _get_client(self) -> httpx.AsyncClient:
         if self._client is None:
-            self._client = httpx.AsyncClient(timeout=self._request_timeout_seconds)
+            self._client = httpx.AsyncClient(
+                timeout=self._request_timeout_seconds,
+                trust_env=self._trust_env_proxies,
+            )
         return self._client
 
     def _resolve_api_key(self) -> str:
@@ -261,6 +334,47 @@ class DeepgramTtsProvider:
                 retryable=False,
             )
         return value
+
+    def _known_secrets(self) -> tuple[str, ...]:
+        return tuple(value for value in (self._api_key, os.getenv("DEEPGRAM_API_KEY")) if value)
+
+    def _failure_diagnostic(
+        self,
+        *,
+        category: str,
+        phase: str,
+        request: dict[str, Any],
+        elapsed_ms: float,
+        response: httpx.Response | None = None,
+        error: BaseException | None = None,
+        no_response_reason: str | None = None,
+    ) -> ProviderDiagnostic:
+        secrets = self._known_secrets()
+        return ProviderDiagnostic(
+            category=category,
+            phase=phase,
+            provider=self.info.name,
+            method="POST",
+            endpoint=sanitize_url(self._api_url, known_secrets=secrets),
+            request=request,
+            response=(
+                response_diagnostic(response, known_secrets=secrets)
+                if response is not None
+                else no_response_diagnostic(no_response_reason or "No HTTP response was received.")
+            ),
+            exception=(exception_chain(error, known_secrets=secrets) if error else None),
+            metadata={
+                "elapsed_ms": round(max(0.0, elapsed_ms), 3),
+                "proxy": proxy_environment_diagnostic(trust_env=self._trust_env_proxies),
+                "fingerprint": error_fingerprint(
+                    category=category,
+                    provider=self.info.name,
+                    phase=phase,
+                    status_code=(response.status_code if response is not None else None),
+                    exception=error,
+                ),
+            },
+        )
 
     @staticmethod
     def _validate_request(text: str, options: SynthesisOptions) -> None:
@@ -322,7 +436,12 @@ class DeepgramTtsProvider:
         return AudioChunk(pcm=pcm, format=CANONICAL_AUDIO_FORMAT)
 
     @classmethod
-    def _http_error(cls, response: httpx.Response) -> ProviderError:
+    def _http_error(
+        cls,
+        response: httpx.Response,
+        *,
+        diagnostic: ProviderDiagnostic | None = None,
+    ) -> ProviderError:
         status_code = response.status_code
         retryable = status_code == 429 or 500 <= status_code <= 599
         retry_after = cls._parse_retry_after(response.headers.get("retry-after"))
@@ -355,6 +474,7 @@ class DeepgramTtsProvider:
             retryable=retryable,
             status_code=status_code,
             retry_after=retry_after,
+            diagnostic=diagnostic,
         )
 
     @staticmethod

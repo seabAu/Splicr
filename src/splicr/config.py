@@ -19,9 +19,24 @@ def _int_env(name: str, default: int, *, minimum: int = 1) -> int:
     return value
 
 
+def _bool_env(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    normalized = raw.strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    raise ValueError(f"{name} must be a boolean (true/false, yes/no, on/off, or 1/0)")
+
+
 @dataclass(frozen=True, slots=True)
 class Settings:
     data_dir: Path = Path("data")
+    secret_vault_backend: str = "keyring"
+    secret_vault_key_file: Path | None = None
+    secret_vault_path: Path | None = None
     max_source_bytes: int = 1_000_000
     max_source_words: int = 100_000
     max_upload_bytes: int = 25_000_000
@@ -44,6 +59,7 @@ class Settings:
     backoff_base_seconds: float = 5.0
     backoff_max_seconds: float = 60.0
     backoff_jitter_seconds: float = 1.0
+    trust_env_proxies: bool = False
     cors_origins: tuple[str, ...] = field(
         default_factory=lambda: ("http://localhost:3000", "http://localhost:5173")
     )
@@ -55,6 +71,10 @@ class Settings:
     @property
     def jobs_dir(self) -> Path:
         return self.data_dir / "jobs"
+
+    @property
+    def encrypted_vault_path(self) -> Path:
+        return self.secret_vault_path or (self.data_dir / "secrets" / "api-resources.vault")
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -68,8 +88,24 @@ class Settings:
             ).split(",")
             if origin.strip()
         )
+        vault_backend = os.getenv("SPLICR_SECRET_VAULT_BACKEND", "keyring").strip().lower()
+        if vault_backend not in {"keyring", "encrypted-file"}:
+            raise ValueError(
+                "SPLICR_SECRET_VAULT_BACKEND must be 'keyring' or 'encrypted-file'"
+            )
+        vault_key_file_value = os.getenv("SPLICR_SECRET_VAULT_KEY_FILE", "").strip()
+        vault_path_value = os.getenv("SPLICR_SECRET_VAULT_PATH", "").strip()
         return cls(
             data_dir=Path(os.getenv("SPLICR_DATA_DIR", "data")).expanduser().resolve(),
+            secret_vault_backend=vault_backend,
+            secret_vault_key_file=(
+                Path(vault_key_file_value).expanduser().resolve()
+                if vault_key_file_value
+                else None
+            ),
+            secret_vault_path=(
+                Path(vault_path_value).expanduser().resolve() if vault_path_value else None
+            ),
             max_source_bytes=_int_env("SPLICR_MAX_SOURCE_BYTES", 1_000_000),
             max_source_words=_int_env("SPLICR_MAX_SOURCE_WORDS", 100_000),
             max_upload_bytes=_int_env("SPLICR_MAX_UPLOAD_BYTES", 25_000_000),
@@ -77,9 +113,7 @@ class Settings:
             gemini_model=os.getenv("SPLICR_GEMINI_MODEL", "gemini-3.1-flash-tts-preview").strip(),
             gemini_voice=os.getenv("SPLICR_GEMINI_VOICE", "Kore").strip(),
             deepgram_model=os.getenv("SPLICR_DEEPGRAM_MODEL", "aura-2").strip(),
-            deepgram_voice=os.getenv(
-                "SPLICR_DEEPGRAM_VOICE", "aura-2-thalia-en"
-            ).strip(),
+            deepgram_voice=os.getenv("SPLICR_DEEPGRAM_VOICE", "aura-2-thalia-en").strip(),
             deepgram_api_url=os.getenv(
                 "SPLICR_DEEPGRAM_API_URL", "https://api.deepgram.com/v1/speak"
             ).strip(),
@@ -100,5 +134,6 @@ class Settings:
             backoff_base_seconds=_float_env("SPLICR_BACKOFF_BASE_SECONDS", 5.0),
             backoff_max_seconds=_float_env("SPLICR_BACKOFF_MAX_SECONDS", 60.0),
             backoff_jitter_seconds=_float_env("SPLICR_BACKOFF_JITTER_SECONDS", 1.0),
+            trust_env_proxies=_bool_env("SPLICR_TRUST_ENV_PROXIES", False),
             cors_origins=origins,
         )

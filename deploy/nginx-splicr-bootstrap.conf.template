@@ -1,0 +1,24 @@
+# SPLICR-MANAGED-SITE v1
+# ACME-only bootstrap mode: no credentials or application data are sent over HTTP.
+# SPLICR-MANAGES-HTTP-VHOST
+
+server {
+    listen 80;
+    server_name __SPLICR_PUBLIC_HOST__;
+
+    access_log /home/logs/nginx/splicr.access.log;
+    error_log /home/logs/nginx/splicr.error.log warn;
+
+    location ^~ /.well-known/acme-challenge/ {
+        root /home/sites/splicr/shared/acme;
+        auth_basic off;
+        default_type text/plain;
+        try_files $uri =404;
+    }
+
+    location / {
+        default_type text/plain;
+        add_header Retry-After 300 always;
+        return 503 "SPLICR is waiting for its HTTPS certificate.\n";
+    }
+}

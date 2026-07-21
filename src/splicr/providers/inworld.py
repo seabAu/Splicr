@@ -5,6 +5,7 @@ import binascii
 import io
 import os
 import re
+import time
 import wave
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
@@ -12,6 +13,19 @@ from typing import Any
 
 import httpx
 
+from ..diagnostics import (
+    error_fingerprint,
+    exception_chain,
+    no_response_diagnostic,
+    proxy_environment_diagnostic,
+    request_diagnostic,
+    response_diagnostic,
+    sanitize_diagnostic,
+    sanitize_url,
+    transport_error_category,
+    transport_error_phase,
+    with_provider_diagnostic,
+)
 from ..domain import (
     AudioChunk,
     CANONICAL_AUDIO_FORMAT,
@@ -20,6 +34,7 @@ from ..domain import (
     NONVERBAL_CUE_MARKER_SUFFIX,
     NonverbalFrequency,
     ProviderCapabilities,
+    ProviderDiagnostic,
     ProviderError,
     ProviderInfo,
     SpeechPace,
@@ -106,9 +121,11 @@ class InworldTtsProvider:
         *,
         default_model: str = "inworld-tts-2",
         default_voice: str = "Dennis",
+        provider_name: str = "inworld",
         api_url: str = _DEFAULT_API_URL,
         request_timeout_seconds: float = 300.0,
         minimum_request_interval_seconds: float = 0.0,
+        trust_env_proxies: bool = False,
         api_key: str | None = None,
         client: httpx.AsyncClient | None = None,
     ) -> None:
@@ -124,8 +141,11 @@ class InworldTtsProvider:
         )
         if all(voice.id != default_voice for voice in voices):
             voices = (VoiceOption(default_voice, ("configured",)), *voices)
+        normalized_name = provider_name.strip().lower()
+        if not normalized_name:
+            raise ValueError("provider_name cannot be empty")
         self._info = ProviderInfo(
-            name="inworld",
+            name=normalized_name,
             default_model=default_model,
             default_voice=default_voice,
             max_input_bytes=None,
@@ -141,9 +161,7 @@ class InworldTtsProvider:
                 tone_presets=tuple(TonePreset) if supports_steering else (),
                 speech_paces=tuple(SpeechPace),
                 vocal_styles=tuple(VocalStyle) if supports_steering else (),
-                nonverbal_frequencies=(
-                    tuple(NonverbalFrequency) if supports_steering else ()
-                ),
+                nonverbal_frequencies=(tuple(NonverbalFrequency) if supports_steering else ()),
                 tone_modes=(ControlMode.PROMPT,) if supports_steering else (),
                 pace_modes=(ControlMode.NATIVE_SCALAR,),
                 vocal_style_modes=(ControlMode.PROMPT,) if supports_steering else (),
@@ -159,6 +177,7 @@ class InworldTtsProvider:
         self._api_key = api_key
         self._api_url = api_url
         self._request_timeout_seconds = request_timeout_seconds
+        self._trust_env_proxies = trust_env_proxies
         self._client = client
         self._owns_client = client is None
 
@@ -206,6 +225,14 @@ class InworldTtsProvider:
             payload["deliveryMode"] = "BALANCED"
 
         headers = self._authorization_headers()
+        safe_request = request_diagnostic(
+            method="POST",
+            endpoint=self._api_url,
+            headers=headers,
+            body=payload,
+            known_secrets=self._known_secrets(),
+        )
+        started = time.perf_counter()
         try:
             response = await self._get_client().post(
                 self._api_url,
@@ -214,20 +241,69 @@ class InworldTtsProvider:
                 timeout=self._request_timeout_seconds,
             )
         except (httpx.RequestError, TimeoutError, OSError) as error:
-            message = str(error).strip() or error.__class__.__name__
+            category = transport_error_category(error)
+            phase = transport_error_phase(error)
+            diagnostic = self._failure_diagnostic(
+                category=category,
+                phase=phase,
+                request=safe_request,
+                elapsed_ms=(time.perf_counter() - started) * 1_000,
+                error=error,
+                no_response_reason="No HTTP response was received; the request failed during connection setup.",
+            )
+            safe_message = sanitize_diagnostic(
+                str(error).strip() or error.__class__.__name__,
+                known_secrets=self._known_secrets(),
+            )
             raise ProviderError(
-                f"Inworld request failed: {message[:1000]}",
+                f"Inworld request failed: {str(safe_message)[:1000]}",
                 retryable=True,
+                diagnostic=diagnostic,
             ) from error
 
-        response_payload = self._response_json(response)
+        elapsed_ms = (time.perf_counter() - started) * 1_000
+        try:
+            response_payload = self._response_json(response)
+        except ProviderError as error:
+            diagnostic = self._failure_diagnostic(
+                category="invalid_response",
+                phase="parse_response",
+                request=safe_request,
+                elapsed_ms=elapsed_ms,
+                response=response,
+                error=error,
+            )
+            raise with_provider_diagnostic(error, diagnostic) from error
         rpc_code = self._rpc_code(response_payload)
         has_provider_error = "error" in response_payload or (
             rpc_code is not None and "audioContent" not in response_payload
         )
         if response.status_code >= 400 or has_provider_error:
-            raise self._response_error(response, response_payload, rpc_code)
-        return self._parse_audio(response_payload)
+            diagnostic = self._failure_diagnostic(
+                category="http_error",
+                phase="response",
+                request=safe_request,
+                elapsed_ms=elapsed_ms,
+                response=response,
+            )
+            raise self._response_error(
+                response,
+                response_payload,
+                rpc_code,
+                diagnostic=diagnostic,
+            )
+        try:
+            return self._parse_audio(response_payload)
+        except ProviderError as error:
+            diagnostic = self._failure_diagnostic(
+                category="invalid_audio",
+                phase="decode_audio",
+                request=safe_request,
+                elapsed_ms=elapsed_ms,
+                response=response,
+                error=error,
+            )
+            raise with_provider_diagnostic(error, diagnostic) from error
 
     async def close(self) -> None:
         if not self._owns_client or self._client is None:
@@ -244,7 +320,10 @@ class InworldTtsProvider:
 
     def _get_client(self) -> httpx.AsyncClient:
         if self._client is None:
-            self._client = httpx.AsyncClient(timeout=self._request_timeout_seconds)
+            self._client = httpx.AsyncClient(
+                timeout=self._request_timeout_seconds,
+                trust_env=self._trust_env_proxies,
+            )
         return self._client
 
     def _authorization_headers(self) -> dict[str, str]:
@@ -262,6 +341,47 @@ class InworldTtsProvider:
             "Authorization": authorization,
             "Content-Type": "application/json",
         }
+
+    def _known_secrets(self) -> tuple[str, ...]:
+        return tuple(value for value in (self._api_key, os.getenv("INWORLD_API_KEY")) if value)
+
+    def _failure_diagnostic(
+        self,
+        *,
+        category: str,
+        phase: str,
+        request: dict[str, Any],
+        elapsed_ms: float,
+        response: httpx.Response | None = None,
+        error: BaseException | None = None,
+        no_response_reason: str | None = None,
+    ) -> ProviderDiagnostic:
+        secrets = self._known_secrets()
+        return ProviderDiagnostic(
+            category=category,
+            phase=phase,
+            provider=self.info.name,
+            method="POST",
+            endpoint=sanitize_url(self._api_url, known_secrets=secrets),
+            request=request,
+            response=(
+                response_diagnostic(response, known_secrets=secrets)
+                if response is not None
+                else no_response_diagnostic(no_response_reason or "No HTTP response was received.")
+            ),
+            exception=(exception_chain(error, known_secrets=secrets) if error else None),
+            metadata={
+                "elapsed_ms": round(max(0.0, elapsed_ms), 3),
+                "proxy": proxy_environment_diagnostic(trust_env=self._trust_env_proxies),
+                "fingerprint": error_fingerprint(
+                    category=category,
+                    provider=self.info.name,
+                    phase=phase,
+                    status_code=(response.status_code if response is not None else None),
+                    exception=error,
+                ),
+            },
+        )
 
     @classmethod
     def _render_text(cls, text: str, options: SynthesisOptions) -> str:
@@ -363,6 +483,8 @@ class InworldTtsProvider:
         response: httpx.Response,
         payload: dict[str, Any],
         rpc_code: int | None,
+        *,
+        diagnostic: ProviderDiagnostic | None = None,
     ) -> ProviderError:
         error = payload.get("error")
         if isinstance(error, dict):
@@ -384,6 +506,7 @@ class InworldTtsProvider:
             retryable=retryable,
             status_code=status_code,
             retry_after=cls._retry_after(response),
+            diagnostic=diagnostic,
         )
 
     @staticmethod

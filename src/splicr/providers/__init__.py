@@ -2,8 +2,17 @@ from __future__ import annotations
 
 import inspect
 from collections.abc import Iterable
+from typing import Protocol
 
 from ..domain import ProviderInfo, TtsProvider, UnknownProviderError
+
+
+class TtsProviderRegistry(Protocol):
+    def get(self, name: str) -> TtsProvider: ...
+
+    def list(self) -> list[ProviderInfo]: ...
+
+    async def close(self) -> None: ...
 
 
 class ProviderRegistry:

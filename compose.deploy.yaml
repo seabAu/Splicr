@@ -1,0 +1,43 @@
+name: splicr
+
+services:
+  app:
+    image: ${SPLICR_IMAGE:?SPLICR_IMAGE must name the immutable release image}
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 30s
+    user: "10001:10001"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    tmpfs:
+      - /tmp:size=1g,mode=1777
+    env_file:
+      - ${SPLICR_ENV_FILE:?SPLICR_ENV_FILE must point to the server runtime environment}
+    environment:
+      SPLICR_DATA_DIR: /data
+      SPLICR_SECRET_VAULT_BACKEND: encrypted-file
+      SPLICR_SECRET_VAULT_KEY_FILE: /run/secrets/splicr_vault_key
+      SPLICR_SECRET_VAULT_PATH: /data/secrets/api-resources.vault
+    ports:
+      - "127.0.0.1:${SPLICR_HTTP_PORT:-8000}:8000"
+    volumes:
+      - type: bind
+        source: ${SPLICR_DATA_ROOT:?SPLICR_DATA_ROOT must point to persistent server storage}
+        target: /data
+    secrets:
+      - source: splicr_vault_key
+        target: splicr_vault_key
+        mode: 0444
+    logging:
+      driver: json-file
+      options:
+        max-size: ${SPLICR_LOG_MAX_SIZE:-10m}
+        max-file: ${SPLICR_LOG_MAX_FILES:-5}
+
+secrets:
+  splicr_vault_key:
+    file: ${SPLICR_VAULT_KEY_FILE:?SPLICR_VAULT_KEY_FILE must point to the server vault key}

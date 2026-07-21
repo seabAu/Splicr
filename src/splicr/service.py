@@ -2,18 +2,31 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import hashlib
 import logging
+import os
 import random
 import uuid
+from dataclasses import asdict, replace
 from pathlib import Path
+from typing import Any, Mapping
 
 from .chunking import ChunkPolicy, word_count
 from .config import Settings
 from .delivery import annotate_nonverbal_cues
+from .diagnostics import (
+    error_fingerprint,
+    exception_chain,
+    no_response_diagnostic,
+    sanitize_diagnostic,
+    sanitize_url,
+)
 from .domain import (
     CANONICAL_AUDIO_FORMAT,
     ChunkStatus,
     DeliveryControls,
+    ErrorEventDraft,
+    JobErrorDetail,
     JobRecord,
     JobStatus,
     NonverbalFrequency,
@@ -26,7 +39,7 @@ from .domain import (
 )
 from .errors import classify_job_error
 from .preprocessing import preprocess_text
-from .providers import ProviderRegistry
+from .providers import TtsProviderRegistry
 from .planning import ChunkPlan, SplitStrategy, plan_chunks
 from .storage import LocalJobStorage
 from .store import SqliteJobStore
@@ -45,7 +58,7 @@ class SynthesisService:
         self,
         *,
         settings: Settings,
-        providers: ProviderRegistry,
+        providers: TtsProviderRegistry,
         store: SqliteJobStore | None = None,
         storage: LocalJobStorage | None = None,
     ) -> None:
@@ -85,6 +98,8 @@ class SynthesisService:
         voice: str | None = None,
         instructions: str | None = None,
         controls: DeliveryControls | None = None,
+        variables: Mapping[str, Any] | None = None,
+        resource_revision: int | None = None,
         split_strategy: SplitStrategy = SplitStrategy.SEMANTIC,
         remove_numeric_citations: bool = False,
     ) -> JobRecord:
@@ -101,6 +116,8 @@ class SynthesisService:
             voice=voice,
             instructions=instructions,
             controls=controls,
+            variables=variables,
+            resource_revision=resource_revision,
         )
         info = provider.info
         selected_controls = options.controls
@@ -122,6 +139,12 @@ class SynthesisService:
                 voice=options.voice,
                 instructions=options.instructions,
                 controls=selected_controls,
+                resource_revision=(
+                    resource_revision
+                    if resource_revision is not None
+                    else self._current_provider_revision(info.name)
+                ),
+                variables=options.variables,
                 chunks=(chunk.text for chunk in plan.chunks),
             )
         except Exception:
@@ -140,6 +163,8 @@ class SynthesisService:
         voice: str | None = None,
         instructions: str | None = None,
         controls: DeliveryControls | None = None,
+        variables: Mapping[str, Any] | None = None,
+        resource_revision: int | None = None,
         split_strategy: SplitStrategy = SplitStrategy.SEMANTIC,
         remove_numeric_citations: bool = False,
     ) -> ChunkPlan:
@@ -158,6 +183,8 @@ class SynthesisService:
             voice=voice,
             instructions=instructions,
             controls=controls,
+            variables=variables,
+            resource_revision=resource_revision,
         )
         return plan_chunks(prepared_text, policy, split_strategy)
 
@@ -170,8 +197,10 @@ class SynthesisService:
         voice: str | None,
         instructions: str | None,
         controls: DeliveryControls | None,
+        variables: Mapping[str, Any] | None,
+        resource_revision: int | None,
     ) -> tuple[TtsProvider, SynthesisOptions, ChunkPolicy]:
-        provider = self.providers.get(provider_name)
+        provider = self._provider_for_job(provider_name, resource_revision)
         info = provider.info
         source_bytes = len(text.encode("utf-8"))
         if source_bytes > self.settings.max_source_bytes:
@@ -223,6 +252,7 @@ class SynthesisService:
             voice=selected_voice,
             instructions=normalized_instructions,
             controls=selected_controls,
+            variables=dict(variables or {}),
         )
         policy = ChunkPolicy(
             max_bytes=min(
@@ -257,6 +287,26 @@ class SynthesisService:
             token_estimator=lambda segment: provider.estimate_input_tokens(segment, options),
         )
         return provider, options, policy
+
+    def _current_provider_revision(self, provider_name: str) -> int | None:
+        resolver = getattr(self.providers, "current_revision", None)
+        if resolver is None:
+            return None
+        revision = resolver(provider_name)
+        return int(revision) if revision is not None else None
+
+    def _provider_for_job(self, provider_name: str, revision: int | None) -> TtsProvider:
+        if revision is not None:
+            resolver = getattr(self.providers, "get_revision", None)
+            if resolver is not None:
+                return resolver(provider_name, revision)
+        return self.providers.get(provider_name)
+
+    def _retry_policy_for_job(self, provider_name: str, revision: int | None):
+        resolver = getattr(self.providers, "retry_policy", None)
+        if resolver is None:
+            return None
+        return resolver(provider_name, revision)
 
     def get_job(self, job_id: str) -> JobRecord:
         return self.store.get_job(job_id)
@@ -371,12 +421,14 @@ class SynthesisService:
         active_chunk_index: int | None = None
         try:
             job = self.store.get_job(job_id)
-            provider = self.providers.get(job.provider)
+            provider = self._provider_for_job(job.provider, job.resource_revision)
+            retry_policy = self._retry_policy_for_job(job.provider, job.resource_revision)
             options = SynthesisOptions(
                 model=job.model,
                 voice=job.voice,
                 instructions=job.instructions,
                 controls=job.controls,
+                variables=job.variables,
             )
             chunks = self.store.chunks_for_job(job_id)
             admitted_pcm_bytes = 0
@@ -423,12 +475,14 @@ class SynthesisService:
                     provider,
                     options,
                     prior_attempts,
+                    retry_policy,
                 )
                 admitted_pcm_bytes = self._admit_checkpoint(
                     self.storage.chunk_path(job_id, chunk.index), admitted_pcm_bytes
                 )
                 self._ensure_running(job_id)
 
+            active_chunk_index = None
             self._ensure_running(job_id)
             finished_chunks = self.store.chunks_for_job(job_id)
             if any(chunk.status is not ChunkStatus.COMPLETED for chunk in finished_chunks):
@@ -457,8 +511,169 @@ class SynthesisService:
             raise
         except Exception as error:
             detail = classify_job_error(error, chunk_index=active_chunk_index)
+            detail = self._record_job_error_event(
+                job_id,
+                error,
+                detail,
+                active_chunk_index,
+            )
             if self.store.pause_for_error(job_id, detail):
                 logger.warning("Synthesis job %s paused: %s", job_id, detail.message)
+
+    def _record_job_error_event(
+        self,
+        job_id: str,
+        error: Exception,
+        detail: JobErrorDetail,
+        chunk_index: int | None,
+    ) -> JobErrorDetail:
+        """Persist a redacted diagnostic record without masking the synthesis failure."""
+
+        try:
+            job = self.store.get_job(job_id)
+            known_secrets = self._known_provider_secrets(job)
+            diagnostic = error.diagnostic if isinstance(error, ProviderError) else None
+            provider_origin = isinstance(error, ProviderError) and error.origin == "provider"
+            diagnostic_data = asdict(diagnostic) if diagnostic is not None else {}
+            category = str(diagnostic_data.get("category") or detail.code)
+            phase = str(diagnostic_data.get("phase") or "synthesis")
+            provider = str(diagnostic_data.get("provider") or job.provider)
+            request = diagnostic_data.get("request")
+            response = diagnostic_data.get("response")
+            exception = diagnostic_data.get("exception")
+            metadata = diagnostic_data.get("metadata")
+
+            chunk = next(
+                (item for item in self.store.chunks_for_job(job_id) if item.index == chunk_index),
+                None,
+            )
+            try:
+                retry_policy = self._retry_policy_for_job(job.provider, job.resource_revision)
+            except Exception:
+                retry_policy = None
+            max_attempts = (
+                retry_policy.max_attempts
+                if retry_policy is not None
+                else self.settings.max_attempts
+            )
+            if request is None and chunk is not None and provider_origin:
+                request = {
+                    "body": {
+                        "text": chunk.text,
+                        "utf8_bytes": len(chunk.text.encode("utf-8")),
+                        "note": "Only the failed chunk is retained; the full document is not logged.",
+                    }
+                }
+            if exception is None:
+                exception = (
+                    {
+                        "chain": [
+                            {
+                                "type": (
+                                    f"{error.__class__.__module__}.{error.__class__.__name__}"
+                                ),
+                                "message": detail.message,
+                            }
+                        ]
+                    }
+                    if isinstance(error, ProviderError)
+                    else exception_chain(error, known_secrets=known_secrets)
+                )
+            if response is None:
+                response = no_response_diagnostic(
+                    "No HTTP response was received; the failure occurred before or outside response handling."
+                )
+
+            safe_request = sanitize_diagnostic(request, known_secrets=known_secrets)
+            safe_response = sanitize_diagnostic(response, known_secrets=known_secrets)
+            safe_exception = sanitize_diagnostic(exception, known_secrets=known_secrets)
+            context_value = sanitize_diagnostic(
+                {
+                    "phase": phase,
+                    "resource_id": job.provider,
+                    "resource_revision": job.resource_revision,
+                    "model": job.model,
+                    "voice": job.voice,
+                    "job_status": job.status.value,
+                    "completed_chunks": job.completed_chunks,
+                    "total_chunks": job.total_chunks,
+                    "chunk_attempts": chunk.attempts if chunk is not None else None,
+                    "max_attempts": max_attempts,
+                    "diagnostic_metadata": metadata,
+                },
+                known_secrets=known_secrets,
+            )
+            safe_message_value = sanitize_diagnostic(detail.message, known_secrets=known_secrets)
+            safe_message = str(safe_message_value or error.__class__.__name__)
+            event = self.store.record_error_event(
+                ErrorEventDraft(
+                    fingerprint=(
+                        error_fingerprint(
+                            category=category,
+                            provider=provider,
+                            phase=phase,
+                            status_code=detail.status_code,
+                            exception=error,
+                        )
+                        + f":{job_id}:{chunk_index}:"
+                        + hashlib.sha256(safe_message.encode("utf-8")).hexdigest()[:16]
+                    ),
+                    source="provider" if provider_origin else "service",
+                    code=detail.code,
+                    category=category,
+                    message=safe_message,
+                    retryable=detail.retryable,
+                    status_code=detail.status_code,
+                    method=(
+                        str(diagnostic_data["method"])
+                        if diagnostic_data.get("method") is not None
+                        else None
+                    ),
+                    endpoint=(
+                        sanitize_url(str(diagnostic_data["endpoint"]), known_secrets=known_secrets)
+                        if diagnostic_data.get("endpoint") is not None
+                        else None
+                    ),
+                    request=safe_request if isinstance(safe_request, Mapping) else None,
+                    response=safe_response if isinstance(safe_response, Mapping) else None,
+                    exception=safe_exception if isinstance(safe_exception, Mapping) else None,
+                    context=context_value if isinstance(context_value, Mapping) else None,
+                    provider=provider,
+                    resource_revision=job.resource_revision,
+                    job_id=job_id,
+                    chunk_index=chunk_index,
+                    attempt=chunk.attempts if chunk is not None and chunk.attempts else None,
+                    occurred_at=detail.occurred_at,
+                )
+            )
+            return replace(detail, event_id=event.id)
+        except Exception:
+            logger.exception("Could not persist diagnostics for synthesis job %s", job_id)
+            return detail
+
+    def _known_provider_secrets(self, job: JobRecord) -> tuple[str, ...]:
+        """Resolve credentials only for redaction; failures never block error handling."""
+
+        secrets = [
+            value
+            for name in ("GEMINI_API_KEY", "GOOGLE_API_KEY", "DEEPGRAM_API_KEY", "INWORLD_API_KEY")
+            if (value := os.getenv(name))
+        ]
+        resource_store = getattr(self.providers, "store", None)
+        try:
+            if resource_store is not None:
+                spec = (
+                    resource_store.get(job.provider, job.resource_revision)
+                    if job.resource_revision is not None
+                    else resource_store.get_current(job.provider)
+                )
+                if spec is not None:
+                    secret = resource_store.resolve_api_key(spec)
+                    if secret:
+                        secrets.append(secret)
+        except Exception:
+            pass
+        return tuple(dict.fromkeys(secrets))
 
     def _admit_checkpoint(self, path: Path, admitted_pcm_bytes: int) -> int:
         self.storage.validate_chunk(path, CANONICAL_AUDIO_FORMAT)
@@ -467,6 +682,7 @@ class SynthesisService:
             raise ProviderError(
                 "job would exceed the configured PCM/WAV size limit",
                 retryable=False,
+                origin="service",
             )
         return projected_size
 
@@ -478,16 +694,21 @@ class SynthesisService:
         provider: TtsProvider,
         options: SynthesisOptions,
         prior_attempts: int,
+        retry_policy=None,
     ) -> None:
-        if prior_attempts >= self.settings.max_attempts:
+        max_attempts = (
+            retry_policy.max_attempts if retry_policy is not None else self.settings.max_attempts
+        )
+        if prior_attempts >= max_attempts:
             error = ProviderError(
                 "automatic retry budget was already exhausted before restart",
                 retryable=False,
+                origin="service",
             )
             self.store.mark_chunk_failed(job_id, index, str(error))
             raise error
 
-        for attempt in range(prior_attempts + 1, self.settings.max_attempts + 1):
+        for attempt in range(prior_attempts + 1, max_attempts + 1):
             self._ensure_running(job_id)
             self.store.mark_chunk_running(job_id, index)
             try:
@@ -497,29 +718,36 @@ class SynthesisService:
             except _JobStopped:
                 raise
             except ProviderError as error:
-                should_retry = error.retryable and attempt < self.settings.max_attempts
+                status_allowed = (
+                    retry_policy is None
+                    or error.status_code is None
+                    or error.status_code in retry_policy.retry_status_codes
+                )
+                should_retry = error.retryable and status_allowed and attempt < max_attempts
                 if not should_retry:
                     self.store.mark_chunk_failed(job_id, index, str(error)[:2000])
                     raise
                 self.store.mark_chunk_pending(job_id, index, str(error)[:2000])
-                delay = self._retry_delay(attempt, error.retry_after)
+                delay = self._retry_delay(attempt, error.retry_after, retry_policy)
                 logger.info(
                     "Retrying job %s chunk %s after %.2fs (attempt %s/%s)",
                     job_id,
                     index,
                     delay,
                     attempt,
-                    self.settings.max_attempts,
+                    max_attempts,
                 )
                 await self._interruptible_wait(job_id, delay)
                 continue
             except Exception as error:
                 wrapped = ProviderError(str(error) or error.__class__.__name__, retryable=True)
-                if attempt >= self.settings.max_attempts:
+                if attempt >= max_attempts:
                     self.store.mark_chunk_failed(job_id, index, str(wrapped)[:2000])
                     raise wrapped from error
                 self.store.mark_chunk_pending(job_id, index, str(wrapped)[:2000])
-                await self._interruptible_wait(job_id, self._retry_delay(attempt, None))
+                await self._interruptible_wait(
+                    job_id, self._retry_delay(attempt, None, retry_policy)
+                )
                 continue
 
             try:
@@ -527,6 +755,7 @@ class SynthesisService:
                     raise ProviderError(
                         f"provider returned non-canonical audio: {audio.format}",
                         retryable=False,
+                        origin="service",
                     )
                 checkpoint = self.storage.chunk_path(job_id, index)
                 existing_size = checkpoint.stat().st_size if checkpoint.is_file() else 0
@@ -537,6 +766,7 @@ class SynthesisService:
                     raise ProviderError(
                         "job would exceed the configured PCM/WAV size limit",
                         retryable=False,
+                        origin="service",
                     )
                 path = self.storage.write_chunk(job_id, index, audio.pcm, audio.format)
                 self.store.mark_chunk_completed(job_id, index, str(path.resolve()))
@@ -571,12 +801,32 @@ class SynthesisService:
                 request_interval = self.settings.pacing_seconds
             self._provider_ready_at[provider_name] = loop.time() + request_interval
 
-    def _retry_delay(self, attempt: int, retry_after: float | None) -> float:
-        exponential = min(
-            self.settings.backoff_base_seconds * (2 ** (attempt - 1)),
-            self.settings.backoff_max_seconds,
+    def _retry_delay(
+        self,
+        attempt: int,
+        retry_after: float | None,
+        retry_policy=None,
+    ) -> float:
+        base_seconds = (
+            retry_policy.backoff_initial_seconds
+            if retry_policy is not None
+            else self.settings.backoff_base_seconds
         )
-        local_delay = exponential + random.uniform(0, self.settings.backoff_jitter_seconds)
-        if retry_after is None:
+        max_seconds = (
+            retry_policy.backoff_max_seconds
+            if retry_policy is not None
+            else self.settings.backoff_max_seconds
+        )
+        jitter_seconds = (
+            retry_policy.jitter_seconds
+            if retry_policy is not None
+            else self.settings.backoff_jitter_seconds
+        )
+        exponential = min(
+            base_seconds * (2 ** (attempt - 1)),
+            max_seconds,
+        )
+        local_delay = exponential + random.uniform(0, jitter_seconds)
+        if retry_after is None or (retry_policy is not None and not retry_policy.honor_retry_after):
             return local_delay
         return max(local_delay, max(0.0, retry_after))

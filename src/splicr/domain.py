@@ -3,7 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import StrEnum
-from typing import Protocol
+from typing import Mapping, Protocol, TypeAlias
+
+
+JsonValue: TypeAlias = None | bool | int | float | str | list["JsonValue"] | dict[str, "JsonValue"]
 
 
 def utc_now() -> str:
@@ -134,6 +137,7 @@ class SynthesisOptions:
     voice: str
     instructions: str | None = None
     controls: DeliveryControls = field(default_factory=DeliveryControls)
+    variables: Mapping[str, JsonValue] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -158,6 +162,21 @@ class ProviderInfo:
     capabilities: ProviderCapabilities = field(default_factory=ProviderCapabilities)
 
 
+@dataclass(frozen=True, slots=True)
+class ProviderDiagnostic:
+    """Sanitizable provider-boundary context attached to a failed request."""
+
+    category: str | None = None
+    phase: str | None = None
+    provider: str | None = None
+    method: str | None = None
+    endpoint: str | None = None
+    request: Mapping[str, JsonValue] | None = None
+    response: Mapping[str, JsonValue] | None = None
+    exception: Mapping[str, JsonValue] | None = None
+    metadata: Mapping[str, JsonValue] | None = None
+
+
 class ProviderError(RuntimeError):
     def __init__(
         self,
@@ -166,11 +185,15 @@ class ProviderError(RuntimeError):
         retryable: bool,
         status_code: int | None = None,
         retry_after: float | None = None,
+        diagnostic: ProviderDiagnostic | None = None,
+        origin: str = "provider",
     ) -> None:
         super().__init__(message)
         self.retryable = retryable
         self.status_code = status_code
         self.retry_after = retry_after
+        self.diagnostic = diagnostic
+        self.origin = origin
 
 
 @dataclass(frozen=True, slots=True)
@@ -180,7 +203,61 @@ class JobErrorDetail:
     retryable: bool
     status_code: int | None = None
     chunk_index: int | None = None
+    event_id: str | None = None
     occurred_at: str = field(default_factory=utc_now)
+
+
+@dataclass(frozen=True, slots=True)
+class ErrorEventDraft:
+    fingerprint: str
+    source: str
+    code: str
+    message: str
+    severity: str = "error"
+    category: str | None = None
+    retryable: bool = False
+    status_code: int | None = None
+    method: str | None = None
+    endpoint: str | None = None
+    request: Mapping[str, JsonValue] | None = None
+    response: Mapping[str, JsonValue] | None = None
+    exception: Mapping[str, JsonValue] | None = None
+    context: Mapping[str, JsonValue] | None = None
+    provider: str | None = None
+    resource_revision: int | None = None
+    job_id: str | None = None
+    chunk_index: int | None = None
+    attempt: int | None = None
+    occurred_at: str = field(default_factory=utc_now)
+
+
+@dataclass(frozen=True, slots=True)
+class ErrorEventRecord:
+    id: str
+    sequence: int
+    fingerprint: str
+    source: str
+    severity: str
+    code: str
+    category: str | None
+    message: str
+    retryable: bool
+    status_code: int | None
+    method: str | None
+    endpoint: str | None
+    request: Mapping[str, JsonValue] | None
+    response: Mapping[str, JsonValue] | None
+    exception: Mapping[str, JsonValue] | None
+    context: Mapping[str, JsonValue] | None
+    provider: str | None
+    resource_revision: int | None
+    job_id: str | None
+    chunk_index: int | None
+    attempt: int | None
+    count: int
+    first_occurred_at: str
+    last_occurred_at: str
+    read_at: str | None
 
 
 class TtsProvider(Protocol):
@@ -210,6 +287,8 @@ class JobRecord:
     output_path: str | None
     created_at: str
     updated_at: str
+    resource_revision: int | None = None
+    variables: Mapping[str, JsonValue] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
