@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import errno
 import json
 from urllib.parse import parse_qs, urlsplit
 
@@ -71,7 +72,10 @@ def test_exception_chain_is_bounded_json_safe_and_redacted() -> None:
     )
     try:
         try:
-            raise OSError(10061, f"connection failed using {secret}")
+            raise ConnectionRefusedError(
+                errno.ECONNREFUSED,
+                f"connection failed using {secret}",
+            )
         except OSError as cause:
             raise httpx.ConnectError(
                 f"could not connect using {secret}", request=request
