@@ -3,6 +3,9 @@
 !pyproject.toml
 !uv.lock
 !README.md
+!compose.deploy.yaml
+!deploy/
+!deploy/**
 !src/
 !src/**
 !tests/

@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import getpass
+import hmac
 import shutil
 import sys
 from pathlib import Path
 
 import uvicorn
 
+from .auth import AuthManager
 from .bootstrap import create_service
 from .config import Settings
 from .domain import (
@@ -52,6 +55,20 @@ def _parser() -> argparse.ArgumentParser:
         choices=[value.value for value in NonverbalFrequency],
         default=NonverbalFrequency.NEVER,
     )
+
+    auth = subparsers.add_parser("auth", help="manage application authentication")
+    auth_subparsers = auth.add_subparsers(dest="auth_command", required=True)
+    set_password = auth_subparsers.add_parser(
+        "set-password",
+        help="create or reset the application password",
+    )
+    set_password.add_argument("--username", default="ember")
+    set_password.add_argument(
+        "--password-stdin",
+        action="store_true",
+        help="read one password line from standard input (for controlled automation)",
+    )
+    auth_subparsers.add_parser("status", help="show whether authentication is configured")
     return parser
 
 
@@ -95,6 +112,46 @@ async def _synthesize_file(args: argparse.Namespace) -> int:
         await service.stop()
 
 
+def _manage_auth(args: argparse.Namespace) -> int:
+    settings = Settings.from_env()
+    manager = AuthManager(
+        settings.auth_credentials_path,
+        session_seconds=settings.auth_session_seconds,
+    )
+    if args.auth_command == "status":
+        if manager.is_configured:
+            print(
+                f"Authentication is configured for {manager.configured_username!r} "
+                f"at {manager.path}."
+            )
+            return 0
+        print(f"Authentication is not configured at {manager.path}.")
+        return 1
+    if args.auth_command == "set-password":
+        if args.password_stdin:
+            password = sys.stdin.readline().rstrip("\r\n")
+        else:
+            password = getpass.getpass("New SPLICR password: ")
+            confirmation = getpass.getpass("Confirm new password: ")
+            if not hmac.compare_digest(
+                password.encode("utf-8"),
+                confirmation.encode("utf-8"),
+            ):
+                print("Passwords do not match.", file=sys.stderr)
+                return 2
+        try:
+            manager.set_password(args.username, password)
+        except ValueError as error:
+            print(str(error), file=sys.stderr)
+            return 2
+        print(
+            f"Authentication configured for {args.username!r}. "
+            "All existing sessions have been invalidated."
+        )
+        return 0
+    raise ValueError(f"unknown auth command: {args.auth_command}")
+
+
 def main() -> None:
     parser = _parser()
     args = parser.parse_args()
@@ -106,6 +163,8 @@ def main() -> None:
         return
     if args.command == "synthesize":
         raise SystemExit(asyncio.run(_synthesize_file(args)))
+    if args.command == "auth":
+        raise SystemExit(_manage_auth(args))
     parser.error(f"unknown command: {args.command}")
 
 

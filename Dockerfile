@@ -17,6 +17,8 @@ RUN uv sync --frozen --no-dev
 FROM builder AS test
 
 COPY tests ./tests
+COPY compose.deploy.yaml ./compose.deploy.yaml
+COPY deploy ./deploy
 RUN uv sync --frozen --extra dev
 CMD ["sh", "-c", "uv run --no-sync ruff check . && uv run --no-sync pytest -q"]
 

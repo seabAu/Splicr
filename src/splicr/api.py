@@ -39,6 +39,7 @@ from .api_resources import (
     TtsVoiceSpec,
     VariableType,
 )
+from .auth import AuthManager, AuthMiddleware, register_auth
 from .bootstrap import create_service
 from .config import Settings
 from .diagnostics import sanitize_diagnostic, sanitize_url
@@ -1130,6 +1131,11 @@ def create_app(
     application.state.synthesis_service = synthesis
     application.state.api_resource_store = resource_store
     application.state.error_event_store = synthesis.store
+    auth_manager = AuthManager(
+        resolved_settings.auth_credentials_path,
+        session_seconds=resolved_settings.auth_session_seconds,
+    )
+    application.state.auth_manager = auth_manager
     application.add_middleware(
         CORSMiddleware,
         allow_origins=list(resolved_settings.cors_origins),
@@ -1137,6 +1143,12 @@ def create_app(
         allow_methods=["GET", "POST", "PUT", "DELETE"],
         allow_headers=["Content-Type"],
     )
+    if resolved_settings.auth_enabled:
+        application.add_middleware(
+            AuthMiddleware,
+            manager=auth_manager,
+            cookie_secure=resolved_settings.auth_cookie_secure,
+        )
 
     def job_response(job: JobRecord) -> JobResponse:
         response = JobResponse.from_record(job, synthesis.progress_detail(job.id))
@@ -1793,6 +1805,7 @@ def create_app(
             filename=f"splicr-{job_id}.wav",
         )
 
+    register_auth(application, settings=resolved_settings, manager=auth_manager)
     register_ui(application)
     return application
 

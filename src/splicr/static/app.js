@@ -489,6 +489,10 @@ async function requestJson(path, options = {}) {
     }
   }
   if (!response.ok) {
+    if (response.status === 401 && body && body.error_code === "authentication_required") {
+      const destination = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      window.location.assign(`/auth?next=${encodeURIComponent(destination)}`);
+    }
     const detail = body && body.detail;
     const message =
       formatErrorDetail(detail) ||

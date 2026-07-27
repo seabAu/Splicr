@@ -27,7 +27,7 @@ under `/home/sites/splicr/shared`.
 - [ ] Install Docker, Compose, NGINX, `curl`, `flock`, `logrotate`, and a supported Certbot release.
 - [ ] Create `/home/sites/splicr`, its persistent state, runtime environment, and vault key.
 - [ ] Install the restricted NGINX helper and its two-command sudo rule.
-- [ ] Create the root-owned Basic Auth file.
+- [ ] Create the first application password after the TLS deployment.
 - [ ] Add the two GitHub secrets and nine variables below.
 - [ ] Deploy once with `SPLICR_NGINX_MODE=bootstrap`.
 - [ ] Issue the `splicr.seangb.com` certificate and verify automatic renewal.
@@ -213,9 +213,6 @@ printf '%s\n' 'splicr-deploy ALL=(root) NOPASSWD: /usr/local/sbin/install-splicr
 sudo chmod 0440 /etc/sudoers.d/splicr-nginx
 sudo visudo -cf /etc/sudoers.d/splicr-nginx
 sudo -u splicr-deploy sudo -n /usr/local/sbin/install-splicr-nginx-site check /home/sites/splicr
-sudo htpasswd -c /etc/nginx/.htpasswd-splicr ember
-sudo chown root:www-data /etc/nginx/.htpasswd-splicr
-sudo chmod 0640 /etc/nginx/.htpasswd-splicr
 sudo install -d -m 0755 /etc/letsencrypt/renewal-hooks/deploy
 # Inspect existing executable hooks first. Install this only when no existing
 # host-global hook already validates and reloads NGINX.
@@ -299,7 +296,7 @@ This deliberate add list excludes the unrelated `LICENSE.txt`; add it separately
 
 With `SPLICR_HTTP_VHOST_MODE=managed`, the first workflow finishes with an ACME-only port-80 vhost:
 it serves `/.well-known/acme-challenge/` and returns `503` everywhere else. It does not yet install a
-TLS vhost, expose Basic Auth, or serve the studio/API over plaintext HTTP.
+TLS vhost or serve the studio/API over plaintext HTTP.
 
 ```bash
 curl -i http://splicr.seangb.com/
@@ -380,6 +377,26 @@ fully automatic afterward.
 Change the GitHub variable `SPLICR_NGINX_MODE` from `bootstrap` to `tls`, then run the workflow from
 the Actions tab (or push the next commit). The deploy script renders the configured host and both
 ports, health-checks the new container, and asks the restricted helper to install the TLS site.
+Production Compose forces application authentication on. Until credentials are created, SPLICR
+fails closed: `/health` remains available to the deployment check, `/auth` explains the required
+server command, and the studio/API remain inaccessible.
+
+Create or reset the password interactively inside the running container:
+
+```bash
+docker compose \
+  --project-name splicr \
+  --project-directory /home/sites/splicr/current \
+  --env-file /home/sites/splicr/shared/runtime.env \
+  --env-file /home/sites/splicr/current/release.env \
+  --file /home/sites/splicr/current/compose.deploy.yaml \
+  exec app splicr auth set-password --username ember
+```
+
+The prompt does not echo the password. The resulting PBKDF2 password record and session-signing
+secret are written atomically with mode `0600` under
+`/home/sites/splicr/shared/data/auth/credentials.json`; plaintext is never persisted. Running the
+command again is the administrative recovery path and invalidates every existing browser session.
 
 Confirm the firewall changes from step 7 while leaving the private upstream closed:
 
@@ -397,9 +414,11 @@ readlink -f /home/sites/splicr/current
 docker compose --project-name splicr --project-directory /home/sites/splicr/current --env-file /home/sites/splicr/shared/runtime.env --env-file /home/sites/splicr/current/release.env --file /home/sites/splicr/current/compose.deploy.yaml ps
 ```
 
-The unauthenticated HTTPS request should return `401`; the browser should show a trusted certificate
-and Basic Auth prompt. Then import a short document, save a temporary API resource, restart the
-container, and confirm the job and encrypted resource persist.
+The unauthenticated HTTPS root should redirect to `/auth`; an unauthenticated `/v1/` request should
+return JSON `401` without a `WWW-Authenticate` header or browser-native prompt. Sign in through the
+SPLICR form, confirm the password manager offers to save the credential, and use **Account** to
+change the password or sign out. Then import a short document, save a temporary API resource,
+restart the container, and confirm the login, job, and encrypted resource persist.
 
 ## Operations
 
@@ -414,7 +433,8 @@ container, and confirm the job and encrypted resource persist.
   `/home/sites/splicr/shared/data`.
 - Back up `shared/data`, `shared/secrets/vault.key`, and `shared/runtime.env`; store the vault key and
   runtime environment separately from ordinary data backups. Stop the app for a filesystem-level
-  SQLite-consistent backup.
+  SQLite-consistent backup. The authentication record is inside `shared/data`; restoring it preserves
+  the current password, while `splicr auth set-password` safely replaces a lost credential.
 - Keep useful `/home/sites/splicr/releases/*` directories for rollback, and periodically prune old
   releases and GHCR images after a verified backup.
 - Monitor `https://splicr.seangb.com/` and alert on certificate expiry or renewal failure.

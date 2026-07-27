@@ -64,3 +64,21 @@ def test_unknown_secret_vault_backend_is_rejected(monkeypatch, tmp_path) -> None
 
     with pytest.raises(ValueError, match="SPLICR_SECRET_VAULT_BACKEND"):
         Settings.from_env()
+
+
+def test_auth_environment_is_explicit_and_resolves_persistent_credentials(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("SPLICR_DATA_DIR", "state")
+    monkeypatch.setenv("SPLICR_AUTH_ENABLED", "true")
+    monkeypatch.setenv("SPLICR_AUTH_COOKIE_SECURE", "true")
+    monkeypatch.setenv("SPLICR_AUTH_SESSION_SECONDS", "7200")
+
+    settings = Settings.from_env()
+
+    assert settings.auth_enabled is True
+    assert settings.auth_cookie_secure is True
+    assert settings.auth_session_seconds == 7200
+    assert settings.auth_credentials_path == (tmp_path / "state" / "auth" / "credentials.json")

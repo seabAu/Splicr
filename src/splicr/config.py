@@ -34,6 +34,9 @@ def _bool_env(name: str, default: bool) -> bool:
 @dataclass(frozen=True, slots=True)
 class Settings:
     data_dir: Path = Path("data")
+    auth_enabled: bool = False
+    auth_cookie_secure: bool = False
+    auth_session_seconds: int = 43_200
     secret_vault_backend: str = "keyring"
     secret_vault_key_file: Path | None = None
     secret_vault_path: Path | None = None
@@ -73,6 +76,10 @@ class Settings:
         return self.data_dir / "jobs"
 
     @property
+    def auth_credentials_path(self) -> Path:
+        return self.data_dir / "auth" / "credentials.json"
+
+    @property
     def encrypted_vault_path(self) -> Path:
         return self.secret_vault_path or (self.data_dir / "secrets" / "api-resources.vault")
 
@@ -97,6 +104,9 @@ class Settings:
         vault_path_value = os.getenv("SPLICR_SECRET_VAULT_PATH", "").strip()
         return cls(
             data_dir=Path(os.getenv("SPLICR_DATA_DIR", "data")).expanduser().resolve(),
+            auth_enabled=_bool_env("SPLICR_AUTH_ENABLED", False),
+            auth_cookie_secure=_bool_env("SPLICR_AUTH_COOKIE_SECURE", False),
+            auth_session_seconds=_int_env("SPLICR_AUTH_SESSION_SECONDS", 43_200, minimum=300),
             secret_vault_backend=vault_backend,
             secret_vault_key_file=(
                 Path(vault_key_file_value).expanduser().resolve()

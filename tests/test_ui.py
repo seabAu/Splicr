@@ -83,6 +83,7 @@ def test_root_serves_accessible_studio_without_shadowing_api_routes(tmp_path) ->
     assert "not\n            purged automatically" in root.text
     assert "Local-first" not in root.text
     assert '<script src="/assets/app.js" defer></script>' in root.text
+    assert '<a class="quiet-link" href="/auth/settings">Account</a>' in root.text
     assert "onclick=" not in root.text
     assert health.json() == {"status": "ok"}
     assert docs.status_code == 200
@@ -133,6 +134,7 @@ def test_static_assets_are_packaged_and_path_traversal_is_rejected(tmp_path) -> 
     assert "trapDialogFocus" in javascript.text
     assert 'source: "client"' not in javascript.text
     assert 'source: "browser"' in javascript.text
+    assert 'body.error_code === "authentication_required"' in javascript.text
     mojibake_markers = ("\u00c3", "\u00c2", "\u00e2")
     assert not any(marker in javascript.text for marker in mojibake_markers)
     assert 'method: editingId ? "PUT" : "POST"' in javascript.text

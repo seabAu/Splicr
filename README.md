@@ -114,10 +114,9 @@ docker compose ps
 ```
 
 Open `http://127.0.0.1:8000/`. The container listens on `0.0.0.0` internally, but the explicit
-`127.0.0.1` Compose publishing keeps this unauthenticated service off the LAN. The named
+`127.0.0.1` Compose publishing keeps the default local service off the LAN. The named
 `splicr-data` volume persists jobs, checkpoints, audio, and the encrypted custom-resource credential
-vault. Do not publish port 8000 on all interfaces unless an authenticated reverse proxy and request
-limits are in front of SPLICR.
+vault. Do not publish port 8000 on all interfaces.
 
 The production Compose/GHCR/GitHub Actions setup, exact GitHub variables and secrets, the
 `splicr-deploy` server bootstrap, managed hostname-based NGINX/TLS configuration, health-gated rollout, and
@@ -228,9 +227,10 @@ Plan disk capacity for both checkpoints and the assembled output. At final assem
 temporarily need roughly twice the raw PCM size, plus the source text and SQLite database. The
 default 4 GB PCM guard can therefore require about 8 GB of available storage for a maximum-size job.
 
-The service has no user authentication. Its CLI binds to `127.0.0.1` by default; do not expose it
-to an untrusted network without putting authentication and request-size enforcement in front of
-it.
+Application authentication is opt-in for local runs and forced on by `compose.deploy.yaml`.
+Production provides a password-manager-compatible sign-in form, signed `HttpOnly`/`Secure`/
+`SameSite=Strict` sessions, password change and logout controls, and a server-side
+`splicr auth set-password` recovery command. The local CLI still binds to `127.0.0.1` by default.
 
 The important tuning controls are:
 
@@ -240,6 +240,7 @@ The important tuning controls are:
 - `SPLICR_PACING_SECONDS`
 - `SPLICR_DEEPGRAM_PACING_SECONDS` and `SPLICR_INWORLD_PACING_SECONDS`
 - `SPLICR_PROVIDER_TIMEOUT_SECONDS`
+- `SPLICR_AUTH_ENABLED`, `SPLICR_AUTH_COOKIE_SECURE`, and `SPLICR_AUTH_SESSION_SECONDS`
 - `SPLICR_TRUST_ENV_PROXIES` (default `false`) to opt native HTTP providers into ambient
   `HTTP_PROXY`, `HTTPS_PROXY`, and `ALL_PROXY` variables
 - `SPLICR_MAX_ATTEMPTS`
