@@ -211,7 +211,11 @@ def test_auth_manager_never_persists_plaintext_and_rejects_tampered_sessions(tmp
     assert record["password"]["algorithm"] == "pbkdf2-sha256"
     assert record["password"]["iterations"] == 600_000
     assert manager.verify_session(token) == session
-    assert manager.verify_session(f"{token[:-1]}A") is None
+    encoded, signature = token.split(".", 1)
+    replacement = "A" if signature[0] != "A" else "B"
+    tampered = f"{encoded}.{replacement}{signature[1:]}"
+    assert tampered != token
+    assert manager.verify_session(tampered) is None
     assert manager.authenticate("ember", PASSWORD) is True
     assert manager.authenticate("ember", "incorrect password") is False
 
