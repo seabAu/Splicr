@@ -14,7 +14,9 @@ class PreprocessingResult:
     removed_numeric_citations: int
 
 
-_NUMERIC_BRACKET_RE = re.compile(r"\[[ \t]*(?P<number>[0-9]+)[ \t]*\]")
+_NUMERIC_BRACKET_RE = re.compile(
+    r"(?P<opening_escape>\\)?\[[ \t]*(?P<number>[0-9]+)[ \t]*(?P<closing_escape>\\)?\]"
+)
 _NUMERIC_DEFINITION_RE = re.compile(r"(?m)^[ \t]{0,3}\[[ \t]*(?P<number>[0-9]+)[ \t]*\]:")
 _REFERENCE_LABEL_RE = re.compile(r"\[(?P<label>[^\]\r\n]*)\]")
 _HORIZONTAL_WHITESPACE = " \t"
@@ -30,8 +32,9 @@ def preprocess_text(
     """Apply optional deterministic cleanup without interpreting provider markup.
 
     Numeric citations are ASCII integers enclosed by square brackets, with optional
-    horizontal whitespace inside the brackets. Markdown links, images, reference
-    definitions, escaped brackets, and nested brackets are deliberately retained.
+    horizontal whitespace inside the brackets. Backslash-escaped citations such as
+    ``\\[123\\]`` are treated identically. Markdown links, images, reference
+    definitions, and nested brackets are deliberately retained.
     """
 
     if not remove_numeric_citations:

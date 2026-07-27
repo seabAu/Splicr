@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import threading
 import time
 
 from fastapi.testclient import TestClient
@@ -148,6 +149,55 @@ def test_error_pauses_job_and_exposes_resumable_partial_audio(tmp_path) -> None:
         completed = _wait_for_status(client, submitted["id"], "completed")
         assert completed["audio_url"].endswith("/audio")
         assert provider.call_counts["good words"] == 1
+
+
+def test_running_job_exposes_checkpoint_progress_without_http_caching(tmp_path) -> None:
+    class GatedProvider(RecordingProvider):
+        def __init__(self) -> None:
+            super().__init__()
+            self.second_request_started = threading.Event()
+            self.release_second_request = threading.Event()
+
+        async def synthesize(self, text, options):
+            if self.calls:
+                self.second_request_started.set()
+                while not self.release_second_request.is_set():
+                    await asyncio.sleep(0.01)
+            return await super().synthesize(text, options)
+
+    provider = GatedProvider()
+    settings = _settings(tmp_path)
+    service = SynthesisService(
+        settings=settings,
+        providers=ProviderRegistry([provider]),
+    )
+
+    with TestClient(create_app(settings=settings, service=service)) as client:
+        submitted = client.post(
+            "/v1/speech/jobs",
+            json={"text": "first chunk\n\nsecond chunk", "provider": "fake"},
+        ).json()
+        assert provider.second_request_started.wait(timeout=2)
+
+        running = client.get(f"/v1/speech/jobs/{submitted['id']}")
+
+        assert running.status_code == 200
+        assert running.headers["cache-control"] == "no-store"
+        detail = running.json()
+        assert detail["status"] == "running"
+        assert detail["completed_chunks"] == 1
+        assert detail["total_chunks"] == 2
+        assert detail["progress"] == 0.5
+        assert detail["current_chunk_index"] == 1
+        assert 0 < detail["current_char"] < detail["total_chars"]
+
+        recent = client.get("/v1/speech/jobs")
+        assert recent.headers["cache-control"] == "no-store"
+        assert recent.json()[0]["completed_chunks"] == 1
+
+        provider.release_second_request.set()
+        completed = _wait_for_status(client, submitted["id"], "completed")
+        assert completed["completed_chunks"] == 2
 
 
 def test_cancelled_job_cannot_be_overwritten_by_inflight_completion(tmp_path) -> None:

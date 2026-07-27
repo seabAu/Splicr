@@ -101,6 +101,7 @@ def test_static_assets_are_packaged_and_path_traversal_is_rejected(tmp_path) -> 
     assert css.headers["content-type"].startswith("text/css")
     assert "prefers-reduced-motion" in css.text
     assert javascript.status_code == 200
+    assert 'fetchOptions.cache = "no-store";' in javascript.text
     assert "javascript" in javascript.headers["content-type"]
     assert ".innerHTML" not in javascript.text
     assert "eval(" not in javascript.text

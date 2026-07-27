@@ -450,6 +450,9 @@ async function requestJson(path, options = {}) {
     headers.set("Content-Type", "application/json");
   }
   const method = String(fetchOptions.method || "GET").toUpperCase();
+  if (method === "GET" && fetchOptions.cache === undefined) {
+    fetchOptions.cache = "no-store";
+  }
   const request = {
     headers: headersForDiagnostics(headers, path),
     body: summarizeRequestBody(fetchOptions.body, path),

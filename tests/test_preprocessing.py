@@ -50,19 +50,20 @@ def test_preserves_markdown_links_images_and_reference_definitions() -> None:
     assert result.removed_numeric_citations == 0
 
 
-def test_preserves_escaped_nested_nonnumeric_and_unicode_brackets() -> None:
+def test_removes_escaped_numeric_citations_but_preserves_other_brackets() -> None:
     text = (
-        r"Keep \[123], [aside], [[123]], [[SPLICR_AUDIO_CUE:gasp]], and [١٢٣]. "
+        r"Remove \[123\] and \[ 456 \], but keep [aside], [[123]], "
+        r"[[SPLICR_AUDIO_CUE:gasp]], and [١٢٣]. "
         "Remove [9]."
     )
 
     result = preprocess_text(text, remove_numeric_citations=True)
 
     assert result.text == (
-        r"Keep \[123], [aside], [[123]], [[SPLICR_AUDIO_CUE:gasp]], and [١٢٣]. "
-        "Remove."
+        r"Remove and, but keep [aside], [[123]], [[SPLICR_AUDIO_CUE:gasp]], "
+        "and [١٢٣]. Remove."
     )
-    assert result.removed_numeric_citations == 1
+    assert result.removed_numeric_citations == 3
 
 
 def test_cleanup_is_idempotent_and_can_remove_all_content() -> None:

@@ -114,7 +114,9 @@ class CreateJobRequest(BaseModel):
     split_strategy: SplitStrategy = SplitStrategy.SEMANTIC
     remove_numeric_citations: bool = Field(
         default=False,
-        description="Remove standalone numeric citations such as [123] before chunking",
+        description=(
+            r"Remove standalone numeric citations such as [123] or \[123\] before chunking"
+        ),
     )
 
     @field_validator("text")
@@ -1709,12 +1711,15 @@ def create_app(
 
     @application.get("/v1/speech/jobs", response_model=list[JobResponse], tags=["speech jobs"])
     async def list_jobs(
+        response: Response,
         limit: int = Query(default=100, ge=1, le=500),
     ) -> list[JobResponse]:
+        response.headers["Cache-Control"] = "no-store"
         return [job_response(job) for job in synthesis.list_jobs(limit)]
 
     @application.get("/v1/speech/jobs/{job_id}", response_model=JobResponse, tags=["speech jobs"])
-    async def get_job(job_id: str) -> JobResponse:
+    async def get_job(job_id: str, response: Response) -> JobResponse:
+        response.headers["Cache-Control"] = "no-store"
         try:
             return job_response(synthesis.get_job(job_id))
         except JobNotFoundError as error:
