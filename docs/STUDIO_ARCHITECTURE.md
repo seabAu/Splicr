@@ -56,6 +56,18 @@ The current bridge opens a session lazily on the first chunk that actually needs
 it for every remaining uncached chunk and retry in that job, and closes it before final assembly.
 A fully checkpointed resume therefore does not start an engine merely to assemble its artifacts.
 
+The first local implementation uses a supervised JSON-Lines subprocess. Control messages remain
+small; the worker atomically writes raw PCM into the job-private engine directory and the parent
+validates the exact path, size, frame alignment, and reported audio format before checkpointing.
+Startup and synthesis timeouts terminate an unhealthy process, cancellation cannot leave the
+worker running, and stderr tail data is attached to redacted engine diagnostics. Kokoro is the
+first adapter and reuses an existing isolated environment through its Python executable. Generic
+REST resources pointed at loopback hosts provide the local HTTP transport.
+
+The 2026-09-28 integration smoke reused the existing Narrator Kokoro environment in place and
+produced a mono, 16-bit, 24 kHz WAV through SPLICR's production queue, checkpoint, and assembly
+path. The repository still contains neither that environment nor its model cache.
+
 ## Persistence and compatibility
 
 The SPLICR SQLite store remains the authoritative durable execution store during migration. New
@@ -79,7 +91,7 @@ document import, chunk preview, progress, error diagnostics, resume/cancel, play
 1. Preserve Narrator source and establish both baselines.
 2. Introduce shared domain types and the engine-session contract.
 3. Wrap existing remote providers and route one SPLICR take through the session boundary.
-4. Add local subprocess supervision and adapt one lightweight local engine end-to-end.
+4. Add local subprocess supervision and local HTTP classification; adapt Kokoro end-to-end.
 5. Add project/render-plan/take/artifact persistence and compatibility importers.
 6. Adopt the React shell and migrate SPLICR workspaces without removing the old UI prematurely.
 7. Port Narrator's remaining voice, dialogue, media, library, and publishing workspaces.

@@ -3,7 +3,13 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from splicr.domain import AudioChunk, ProviderInfo, SynthesisOptions
-from splicr.studio import EngineSessionContext, EngineTransport, ProviderEngineAdapter
+from splicr.providers.generic_rest import GenericRestSpec, GenericRestTtsProvider
+from splicr.studio import (
+    EngineSessionContext,
+    EngineTransport,
+    ProviderEngineAdapter,
+    engine_adapter_for_provider,
+)
 
 
 @dataclass
@@ -58,3 +64,19 @@ def test_remote_provider_adapts_to_job_scoped_engine_session(tmp_path: Path) -> 
     assert adapter.estimate_input_characters("Hello session", options) == 13
     assert provider.texts == ["Hello session"]
     assert chunk.pcm == b"\x00\x00"
+
+
+def test_loopback_generic_rest_provider_is_classified_as_local_http() -> None:
+    provider = GenericRestTtsProvider(
+        GenericRestSpec(
+            name="local-server",
+            url="http://127.0.0.1:8880/synthesize",
+            default_model="local-model",
+            default_voice="local-voice",
+            body_template={"text": "{{text}}"},
+        )
+    )
+
+    adapter = engine_adapter_for_provider(provider)
+
+    assert adapter.descriptor.transport is EngineTransport.LOCAL_HTTP

@@ -16,7 +16,9 @@ from .engines import (
     EngineSessionContext,
     EngineTransport,
     ProviderEngineAdapter,
+    engine_adapter_for_provider,
 )
+from .local_subprocess import LocalSubprocessEngineAdapter, LocalSubprocessSpec
 
 __all__ = [
     "Artifact",
@@ -26,10 +28,13 @@ __all__ = [
     "EngineSession",
     "EngineSessionContext",
     "EngineTransport",
+    "LocalSubprocessEngineAdapter",
+    "LocalSubprocessSpec",
     "Project",
     "ProviderEngineAdapter",
     "RenderPlan",
     "RenderSegment",
     "Take",
     "TakeStatus",
+    "engine_adapter_for_provider",
 ]

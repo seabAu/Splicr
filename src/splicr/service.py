@@ -43,11 +43,11 @@ from .providers import TtsProviderRegistry
 from .planning import ChunkPlan, SplitStrategy, plan_chunks
 from .storage import LocalJobStorage
 from .store import SqliteJobStore
-from .studio import (
+from .studio.engines import (
     EngineAdapter,
     EngineSession,
     EngineSessionContext,
-    ProviderEngineAdapter,
+    engine_adapter_for_provider,
 )
 
 
@@ -67,7 +67,7 @@ class SynthesisService:
         providers: TtsProviderRegistry,
         store: SqliteJobStore | None = None,
         storage: LocalJobStorage | None = None,
-        engine_adapter_factory: Callable[[TtsProvider], EngineAdapter] = ProviderEngineAdapter,
+        engine_adapter_factory: Callable[[TtsProvider], EngineAdapter] = engine_adapter_for_provider,
     ) -> None:
         self.settings = settings
         self.providers = providers

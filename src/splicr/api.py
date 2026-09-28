@@ -1252,10 +1252,12 @@ def create_app(
                     else resource_store.get_current(payload.resource_id)
                 )
                 if resource is None:
-                    raise UnknownProviderError(
-                        f"unknown TTS provider revision: "
-                        f"{payload.resource_id}@{payload.resource_revision}"
-                    )
+                    if payload.resource_revision is not None:
+                        raise UnknownProviderError(
+                            f"unknown TTS provider revision: "
+                            f"{payload.resource_id}@{payload.resource_revision}"
+                        )
+                    synthesis.providers.get(payload.resource_id)
             else:
                 synthesis.providers.get(payload.resource_id)
         except UnknownProviderError as error:
@@ -1267,7 +1269,8 @@ def create_app(
         resolver = getattr(synthesis.providers, "current_revision", None)
         if resolver is None:
             return None
-        return int(resolver(payload.resource_id))
+        revision = resolver(payload.resource_id)
+        return int(revision) if revision is not None else None
 
     @application.get("/health", tags=["service"])
     async def health() -> dict[str, str]:

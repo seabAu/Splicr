@@ -1691,14 +1691,26 @@ async function loadApiResources(preferredId = null, selected = {}) {
   let resources;
   try {
     const result = await requestJson("/v1/api-resources", { reportError: false });
-    resources = collectionItems(result, "resources", "items");
+    const apiResources = collectionItems(result, "resources", "items")
+      .map((resource) => ({ ...resource, studio_editable_resource: true }));
+    const providers = collectionItems(
+      await requestJson("/v1/providers"),
+      "providers",
+      "items",
+    );
+    const apiResourceIds = new Set(apiResources.map(resourceId));
+    const engineOnlyProviders = providers
+      .filter((provider) => !apiResourceIds.has(resourceId(provider)))
+      .map((provider) => ({ ...provider, studio_editable_resource: false }));
+    resources = [...apiResources, ...engineOnlyProviders];
     state.resourcesEndpointAvailable = true;
   } catch (error) {
     if (error.status !== 404) {
       if (error.diagnostic) void reportClientError(error.diagnostic);
       throw error;
     }
-    resources = collectionItems(await requestJson("/v1/providers"), "providers", "items");
+    resources = collectionItems(await requestJson("/v1/providers"), "providers", "items")
+      .map((provider) => ({ ...provider, studio_editable_resource: false }));
     state.resourcesEndpointAvailable = false;
   }
   if (!resources.length) throw new Error("No API resources are configured.");
@@ -1710,7 +1722,9 @@ async function loadApiResources(preferredId = null, selected = {}) {
   replaceSelectOptions(elements.provider, resources, chosen, resourceLabel);
   elements.provider.disabled = false;
   elements.addResource.disabled = !state.resourcesEndpointAvailable;
-  elements.editResource.disabled = !state.resourcesEndpointAvailable;
+  const selectedResource = resources.find((resource) => resourceId(resource) === chosen);
+  elements.editResource.disabled = !state.resourcesEndpointAvailable
+    || selectedResource?.studio_editable_resource === false;
   configureProvider(chosen, selected);
   return resources;
 }
@@ -1834,7 +1848,8 @@ function configureProvider(providerName, selected = {}, resourceOverride = null)
     ? selected.resource_revision
     : provider.revision ?? null;
   elements.provider.value = resourceId(provider);
-  elements.editResource.disabled = !state.resourcesEndpointAvailable;
+  elements.editResource.disabled = !state.resourcesEndpointAvailable
+    || provider.studio_editable_resource === false;
 
   const capabilities = provider.capabilities || {};
   const defaults = provider.defaults || {};
@@ -1960,7 +1975,7 @@ function buildJobPayload() {
     remove_numeric_citations: elements.removeNumericCitations.checked,
     variables: collectJobVariables(),
   };
-  if (state.resourcesEndpointAvailable) {
+  if (state.resourcesEndpointAvailable && currentResource?.studio_editable_resource !== false) {
     payload.resource_id = provider;
     payload.resource_revision = state.selectedResourceRevision !== undefined
       ? state.selectedResourceRevision

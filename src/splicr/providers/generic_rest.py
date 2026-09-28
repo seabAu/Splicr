@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import binascii
 import io
+import ipaddress
 import json
 import math
 import re
@@ -17,7 +18,7 @@ from email.utils import parsedate_to_datetime
 from enum import StrEnum
 from types import MappingProxyType
 from typing import Any, Protocol
-from urllib.parse import quote, quote_plus
+from urllib.parse import quote, quote_plus, urlsplit
 
 import httpx
 
@@ -313,6 +314,20 @@ class GenericRestTtsProvider:
     @property
     def info(self) -> ProviderInfo:
         return self._info
+
+    @property
+    def engine_transport(self) -> str:
+        """Classify loopback endpoints as local HTTP engine transports."""
+
+        hostname = urlsplit(self._spec.url).hostname
+        if hostname is None:
+            return "remote_http"
+        if hostname.casefold() == "localhost":
+            return "local_http"
+        try:
+            return "local_http" if ipaddress.ip_address(hostname).is_loopback else "remote_http"
+        except ValueError:
+            return "remote_http"
 
     def estimate_input_characters(self, text: str, options: SynthesisOptions) -> int:
         value = self._limit_value(text, options)

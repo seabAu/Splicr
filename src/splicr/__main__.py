@@ -104,8 +104,9 @@ async def _synthesize_file(args: argparse.Namespace) -> int:
                 shutil.copyfile(service.output_path(job.id), args.output)
                 print(f"Wrote {args.output}", flush=True)
                 return 0
-            if job.status is JobStatus.FAILED:
-                print(f"Synthesis failed: {job.error}", file=sys.stderr)
+            if job.status in {JobStatus.PAUSED, JobStatus.FAILED, JobStatus.CANCELLED}:
+                detail = job.error or "no additional details"
+                print(f"Synthesis stopped ({job.status}): {detail}", file=sys.stderr)
                 return 1
             await asyncio.sleep(0.25)
     finally:

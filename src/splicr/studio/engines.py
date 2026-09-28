@@ -91,13 +91,14 @@ class ProviderEngineAdapter:
         *,
         engine_id: str | None = None,
         display_name: str | None = None,
+        transport: EngineTransport = EngineTransport.REMOTE_HTTP,
     ) -> None:
         self._provider = provider
         info = provider.info
         self._descriptor = EngineDescriptor(
             id=engine_id or info.name,
             display_name=display_name or info.name,
-            transport=EngineTransport.REMOTE_HTTP,
+            transport=transport,
             provider_info=info,
         )
 
@@ -118,3 +119,18 @@ class ProviderEngineAdapter:
     ) -> AsyncIterator[EngineSession]:
         del context
         yield _ProviderEngineSession(self._provider)
+
+
+def engine_adapter_for_provider(provider: TtsProvider) -> EngineAdapter:
+    """Use an engine-aware provider's adapter, otherwise bridge the remote provider."""
+
+    create_adapter = getattr(provider, "create_engine_adapter", None)
+    if create_adapter is None:
+        transport = EngineTransport(
+            getattr(provider, "engine_transport", EngineTransport.REMOTE_HTTP)
+        )
+        return ProviderEngineAdapter(provider, transport=transport)
+    adapter = create_adapter()
+    if adapter.descriptor.provider_info.name != provider.info.name:
+        raise ValueError("engine adapter provider identity does not match its provider")
+    return adapter

@@ -82,3 +82,17 @@ def test_auth_environment_is_explicit_and_resolves_persistent_credentials(
     assert settings.auth_cookie_secure is True
     assert settings.auth_session_seconds == 7200
     assert settings.auth_credentials_path == (tmp_path / "state" / "auth" / "credentials.json")
+
+
+def test_local_kokoro_environment_is_optional_and_resolved(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    python_path = tmp_path / "kokoro-env" / "Scripts" / "python.exe"
+    monkeypatch.setenv("SPLICR_KOKORO_PYTHON", str(python_path))
+    monkeypatch.setenv("SPLICR_LOCAL_ENGINE_STARTUP_TIMEOUT_SECONDS", "900")
+    monkeypatch.setenv("SPLICR_LOCAL_ENGINE_REQUEST_TIMEOUT_SECONDS", "450")
+
+    settings = Settings.from_env()
+
+    assert settings.kokoro_python == python_path.resolve()
+    assert settings.local_engine_startup_timeout_seconds == 900
+    assert settings.local_engine_request_timeout_seconds == 450

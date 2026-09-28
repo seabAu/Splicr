@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
 from splicr.api import create_app
+from splicr.bootstrap import create_service
 from splicr.config import Settings
 from splicr.providers import ProviderRegistry
 from splicr.service import SynthesisService
@@ -93,3 +97,33 @@ def test_profile_rejects_missing_job_link(tmp_path) -> None:
 
     assert response.status_code == 422
     assert response.json()["detail"] == "linked job was not found"
+
+
+def test_profile_accepts_non_resource_local_engine(tmp_path) -> None:
+    settings = Settings(
+        data_dir=tmp_path,
+        kokoro_python=Path(sys.executable),
+    )
+    service = create_service(settings)
+
+    with TestClient(create_app(settings=settings, service=service)) as client:
+        provider_names = [item["name"] for item in client.get("/v1/providers").json()]
+        resource_ids = [
+            item["resource_id"] for item in client.get("/v1/api-resources").json()
+        ]
+        response = client.post(
+            "/v1/profiles",
+            json={
+                "name": "Local Kokoro",
+                "resource_id": "kokoro-local",
+                "text": "Saved local narration.",
+                "model": "kokoro-82m",
+                "voice": "af_heart",
+            },
+        )
+
+    assert provider_names == ["gemini", "deepgram", "inworld", "kokoro-local"]
+    assert resource_ids == ["gemini", "deepgram", "inworld"]
+    assert response.status_code == 201
+    assert response.json()["resource_id"] == "kokoro-local"
+    assert response.json()["resource_revision"] is None

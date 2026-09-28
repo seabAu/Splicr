@@ -54,6 +54,9 @@ class Settings:
     inworld_voice: str = "Ashley"
     inworld_api_url: str = "https://api.inworld.ai/tts/v1/voice"
     inworld_pacing_seconds: float = 0.0
+    kokoro_python: Path | None = None
+    local_engine_startup_timeout_seconds: float = 600.0
+    local_engine_request_timeout_seconds: float = 300.0
     chunk_max_bytes: int = 3_800
     chunk_max_words: int = 350
     pacing_seconds: float = 3.0
@@ -102,6 +105,7 @@ class Settings:
             )
         vault_key_file_value = os.getenv("SPLICR_SECRET_VAULT_KEY_FILE", "").strip()
         vault_path_value = os.getenv("SPLICR_SECRET_VAULT_PATH", "").strip()
+        kokoro_python_value = os.getenv("SPLICR_KOKORO_PYTHON", "").strip()
         return cls(
             data_dir=Path(os.getenv("SPLICR_DATA_DIR", "data")).expanduser().resolve(),
             auth_enabled=_bool_env("SPLICR_AUTH_ENABLED", False),
@@ -134,6 +138,21 @@ class Settings:
                 "SPLICR_INWORLD_API_URL", "https://api.inworld.ai/tts/v1/voice"
             ).strip(),
             inworld_pacing_seconds=_float_env("SPLICR_INWORLD_PACING_SECONDS", 0.0),
+            kokoro_python=(
+                Path(kokoro_python_value).expanduser().resolve()
+                if kokoro_python_value
+                else None
+            ),
+            local_engine_startup_timeout_seconds=_float_env(
+                "SPLICR_LOCAL_ENGINE_STARTUP_TIMEOUT_SECONDS",
+                600.0,
+                minimum=1,
+            ),
+            local_engine_request_timeout_seconds=_float_env(
+                "SPLICR_LOCAL_ENGINE_REQUEST_TIMEOUT_SECONDS",
+                300.0,
+                minimum=1,
+            ),
             chunk_max_bytes=_int_env("SPLICR_CHUNK_MAX_BYTES", 3_800),
             chunk_max_words=_int_env("SPLICR_CHUNK_MAX_WORDS", 350),
             pacing_seconds=_float_env("SPLICR_PACING_SECONDS", 3.0),

@@ -11,7 +11,8 @@ Despite the source document's use of “transcription,” this service performs 
 ## What is implemented
 
 - FastAPI job submission, progress, retry, listing, and audio download endpoints
-- A provider-neutral `TtsProvider` boundary with Gemini, Deepgram, and Inworld adapters
+- A provider-neutral engine boundary with Gemini, Deepgram, Inworld, generic HTTP, and optional
+  isolated local Kokoro adapters
 - Versioned API resources with editable endpoints, auth placement, JSON templates, variables,
   limits, pacing, retry policy, response extraction, and per-revision job pinning
 - A Generic REST TTS adapter for raw PCM, WAV, and JSON-base64 audio responses, including
@@ -22,6 +23,8 @@ Despite the source document's use of “transcription,” this service performs 
 - Provider-specific chunk limits layered over the conservative 3,800-byte/350-word defaults
 - Sequential provider calls, provider-specific pacing, and exponential backoff with jitter
 - Durable SQLite job/chunk state and raw PCM checkpoints for restart-safe resumption
+- One supervised local subprocess per active local-engine job, with startup/request timeouts,
+  graceful shutdown, cancellation cleanup, structured diagnostics, and no copied environments
 - Canonical mono, signed 16-bit, 24 kHz PCM and a single final WAV container
 - A file-to-file CLI using the same pipeline
 - A same-origin browser studio with provider/voice discovery, typed delivery presets, progress,
@@ -42,6 +45,11 @@ Gemini remains available as a Preview provider. Deepgram Aura-2 and Inworld TTS-
 registered, and every provider's model and voice defaults can be changed through environment
 variables.
 
+Kokoro is registered as `kokoro-local` when `SPLICR_KOKORO_PYTHON` points to a Python executable
+whose environment contains Kokoro. The environment and its model cache stay where they already
+live; SPLICR launches its bundled worker file through that interpreter and keeps the model process
+alive for the duration of one job.
+
 ## Run locally
 
 Requirements: Python 3.11+ and [uv](https://docs.astral.sh/uv/).
@@ -55,6 +63,26 @@ uv run splicr serve --reload
 
 Open `http://127.0.0.1:8000/` for the SPLICR studio. The generated interactive API remains at
 `http://127.0.0.1:8000/docs`.
+
+To reuse an existing Narrator Kokoro environment on Windows, add its interpreter to `.env` before
+starting SPLICR:
+
+```dotenv
+SPLICR_KOKORO_PYTHON=C:\path\to\Narrator\kokoro-env\Scripts\python.exe
+```
+
+On Linux or macOS, use the environment's `bin/python`. The first uncached Kokoro run may download
+its model into that environment's normal model cache. SPLICR never places environments, weights,
+or generated engine caches in the repository.
+
+Once configured, the same CLI pipeline can render locally:
+
+```powershell
+uv run splicr synthesize .\input_document.md .\kokoro-reading.wav `
+  --provider kokoro-local `
+  --voice af_heart `
+  --pace normal
+```
 
 The studio populates every control from `/v1/api-resources`. Use the adjacent **+** button to add a
 TTS-compatible JSON REST resource, or **Edit** to create a new immutable revision of an existing
@@ -81,6 +109,8 @@ Generic REST resources must be TTS endpoints whose responses can be configured a
 JSON-base64 PCM, or JSON-base64 WAV. SPLICR can normalize uncompressed 8/16/24/32-bit PCM sample
 rates and channel counts. Compressed MP3/Opus responses require a dedicated native adapter or an
 endpoint option that requests PCM/WAV. Arbitrary non-audio APIs cannot enter the speech pipeline.
+Generic REST resources targeting `localhost` or another loopback address use the same job-scoped
+engine contract and are classified as local HTTP engines.
 
 Resource edits append a revision instead of rewriting history. New jobs use the current revision;
 jobs and profiles pinned to an older revision keep using that endpoint shape after edits or a soft
@@ -218,10 +248,11 @@ Desktop runs store custom-resource API keys in the operating-system keyring. Com
 use a Fernet-encrypted file under `/data` with its key supplied separately as a mounted Compose
 secret. Back up both, but store the vault key separately from ordinary job-data backups.
 
-Every transcript chunk and any custom director's notes are sent to the selected external TTS
-provider. Gemini requests set `store=false`, which prevents creation of a retained Interaction
-resource; it does not make remote processing local or supersede the provider's applicable data-use
-terms. Review those terms before submitting sensitive, confidential, or personal text.
+When an external provider is selected, every transcript chunk and any custom director's notes are
+sent to that provider. Gemini requests set `store=false`, which prevents creation of a retained
+Interaction resource; it does not make remote processing local or supersede the provider's
+applicable data-use terms. Kokoro processing stays in the configured local engine environment.
+Review the selected provider's terms before submitting sensitive, confidential, or personal text.
 
 Plan disk capacity for both checkpoints and the assembled output. At final assembly, SPLICR can
 temporarily need roughly twice the raw PCM size, plus the source text and SQLite database. The
@@ -239,6 +270,9 @@ The important tuning controls are:
   `SPLICR_MAX_OUTPUT_PCM_BYTES`
 - `SPLICR_PACING_SECONDS`
 - `SPLICR_DEEPGRAM_PACING_SECONDS` and `SPLICR_INWORLD_PACING_SECONDS`
+- `SPLICR_KOKORO_PYTHON` to enable the isolated local Kokoro engine
+- `SPLICR_LOCAL_ENGINE_STARTUP_TIMEOUT_SECONDS` and
+  `SPLICR_LOCAL_ENGINE_REQUEST_TIMEOUT_SECONDS`
 - `SPLICR_PROVIDER_TIMEOUT_SECONDS`
 - `SPLICR_AUTH_ENABLED`, `SPLICR_AUTH_COOKIE_SECURE`, and `SPLICR_AUTH_SESSION_SECONDS`
 - `SPLICR_TRUST_ENV_PROXIES` (default `false`) to opt native HTTP providers into ambient
@@ -270,6 +304,12 @@ logic, implement `TtsProvider` and add an `AdapterType` factory mapping in
 `splicr.resource_registry`. The provider-neutral chunker, queue, revision persistence, retries,
 checkpointing, and assembly do not need to change.
 
+For a local Python engine, implement a standalone runtime in `splicr.engine_worker` and expose a
+planning provider whose `create_engine_adapter()` returns `LocalSubprocessEngineAdapter`. The
+worker protocol transfers control messages over JSON Lines and raw PCM through a job-private file,
+so large audio payloads never need to be embedded in JSON. A local HTTP model server can use the
+existing Generic REST resource flow.
+
 ## Verify
 
 ```powershell
@@ -277,6 +317,9 @@ uv run pytest
 ```
 
 The tests use fake providers and never spend API quota.
+The isolated-worker test suite uses a fake subprocess. A manual 2026-09-28 smoke against the
+preserved Narrator Kokoro environment also completed through the production job pipeline and
+produced mono 16-bit 24 kHz WAV output; model/network-dependent smoke tests remain opt-in.
 
 ## Provider references
 
