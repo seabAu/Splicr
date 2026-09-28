@@ -43,6 +43,13 @@ def _parser() -> argparse.ArgumentParser:
     serve.add_argument("--port", type=int, default=8000)
     serve.add_argument("--reload", action="store_true")
 
+    desktop = subparsers.add_parser(
+        "desktop", help="run the local Studio with a small lifecycle window"
+    )
+    desktop.add_argument("--host", default="127.0.0.1")
+    desktop.add_argument("--port", type=int, default=8765)
+    desktop.add_argument("--no-browser", action="store_true")
+
     synthesize = subparsers.add_parser("synthesize", help="synthesize one UTF-8 text file")
     synthesize.add_argument("input", type=Path)
     synthesize.add_argument("output", type=Path)
@@ -234,6 +241,16 @@ def main() -> None:
         reload = getattr(args, "reload", False)
         uvicorn.run("splicr.api:app", host=host, port=port, reload=reload)
         return
+    if args.command == "desktop":
+        from .desktop import run_desktop
+
+        raise SystemExit(
+            run_desktop(
+                host=args.host,
+                preferred_port=args.port,
+                open_browser=not args.no_browser,
+            )
+        )
     if args.command == "synthesize":
         raise SystemExit(asyncio.run(_synthesize_file(args)))
     if args.command == "auth":

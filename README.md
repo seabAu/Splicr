@@ -105,6 +105,14 @@ The established interface remains at `http://127.0.0.1:8000/` while the
 remaining Narrator workspaces are migrated. The generated interactive API remains at
 `http://127.0.0.1:8000/docs`.
 
+For the local desktop lifecycle window, run `uv run splicr desktop`. It uses an upgrade-safe
+per-user data directory, starts the service on an available loopback port, opens Studio in the
+browser, exposes shortcuts to reopen Studio or the data directory, and stops the local service when
+the lifecycle window closes. Windows release packaging lives in
+[`packaging/windows/`](packaging/windows/README.md): it creates a portable ZIP and an optional
+per-user installer while keeping all mutable data and external engine environments outside the
+replaceable application directory.
+
 The React source is in `studio-web/`; production assets are committed with the Python package so a
 local install does not require Node.js. When changing the frontend, rebuild those assets with:
 

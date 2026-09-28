@@ -36,3 +36,4 @@ legacy/narrator/narrator_output/
 legacy/narrator/narrator/webui/
 legacy/narrator/web/node_modules/
 studio-web/node_modules/
+packaging/windows/vendor/

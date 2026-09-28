@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -29,6 +30,18 @@ def _bool_env(name: str, default: bool) -> bool:
     if normalized in {"0", "false", "no", "off"}:
         return False
     raise ValueError(f"{name} must be a boolean (true/false, yes/no, on/off, or 1/0)")
+
+
+def _default_data_dir() -> Path:
+    if not getattr(sys, "frozen", False):
+        return Path("data")
+    if sys.platform == "win32":
+        local = os.getenv("LOCALAPPDATA", "").strip()
+        root = Path(local) if local else Path.home() / "AppData" / "Local"
+        return root / "SPLICR Studio" / "data"
+    xdg = os.getenv("XDG_DATA_HOME", "").strip()
+    root = Path(xdg).expanduser() if xdg else Path.home() / ".local" / "share"
+    return root / "splicr-studio"
 
 
 @dataclass(frozen=True, slots=True)
@@ -112,7 +125,9 @@ class Settings:
         qwen3_python_value = os.getenv("SPLICR_QWEN3_PYTHON", "").strip()
         audio8_python_value = os.getenv("SPLICR_AUDIO8_PYTHON", "").strip()
         return cls(
-            data_dir=Path(os.getenv("SPLICR_DATA_DIR", "data")).expanduser().resolve(),
+            data_dir=Path(os.getenv("SPLICR_DATA_DIR", str(_default_data_dir())))
+            .expanduser()
+            .resolve(),
             auth_enabled=_bool_env("SPLICR_AUTH_ENABLED", False),
             auth_cookie_secure=_bool_env("SPLICR_AUTH_COOKIE_SECURE", False),
             auth_session_seconds=_int_env("SPLICR_AUTH_SESSION_SECONDS", 43_200, minimum=300),
