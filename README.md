@@ -42,6 +42,8 @@ Despite the source document's use of “transcription,” this service performs 
   custom variables, split settings, and an optional durable in-progress job link
 - Additive Studio project/render-plan/take/artifact persistence plus an idempotent, read-only
   compatibility importer for existing SPLICR jobs and Narrator library metadata
+- A React Studio Library that searches imported projects, shows their origin/status/plan/take
+  counts, and reopens locally stored source text directly in the Narrate workspace
 
 Gemini remains available as a Preview provider. Deepgram Aura-2 and Inworld TTS-2 are also
 registered, and every provider's model and voice defaults can be changed through environment
@@ -228,6 +230,8 @@ uv run splicr synthesize .\input_document.md .\continuous_reading.wav `
 | `GET` | `/` | Established browser studio retained during migration |
 | `GET` | `/health` | Liveness check |
 | `GET` | `/v1/providers` | Provider defaults and capabilities |
+| `GET` | `/v1/studio/projects` | List imported Studio project summaries |
+| `GET` | `/v1/studio/projects/{id}` | Load one project and its locally stored source text |
 | `GET`, `POST` | `/v1/api-resources` | List or create versioned TTS API resources |
 | `GET`, `PUT`, `DELETE` | `/v1/api-resources/{id}` | Inspect, revise, or soft-delete a resource |
 | `GET`, `POST` | `/v1/profiles` | List or save complete studio profiles |

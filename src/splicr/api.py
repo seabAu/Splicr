@@ -66,6 +66,7 @@ from .planning import ChunkPlan, PlannedChunk, SplitStrategy
 from .profiles import ProfileNotFoundError, StudioProfile, StudioProfileStore
 from .service import SynthesisService
 from .secret_vault import SecretVaultUnavailableError
+from .studio import Project, SqliteStudioStore
 from .ui import register_ui
 
 
@@ -632,6 +633,50 @@ class StudioProfileResponse(StudioProfilePayload):
     job: JobResponse | None = None
 
 
+class StudioProjectSummaryResponse(BaseModel):
+    id: str
+    name: str
+    source_name: str | None
+    source_media_type: str
+    source_chars: int
+    source_preview: str
+    metadata: dict[str, Any]
+    render_plan_count: int
+    take_count: int
+    created_at: str
+    updated_at: str
+
+    @classmethod
+    def from_domain(
+        cls,
+        project: Project,
+        *,
+        render_plan_count: int,
+        take_count: int,
+    ) -> "StudioProjectSummaryResponse":
+        return cls(
+            id=project.id,
+            name=project.name,
+            source_name=project.source_name,
+            source_media_type=project.source_media_type,
+            source_chars=len(project.source_text),
+            source_preview=" ".join(project.source_text.split())[:240],
+            metadata={
+                key: value
+                for key, value in project.metadata.items()
+                if key != "legacy_original_source_text"
+            },
+            render_plan_count=render_plan_count,
+            take_count=take_count,
+            created_at=project.created_at,
+            updated_at=project.updated_at,
+        )
+
+
+class StudioProjectResponse(StudioProjectSummaryResponse):
+    source_text: str
+
+
 def _payload_value(
     payload: ApiResourcePayload,
     field_name: str,
@@ -1109,6 +1154,8 @@ def create_app(
     synthesis = service or create_service(resolved_settings)
     profiles = StudioProfileStore(resolved_settings.database_path)
     profiles.initialize()
+    studio = SqliteStudioStore(resolved_settings.database_path)
+    studio.initialize()
     candidate_resource_store = getattr(synthesis.providers, "store", None)
     resource_store = (
         candidate_resource_store
@@ -1133,6 +1180,7 @@ def create_app(
     application.state.synthesis_service = synthesis
     application.state.api_resource_store = resource_store
     application.state.error_event_store = synthesis.store
+    application.state.studio_store = studio
     auth_manager = AuthManager(
         resolved_settings.auth_credentials_path,
         session_seconds=resolved_settings.auth_session_seconds,
@@ -1338,6 +1386,38 @@ def create_app(
     @application.get("/v1/providers", response_model=list[ProviderResponse], tags=["providers"])
     async def list_providers() -> list[ProviderResponse]:
         return [ProviderResponse.from_info(info) for info in synthesis.providers.list()]
+
+    @application.get(
+        "/v1/studio/projects",
+        response_model=list[StudioProjectSummaryResponse],
+        tags=["studio"],
+    )
+    async def list_studio_projects() -> list[StudioProjectSummaryResponse]:
+        return [
+            StudioProjectSummaryResponse.from_domain(
+                project,
+                render_plan_count=len(studio.list_render_plans(project.id)),
+                take_count=len(studio.list_takes(project.id)),
+            )
+            for project in studio.list_projects()
+        ]
+
+    @application.get(
+        "/v1/studio/projects/{project_id}",
+        response_model=StudioProjectResponse,
+        tags=["studio"],
+    )
+    async def get_studio_project(project_id: str) -> StudioProjectResponse:
+        try:
+            project = studio.get_project(project_id)
+        except KeyError as error:
+            raise HTTPException(status_code=404, detail="Studio project not found") from error
+        summary = StudioProjectSummaryResponse.from_domain(
+            project,
+            render_plan_count=len(studio.list_render_plans(project.id)),
+            take_count=len(studio.list_takes(project.id)),
+        )
+        return StudioProjectResponse(**summary.model_dump(), source_text=project.source_text)
 
     @application.get("/v1/api-resources", tags=["API resources"])
     async def list_api_resources() -> list[dict[str, Any]]:

@@ -108,6 +108,12 @@ resource/profile editing and the complete diagnostic center. Vite source lives i
 hashed production assets are packaged under `src/splicr/static/studio/` so Python/Docker runtime
 images do not need Node.js.
 
+The Library workspace now reads the additive Studio tables through `/v1/studio/projects`. It can
+search source names/previews, distinguish imported origins and statuses, display plan/take counts,
+and reopen persisted source text in the still-mounted Narrate workspace. Narrator library entries
+whose documents remain external are shown but deliberately cannot pretend their source was copied;
+the UI points back to the compatibility migration boundary instead.
+
 ## Migration sequence
 
 1. Preserve Narrator source and establish both baselines.

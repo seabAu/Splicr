@@ -20,6 +20,7 @@ import {
   Plus,
   RefreshCw,
   RotateCcw,
+  Search,
   Scissors,
   Settings2,
   SlidersHorizontal,
@@ -40,7 +41,7 @@ const NAVIGATION = [
     label: "Create",
     items: [
       { id: "narrate", label: "Narrate", icon: AudioLines, ready: true },
-      { id: "library", label: "Library", icon: Library },
+      { id: "library", label: "Library", icon: Library, ready: true },
       { id: "dialogue", label: "Dialogue", icon: MessageSquareText },
     ],
   },
@@ -296,7 +297,84 @@ function RecentJobs({ jobs, currentId, onSelect }) {
   );
 }
 
-function NarrateWorkspace() {
+function LibraryWorkspace({ onOpen }) {
+  const [projects, setProjects] = useState([]);
+  const [query, setQuery] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const refresh = async () => {
+    setLoading(true);
+    setError("");
+    try { setProjects(await api.projects()); }
+    catch (reason) { setError(reason.message); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { refresh(); }, []);
+  const visible = projects.filter((project) => {
+    const haystack = `${project.name} ${project.source_name || ""} ${project.source_preview}`.toLowerCase();
+    return haystack.includes(query.trim().toLowerCase());
+  });
+
+  const open = async (project) => {
+    setError("");
+    try { onOpen(await api.project(project.id)); }
+    catch (reason) { setError(reason.message); }
+  };
+
+  return (
+    <main className="library-workspace">
+      <header className="workspace-header">
+        <div><p className="eyebrow">Create · Library</p><h1>Your documents, takes, and imported history.</h1></div>
+        <button className="secondary-button" onClick={refresh} disabled={loading}><RefreshCw size={16} />Refresh</button>
+      </header>
+      {error && <div className="inline-error" role="alert">{error}</div>}
+      <section className="library-toolbar">
+        <label><Search size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search projects…" /></label>
+        <span>{visible.length} of {projects.length} projects</span>
+      </section>
+      {loading && <section className="library-empty"><RefreshCw className="spin" size={24} /><p>Loading Studio projects…</p></section>}
+      {!loading && projects.length === 0 && (
+        <section className="library-empty">
+          <BookOpen size={28} />
+          <h2>Your Studio library is ready.</h2>
+          <p>Import existing SPLICR jobs and Narrator metadata once, then they will appear here without moving the original files.</p>
+          <code>uv run splicr migrate-studio --narrator-data &lt;path&gt;</code>
+        </section>
+      )}
+      {!loading && visible.length > 0 && (
+        <section className="project-grid">
+          {visible.map((project) => {
+            const origin = project.metadata.legacy_source_system || "studio";
+            const status = project.metadata.legacy_status || project.metadata.legacy_job_status || "ready";
+            return (
+              <article className="project-card" key={project.id}>
+                <div className="project-card-heading">
+                  <span><FileText size={20} /></span>
+                  <div><p>{origin.replaceAll("-", " ")}</p><h2>{project.name}</h2></div>
+                  <i>{statusLabel(status)}</i>
+                </div>
+                <p className="project-preview">{project.source_preview || "This imported project keeps its original document linked externally."}</p>
+                <dl>
+                  <div><dt>Source</dt><dd>{project.source_name || "Linked document"}</dd></div>
+                  <div><dt>Plans</dt><dd>{project.render_plan_count}</dd></div>
+                  <div><dt>Takes</dt><dd>{project.take_count}</dd></div>
+                  <div><dt>Characters</dt><dd>{formatCount(project.source_chars)}</dd></div>
+                </dl>
+                <button className="secondary-button" disabled={!project.source_chars} onClick={() => open(project)}>
+                  {project.source_chars ? "Open in Narrate" : "Source remains external"}<ChevronRight size={15} />
+                </button>
+              </article>
+            );
+          })}
+        </section>
+      )}
+    </main>
+  );
+}
+
+function NarrateWorkspace({ projectToLoad }) {
   const inputRef = useRef(null);
   const [providers, setProviders] = useState([]);
   const [jobs, setJobs] = useState([]);
@@ -349,6 +427,14 @@ function NarrateWorkspace() {
       })
       .catch((reason) => setError(reason.message));
   }, []);
+
+  useEffect(() => {
+    if (!projectToLoad) return;
+    setForm((current) => ({ ...current, text: projectToLoad.source_text || "" }));
+    setSourceName(projectToLoad.source_name || projectToLoad.name);
+    setPreview(null);
+    setActiveChunk(0);
+  }, [projectToLoad?.id]);
 
   useEffect(() => {
     if (!provider) return;
@@ -521,12 +607,18 @@ function NarrateWorkspace() {
 export default function App() {
   const [active, setActive] = useState("narrate");
   const [collapsed, setCollapsed] = useState(false);
+  const [projectToLoad, setProjectToLoad] = useState(null);
+  const openProject = (project) => {
+    setProjectToLoad(project);
+    setActive("narrate");
+  };
   return (
     <Shell active={active} onChange={setActive} collapsed={collapsed} setCollapsed={setCollapsed}>
       <div hidden={active !== "narrate"}>
-        <NarrateWorkspace />
+        <NarrateWorkspace projectToLoad={projectToLoad} />
       </div>
-      {active !== "narrate" && <WorkspacePlaceholder workspace={active} />}
+      {active === "library" && <LibraryWorkspace onOpen={openProject} />}
+      {active !== "narrate" && active !== "library" && <WorkspacePlaceholder workspace={active} />}
     </Shell>
   );
 }

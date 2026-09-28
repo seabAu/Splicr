@@ -52,6 +52,8 @@ export async function request(path, options = {}) {
 
 export const api = {
   providers: () => request("/v1/providers"),
+  projects: () => request("/v1/studio/projects"),
+  project: (id) => request(`/v1/studio/projects/${encodeURIComponent(id)}`),
   jobs: () => request("/v1/speech/jobs"),
   job: (id) => request(`/v1/speech/jobs/${encodeURIComponent(id)}`),
   preview: (payload) =>
