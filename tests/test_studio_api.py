@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import time
+import io
+import wave
 
 from fastapi.testclient import TestClient
 
@@ -20,6 +22,16 @@ def _app(tmp_path):
         providers=ProviderRegistry([RecordingProvider()]),
     )
     return create_app(settings=settings, service=service)
+
+
+def _wav_bytes(seconds: float = 2.1, sample_rate: int = 8_000) -> bytes:
+    stream = io.BytesIO()
+    with wave.open(stream, "wb") as recording:
+        recording.setnchannels(1)
+        recording.setsampwidth(2)
+        recording.setframerate(sample_rate)
+        recording.writeframes(b"\0\0" * int(seconds * sample_rate))
+    return stream.getvalue()
 
 
 def test_studio_project_library_lists_summaries_and_loads_source(tmp_path) -> None:
@@ -173,3 +185,86 @@ def test_repeated_job_reads_do_not_rewrite_unchanged_studio_imports(tmp_path) ->
     assert first_take is not None
     assert second_project == first_project
     assert second_take == first_take
+
+
+def test_voice_studio_manages_reference_voices_and_presets(tmp_path) -> None:
+    app = _app(tmp_path)
+
+    with TestClient(app) as client:
+        created = client.post(
+            "/v1/studio/voices/reference",
+            data={
+                "label": "My voice",
+                "engine_id": "qwen3",
+                "reference_text": "These are the exact spoken words.",
+                "description": "Warm and direct",
+                "kind": "cloned",
+            },
+            files={"file": ("recording.wav", _wav_bytes(), "audio/wav")},
+        )
+        assert created.status_code == 201
+        voice = created.json()
+        assert voice["kind"] == "cloned"
+        assert voice["has_reference"] is True
+        assert "reference_audio_path" not in voice
+
+        reference = client.get(voice["reference_url"])
+        assert reference.status_code == 200
+        assert reference.content.startswith(b"RIFF")
+
+        renamed = client.put(
+            f"/v1/studio/voices/{voice['id']}",
+            json={"label": "Renamed voice", "description": "Quietly confident"},
+        )
+        assert renamed.status_code == 200
+        assert renamed.json()["label"] == "Renamed voice"
+
+        preset = client.post(
+            "/v1/studio/voices/presets",
+            json={
+                "label": "Announcer",
+                "engine_id": "qwen3",
+                "voice_id": "Ryan",
+                "instructions": "Bright and concise",
+            },
+        )
+        assert preset.status_code == 201
+        assert preset.json()["settings"]["voice_id"] == "Ryan"
+
+        listing = client.get("/v1/studio/voices?engine_id=qwen3")
+        assert listing.status_code == 200
+        assert {item["label"] for item in listing.json()} == {
+            "Renamed voice",
+            "Announcer",
+        }
+
+        deleted = client.delete(f"/v1/studio/voices/{voice['id']}")
+        assert deleted.status_code == 204
+        assert client.get(voice["reference_url"]).status_code == 404
+        assert not (tmp_path / "studio" / "voices" / voice["id"]).exists()
+
+
+def test_voice_studio_rejects_short_or_untranscribed_clone(tmp_path) -> None:
+    app = _app(tmp_path)
+
+    with TestClient(app) as client:
+        missing_transcript = client.post(
+            "/v1/studio/voices/reference",
+            data={"label": "No transcript", "engine_id": "qwen3", "kind": "cloned"},
+            files={"file": ("recording.wav", _wav_bytes(), "audio/wav")},
+        )
+        too_short = client.post(
+            "/v1/studio/voices/reference",
+            data={
+                "label": "Too short",
+                "engine_id": "audio8",
+                "kind": "cloned",
+                "reference_text": "Short sample.",
+            },
+            files={"file": ("recording.wav", _wav_bytes(1.0), "audio/wav")},
+        )
+
+    assert missing_transcript.status_code == 422
+    assert "exact words" in missing_transcript.json()["detail"]
+    assert too_short.status_code == 422
+    assert "at least 3s" in too_short.json()["detail"]

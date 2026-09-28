@@ -50,6 +50,9 @@ Despite the source document's use of “transcription,” this service performs 
   timed secret visibility, plus a durable error center with unread badges, toasts, and full details
 - A Kokoro pronunciation workspace with searchable phonemes, ordinary-word respelling and stress
   preview, immutable per-job dictionary snapshots, plus provider-neutral whole-word substitutions
+- A provider-neutral Voice Studio that manages playable reference recordings and exact transcripts,
+  reusable engine presets, safe rename/delete operations, and read-only links to imported Narrator
+  Qwen voices and Kokoro blends
 
 Gemini remains available as a Preview provider. Deepgram Aura-2 and Inworld TTS-2 are also
 registered, and every provider's model and voice defaults can be changed through environment
@@ -74,7 +77,8 @@ uv run splicr serve --reload
 Open `http://127.0.0.1:8000/studio/` for the new React Studio shell. Its Narrate workspace uses the
 production SPLICR API for document import, chunk preflight, synthesis, live progress, checkpoint
 controls, playback, download, profiles, API-resource configuration, diagnostics, and automatic
-Library persistence. Its Pronunciation workspace edits Kokoro overrides and shared substitutions.
+Library persistence. Its Pronunciation workspace edits Kokoro overrides and shared substitutions;
+Voice Studio manages reusable local voice identities and reference recordings.
 The established interface remains at `http://127.0.0.1:8000/` while the
 remaining Narrator workspaces are migrated. The generated interactive API remains at
 `http://127.0.0.1:8000/docs`.
@@ -122,7 +126,9 @@ take status as legacy jobs advance, and reads Narrator's project and voice manif
 moving or modifying Narrator documents, media, environments, models, or voice assets. Omit
 `--narrator-data` to import only SPLICR jobs; add `--skip-splicr-jobs` to scan/import only the
 Narrator library index. Existing Narrator pronunciations and substitutions are copied additively
-into Studio's local language store; current Studio rules win on a naming conflict.
+into Studio's local language store; current Studio rules win on a naming conflict. Existing
+Narrator Qwen references, Kokoro blend manifests, and CustomVoice presets are indexed as external
+Voice Profiles, so removing one from Studio never deletes the original Narrator asset.
 
 The studio populates every control from `/v1/api-resources`. Use the adjacent **+** button to add a
 TTS-compatible JSON REST resource, or **Edit** to create a new immutable revision of an existing
@@ -241,6 +247,11 @@ uv run splicr synthesize .\input_document.md .\continuous_reading.wav `
 | `GET` | `/v1/providers` | Provider defaults and capabilities |
 | `GET` | `/v1/studio/projects` | List imported Studio project summaries |
 | `GET` | `/v1/studio/projects/{id}` | Load one project and its locally stored source text |
+| `GET` | `/v1/studio/voices` | List reusable voice profiles, optionally filtered by engine |
+| `POST` | `/v1/studio/voices/reference` | Store a WAV reference and exact clone transcript |
+| `POST` | `/v1/studio/voices/presets` | Save a reproducible built-in voice and direction preset |
+| `PUT`, `DELETE` | `/v1/studio/voices/{id}` | Rename, describe, or remove a voice profile safely |
+| `GET` | `/v1/studio/voices/{id}/reference` | Play a registered reference without accepting raw paths |
 | `GET`, `POST` | `/v1/api-resources` | List or create versioned TTS API resources |
 | `GET`, `PUT`, `DELETE` | `/v1/api-resources/{id}` | Inspect, revise, or soft-delete a resource |
 | `GET`, `POST` | `/v1/profiles` | List or save complete studio profiles |

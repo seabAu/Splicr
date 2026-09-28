@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+from dataclasses import replace
 
 import pytest
 
@@ -13,6 +14,8 @@ from splicr.studio import (
     SqliteStudioStore,
     Take,
     TakeStatus,
+    VoiceProfile,
+    VoiceProfileKind,
 )
 
 
@@ -211,3 +214,36 @@ def test_import_records_are_idempotent_and_track_fingerprint_changes(tmp_path) -
     with sqlite3.connect(store.database_path) as connection:
         count = connection.execute("SELECT COUNT(*) FROM studio_imports").fetchone()[0]
     assert count == 1
+
+
+def test_voice_profiles_round_trip_filter_update_and_delete(tmp_path) -> None:
+    store = SqliteStudioStore(tmp_path / "splicr.sqlite3")
+    store.initialize()
+    profile = VoiceProfile(
+        id="voice-1",
+        label="Warm narrator",
+        engine_id="qwen3",
+        kind=VoiceProfileKind.CLONED,
+        description="Measured and warm",
+        reference_audio_path="voices/voice-1/reference.wav",
+        reference_text="The exact spoken words.",
+        settings={"temperature": 0.7},
+        metadata={"managed": True},
+        created_at="2026-09-28T09:00:00+00:00",
+        updated_at="2026-09-28T09:00:00+00:00",
+    )
+
+    assert store.save_voice_profile(profile) == profile
+    assert store.list_voice_profiles("qwen3") == [profile]
+    assert store.list_voice_profiles("audio8") == []
+
+    changed = replace(
+        profile,
+        label="Renamed narrator",
+        updated_at="2026-09-28T10:00:00+00:00",
+    )
+    assert store.save_voice_profile(changed).label == "Renamed narrator"
+    assert store.save_voice_profile(changed).created_at == profile.created_at
+    assert store.delete_voice_profile("voice-1").label == "Renamed narrator"
+    with pytest.raises(KeyError):
+        store.get_voice_profile("voice-1")

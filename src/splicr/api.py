@@ -8,12 +8,15 @@ import logging
 import mimetypes
 import os
 import re
+import shutil
+import wave
 from contextlib import asynccontextmanager
 from dataclasses import replace
 from pathlib import Path
 from typing import Any, Literal
+from uuid import uuid4
 
-from fastapi import FastAPI, File, HTTPException, Query, UploadFile, status
+from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -61,6 +64,7 @@ from .domain import (
     TonePreset,
     UnknownProviderError,
     VocalStyle,
+    utc_now,
 )
 from .document_import import DocumentImportError, import_document
 from .errors import JobErrorCode, suggestion_for
@@ -69,7 +73,13 @@ from .pronunciation import KokoroToolClient, KokoroToolError, PronunciationEntry
 from .profiles import ProfileNotFoundError, StudioProfile, StudioProfileStore
 from .service import SynthesisService
 from .secret_vault import SecretVaultUnavailableError
-from .studio import Project, SqliteStudioStore, import_splicr_job
+from .studio import (
+    Project,
+    SqliteStudioStore,
+    VoiceProfile,
+    VoiceProfileKind,
+    import_splicr_job,
+)
 from .ui import register_ui
 
 
@@ -168,6 +178,58 @@ class AudioFormatResponse(BaseModel):
 class VoiceOptionResponse(BaseModel):
     id: str
     traits: list[str]
+
+
+class VoiceProfileResponse(BaseModel):
+    id: str
+    label: str
+    engine_id: str
+    kind: VoiceProfileKind
+    description: str
+    reference_text: str | None
+    settings: dict[str, Any]
+    metadata: dict[str, Any]
+    has_reference: bool
+    reference_url: str | None
+    created_at: str
+    updated_at: str
+
+    @classmethod
+    def from_domain(cls, profile: VoiceProfile) -> "VoiceProfileResponse":
+        reference = Path(profile.reference_audio_path) if profile.reference_audio_path else None
+        return cls(
+            id=profile.id,
+            label=profile.label,
+            engine_id=profile.engine_id,
+            kind=profile.kind,
+            description=profile.description,
+            reference_text=profile.reference_text,
+            settings=dict(profile.settings),
+            metadata=dict(profile.metadata),
+            has_reference=bool(reference and reference.is_file()),
+            reference_url=(
+                f"/v1/studio/voices/{profile.id}/reference" if reference else None
+            ),
+            created_at=profile.created_at,
+            updated_at=profile.updated_at,
+        )
+
+
+class VoiceProfileUpdatePayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    label: str = Field(min_length=1, max_length=200)
+    description: str = Field(default="", max_length=2_000)
+
+
+class VoicePresetPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    label: str = Field(min_length=1, max_length=200)
+    engine_id: str = Field(min_length=1, max_length=100)
+    voice_id: str = Field(min_length=1, max_length=200)
+    instructions: str = Field(default="", max_length=2_000)
+    description: str = Field(default="", max_length=2_000)
 
 
 class ProviderCapabilitiesResponse(BaseModel):
@@ -1435,6 +1497,23 @@ def create_app(
                 detail=str(error),
             ) from error
 
+    managed_voice_root = (resolved_settings.data_dir / "studio" / "voices").resolve()
+
+    def require_voice_profile(profile_id: str) -> VoiceProfile:
+        try:
+            return studio.get_voice_profile(profile_id)
+        except KeyError as error:
+            raise HTTPException(status_code=404, detail="Voice profile not found") from error
+
+    def managed_voice_directory(profile: VoiceProfile) -> Path | None:
+        if not profile.metadata.get("managed") or not profile.reference_audio_path:
+            return None
+        candidate = Path(profile.reference_audio_path).resolve().parent
+        if not candidate.is_relative_to(managed_voice_root):
+            logger.error("Refused managed voice path outside Studio root: %s", candidate)
+            return None
+        return candidate
+
     @application.get("/health", tags=["service"])
     async def health() -> dict[str, str]:
         return {"status": "ok"}
@@ -1659,6 +1738,169 @@ def create_app(
             take_count=len(studio.list_takes(project.id)),
         )
         return StudioProjectResponse(**summary.model_dump(), source_text=project.source_text)
+
+    @application.get(
+        "/v1/studio/voices",
+        response_model=list[VoiceProfileResponse],
+        tags=["studio"],
+    )
+    def list_voice_profiles(
+        engine_id: str | None = Query(default=None, max_length=100),
+    ) -> list[VoiceProfileResponse]:
+        return [
+            VoiceProfileResponse.from_domain(profile)
+            for profile in studio.list_voice_profiles(engine_id)
+        ]
+
+    @application.post(
+        "/v1/studio/voices/reference",
+        response_model=VoiceProfileResponse,
+        status_code=status.HTTP_201_CREATED,
+        tags=["studio"],
+    )
+    def create_reference_voice(
+        file: UploadFile = File(...),
+        label: str = Form(..., min_length=1, max_length=200),
+        engine_id: str = Form(..., min_length=1, max_length=100),
+        reference_text: str = Form(default="", max_length=20_000),
+        description: str = Form(default="", max_length=2_000),
+        kind: VoiceProfileKind = Form(default=VoiceProfileKind.CLONED),
+    ) -> VoiceProfileResponse:
+        if kind not in {VoiceProfileKind.CLONED, VoiceProfileKind.DESIGNED}:
+            raise HTTPException(status_code=422, detail="Reference audio must be cloned or designed")
+        if kind is VoiceProfileKind.CLONED and not reference_text.strip():
+            raise HTTPException(
+                status_code=422,
+                detail="A cloned voice needs the exact words spoken in the recording",
+            )
+        filename = Path(file.filename or "reference.wav").name
+        if Path(filename).suffix.casefold() != ".wav":
+            raise HTTPException(status_code=422, detail="Reference recordings must be WAV files")
+
+        profile_id = uuid4().hex
+        directory = managed_voice_root / profile_id
+        target = directory / "reference.wav"
+        directory.mkdir(parents=True, exist_ok=False)
+        size = 0
+        try:
+            with target.open("wb") as output:
+                while block := file.file.read(1024 * 1024):
+                    size += len(block)
+                    if size > resolved_settings.max_upload_bytes:
+                        raise HTTPException(
+                            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+                            detail=(
+                                "Reference recording exceeds the configured "
+                                f"{resolved_settings.max_upload_bytes}-byte upload limit"
+                            ),
+                        )
+                    output.write(block)
+            try:
+                with wave.open(str(target), "rb") as recording:
+                    channels = recording.getnchannels()
+                    sample_rate = recording.getframerate()
+                    sample_width = recording.getsampwidth()
+                    frames = recording.getnframes()
+                    compression = recording.getcomptype()
+            except (OSError, EOFError, wave.Error) as error:
+                raise HTTPException(status_code=422, detail="The upload is not a readable WAV file") from error
+            if compression != "NONE" or channels < 1 or sample_rate < 1 or sample_width < 1:
+                raise HTTPException(status_code=422, detail="The WAV must contain uncompressed PCM audio")
+            seconds = frames / sample_rate
+            minimum_seconds = 3.0 if engine_id.strip().casefold() == "audio8" else 2.0
+            if kind is VoiceProfileKind.CLONED and seconds < minimum_seconds:
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        f"The recording is {seconds:.1f}s; {engine_id.strip()} cloning "
+                        f"needs at least {minimum_seconds:g}s of clear speech"
+                    ),
+                )
+            profile = studio.save_voice_profile(
+                VoiceProfile(
+                    id=profile_id,
+                    label=label.strip(),
+                    engine_id=engine_id.strip(),
+                    kind=kind,
+                    description=description.strip(),
+                    reference_audio_path=str(target),
+                    reference_text=reference_text.strip() or None,
+                    metadata={
+                        "managed": True,
+                        "source_filename": filename,
+                        "size_bytes": size,
+                        "seconds": round(seconds, 3),
+                        "sample_rate": sample_rate,
+                        "channels": channels,
+                        "sample_width": sample_width,
+                    },
+                )
+            )
+        except Exception:
+            shutil.rmtree(directory, ignore_errors=True)
+            raise
+        return VoiceProfileResponse.from_domain(profile)
+
+    @application.post(
+        "/v1/studio/voices/presets",
+        response_model=VoiceProfileResponse,
+        status_code=status.HTTP_201_CREATED,
+        tags=["studio"],
+    )
+    def create_voice_preset(payload: VoicePresetPayload) -> VoiceProfileResponse:
+        profile = studio.save_voice_profile(
+            VoiceProfile(
+                id=uuid4().hex,
+                label=payload.label.strip(),
+                engine_id=payload.engine_id.strip(),
+                kind=VoiceProfileKind.PRESET,
+                description=payload.description.strip(),
+                settings={
+                    "voice_id": payload.voice_id.strip(),
+                    "instructions": payload.instructions.strip(),
+                },
+                metadata={"managed": True},
+            )
+        )
+        return VoiceProfileResponse.from_domain(profile)
+
+    @application.put(
+        "/v1/studio/voices/{profile_id}",
+        response_model=VoiceProfileResponse,
+        tags=["studio"],
+    )
+    def update_voice_profile(
+        profile_id: str,
+        payload: VoiceProfileUpdatePayload,
+    ) -> VoiceProfileResponse:
+        profile = require_voice_profile(profile_id)
+        changed = studio.save_voice_profile(
+            replace(
+                profile,
+                label=payload.label.strip(),
+                description=payload.description.strip(),
+                updated_at=utc_now(),
+            )
+        )
+        return VoiceProfileResponse.from_domain(changed)
+
+    @application.get("/v1/studio/voices/{profile_id}/reference", tags=["studio"])
+    def get_voice_reference(profile_id: str) -> FileResponse:
+        profile = require_voice_profile(profile_id)
+        if not profile.reference_audio_path:
+            raise HTTPException(status_code=404, detail="This voice has no reference recording")
+        path = Path(profile.reference_audio_path)
+        if not path.is_file():
+            raise HTTPException(status_code=404, detail="The reference recording is unavailable")
+        return FileResponse(path, media_type="audio/wav", filename=f"{profile.label}.wav")
+
+    @application.delete("/v1/studio/voices/{profile_id}", status_code=204, tags=["studio"])
+    def delete_voice_profile(profile_id: str) -> Response:
+        profile = require_voice_profile(profile_id)
+        studio.delete_voice_profile(profile_id)
+        if directory := managed_voice_directory(profile):
+            shutil.rmtree(directory, ignore_errors=True)
+        return Response(status_code=204)
 
     @application.get("/v1/api-resources", tags=["API resources"])
     async def list_api_resources() -> list[dict[str, Any]]:

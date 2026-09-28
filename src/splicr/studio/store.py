@@ -9,7 +9,17 @@ from typing import Mapping
 
 from splicr.domain import JsonValue, utc_now
 
-from .domain import Artifact, ArtifactKind, Project, RenderPlan, RenderSegment, Take, TakeStatus
+from .domain import (
+    Artifact,
+    ArtifactKind,
+    Project,
+    RenderPlan,
+    RenderSegment,
+    Take,
+    TakeStatus,
+    VoiceProfile,
+    VoiceProfileKind,
+)
 
 
 def _encode_mapping(value: Mapping[str, JsonValue]) -> str:
@@ -128,6 +138,20 @@ class SqliteStudioStore:
                     PRIMARY KEY (source_system, source_key, entity_type)
                 );
 
+                CREATE TABLE IF NOT EXISTS studio_voice_profiles (
+                    id TEXT PRIMARY KEY,
+                    label TEXT NOT NULL,
+                    engine_id TEXT NOT NULL,
+                    kind TEXT NOT NULL,
+                    description TEXT NOT NULL DEFAULT '',
+                    reference_audio_path TEXT,
+                    reference_text TEXT,
+                    settings_json TEXT NOT NULL DEFAULT '{}',
+                    metadata_json TEXT NOT NULL DEFAULT '{}',
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+
                 CREATE INDEX IF NOT EXISTS studio_projects_updated_idx
                     ON studio_projects(updated_at DESC, id);
                 CREATE INDEX IF NOT EXISTS studio_render_plans_project_idx
@@ -136,6 +160,8 @@ class SqliteStudioStore:
                     ON studio_takes(project_id, created_at DESC, id);
                 CREATE INDEX IF NOT EXISTS studio_artifacts_take_idx
                     ON studio_artifacts(take_id, created_at, id);
+                CREATE INDEX IF NOT EXISTS studio_voice_profiles_engine_idx
+                    ON studio_voice_profiles(engine_id, updated_at DESC, id);
                 """
             )
 
@@ -359,6 +385,72 @@ class SqliteStudioStore:
             ).fetchall()
         return [self._artifact_from_row(row) for row in rows]
 
+    def save_voice_profile(self, profile: VoiceProfile) -> VoiceProfile:
+        with self._lock, self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO studio_voice_profiles (
+                    id, label, engine_id, kind, description, reference_audio_path,
+                    reference_text, settings_json, metadata_json, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    label = excluded.label,
+                    engine_id = excluded.engine_id,
+                    kind = excluded.kind,
+                    description = excluded.description,
+                    reference_audio_path = excluded.reference_audio_path,
+                    reference_text = excluded.reference_text,
+                    settings_json = excluded.settings_json,
+                    metadata_json = excluded.metadata_json,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    profile.id,
+                    profile.label,
+                    profile.engine_id,
+                    profile.kind.value,
+                    profile.description,
+                    profile.reference_audio_path,
+                    profile.reference_text,
+                    _encode_mapping(profile.settings),
+                    _encode_mapping(profile.metadata),
+                    profile.created_at,
+                    profile.updated_at,
+                ),
+            )
+        return self.get_voice_profile(profile.id)
+
+    def get_voice_profile(self, profile_id: str) -> VoiceProfile:
+        with self._lock, self._connect() as connection:
+            row = connection.execute(
+                "SELECT * FROM studio_voice_profiles WHERE id = ?", (profile_id,)
+            ).fetchone()
+        if row is None:
+            raise KeyError(f"voice profile not found: {profile_id}")
+        return self._voice_profile_from_row(row)
+
+    def list_voice_profiles(self, engine_id: str | None = None) -> list[VoiceProfile]:
+        with self._lock, self._connect() as connection:
+            if engine_id is None:
+                rows = connection.execute(
+                    "SELECT * FROM studio_voice_profiles ORDER BY updated_at DESC, id"
+                ).fetchall()
+            else:
+                rows = connection.execute(
+                    """
+                    SELECT * FROM studio_voice_profiles
+                    WHERE engine_id = ? ORDER BY updated_at DESC, id
+                    """,
+                    (engine_id,),
+                ).fetchall()
+        return [self._voice_profile_from_row(row) for row in rows]
+
+    def delete_voice_profile(self, profile_id: str) -> VoiceProfile:
+        profile = self.get_voice_profile(profile_id)
+        with self._lock, self._connect() as connection:
+            connection.execute("DELETE FROM studio_voice_profiles WHERE id = ?", (profile_id,))
+        return profile
+
     def get_import_record(
         self, source_system: str, source_key: str, entity_type: str
     ) -> ImportRecord | None:
@@ -504,6 +596,22 @@ class SqliteStudioStore:
             size_bytes=row["size_bytes"],
             sha256=row["sha256"],
             created_at=row["created_at"],
+        )
+
+    @staticmethod
+    def _voice_profile_from_row(row: sqlite3.Row) -> VoiceProfile:
+        return VoiceProfile(
+            id=row["id"],
+            label=row["label"],
+            engine_id=row["engine_id"],
+            kind=VoiceProfileKind(row["kind"]),
+            description=row["description"],
+            reference_audio_path=row["reference_audio_path"],
+            reference_text=row["reference_text"],
+            settings=_decode_mapping(row["settings_json"]),
+            metadata=_decode_mapping(row["metadata_json"]),
+            created_at=row["created_at"],
+            updated_at=row["updated_at"],
         )
 
     @staticmethod

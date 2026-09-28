@@ -8,6 +8,7 @@ from splicr.studio import (
     SqliteStudioStore,
     import_narrator_customizations,
     import_narrator_projects,
+    import_narrator_voices,
     scan_narrator_data,
 )
 
@@ -32,7 +33,20 @@ def _narrator_data(tmp_path: Path) -> Path:
             }
         ],
     )
-    _write_json(root / "narrator_settings.json", {"last_engine": "kokoro"})
+    _write_json(
+        root / "narrator_settings.json",
+        {
+            "last_engine": "kokoro",
+            "custom_voice_presets": [
+                {
+                    "label": "Announcer",
+                    "speaker": "Ryan",
+                    "instruct": "Bright and concise",
+                    "created": 1_700_000_001.0,
+                }
+            ],
+        },
+    )
     _write_json(root / "narrator_podcast.json", {"title": "A Show"})
     _write_json(root / "narrator_episodes.json", [{"title": "Episode 1"}])
     _write_json(root / "narrator_pronunciations.json", {"SQL": "sequel"})
@@ -111,6 +125,32 @@ def test_import_narrator_language_customizations_is_additive_and_idempotent(tmp_
     assert customizations.substitutions() == {
         "existing": "keep me",
         "form": "expanded",
+    }
+
+
+def test_import_narrator_voices_is_idempotent_and_keeps_assets_external(tmp_path) -> None:
+    root = _narrator_data(tmp_path)
+    snapshot = scan_narrator_data(root)
+    store = SqliteStudioStore(tmp_path / "splicr.sqlite3")
+    store.initialize()
+
+    first = import_narrator_voices(snapshot, store)
+    second = import_narrator_voices(snapshot, store)
+
+    assert first == second
+    assert len(first) == 3
+    profiles = store.list_voice_profiles()
+    assert {profile.kind.value for profile in profiles} == {"designed", "blend", "preset"}
+    assert {profile.engine_id for profile in profiles} == {"kokoro", "qwen3"}
+    assert all(profile.metadata["managed"] is False for profile in profiles)
+    qwen = next(profile for profile in profiles if profile.kind.value == "designed")
+    assert qwen.reference_audio_path == str(
+        (root / "voices" / "essayist" / "reference.wav").resolve()
+    )
+    preset = next(profile for profile in profiles if profile.kind.value == "preset")
+    assert preset.settings == {
+        "speaker": "Ryan",
+        "instructions": "Bright and concise",
     }
 
 

@@ -15,7 +15,17 @@ from splicr.pronunciation import TextCustomizationStore
 from splicr.storage import LocalJobStorage
 from splicr.store import SqliteJobStore
 
-from .domain import Artifact, ArtifactKind, Project, RenderPlan, RenderSegment, Take, TakeStatus
+from .domain import (
+    Artifact,
+    ArtifactKind,
+    Project,
+    RenderPlan,
+    RenderSegment,
+    Take,
+    TakeStatus,
+    VoiceProfile,
+    VoiceProfileKind,
+)
 from .store import SqliteStudioStore
 
 
@@ -76,6 +86,12 @@ class NarratorSnapshot:
 class ImportedNarratorProject:
     source_path: str
     project_id: str
+
+
+@dataclass(frozen=True, slots=True)
+class ImportedNarratorVoice:
+    source_key: str
+    profile_id: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -253,6 +269,121 @@ def import_narrator_projects(
             ),
         )
         imported.append(ImportedNarratorProject(item.source_path, project_id))
+    return imported
+
+
+def import_narrator_voices(
+    snapshot: NarratorSnapshot,
+    studio_store: SqliteStudioStore,
+) -> list[ImportedNarratorVoice]:
+    """Index legacy voice assets and presets without moving or rewriting them."""
+
+    imported: list[ImportedNarratorVoice] = []
+    for item in snapshot.voices:
+        if item.asset_path is None:
+            continue
+        source_key = str(item.metadata_path.resolve()).casefold()
+        profile_id = str(
+            uuid5(NAMESPACE_URL, f"splicr:{_NARRATOR_SOURCE_SYSTEM}:{source_key}:voice")
+        )
+        raw_kind = str(item.metadata.get("kind") or "")
+        if item.engine == "kokoro":
+            kind = VoiceProfileKind.BLEND
+        elif raw_kind == VoiceProfileKind.CLONED.value and item.metadata.get("reference_text"):
+            kind = VoiceProfileKind.CLONED
+        else:
+            kind = VoiceProfileKind.DESIGNED
+        description = str(item.metadata.get("description") or "")
+        label = str(
+            item.metadata.get("label")
+            or description
+            or item.metadata_path.parent.name
+            or item.metadata_path.stem
+        )
+        reference_text = item.metadata.get("reference_text")
+        timestamp = datetime.fromtimestamp(item.metadata_path.stat().st_mtime, tz=UTC).isoformat()
+        profile = VoiceProfile(
+            id=profile_id,
+            label=label,
+            engine_id=item.engine,
+            kind=kind,
+            description=description,
+            reference_audio_path=(
+                None if kind is VoiceProfileKind.BLEND else str(item.asset_path.resolve())
+            ),
+            reference_text=(str(reference_text) if reference_text else None),
+            settings=(dict(item.metadata) if kind is VoiceProfileKind.BLEND else {}),
+            metadata={
+                "legacy_source_system": _NARRATOR_SOURCE_SYSTEM,
+                "legacy_metadata_path": str(item.metadata_path.resolve()),
+                "legacy_asset_path": str(item.asset_path.resolve()),
+                "managed": False,
+                "legacy_voice_metadata": dict(item.metadata),
+            },
+            created_at=timestamp,
+            updated_at=timestamp,
+        )
+        studio_store.save_voice_profile(profile)
+        studio_store.record_import(
+            source_system=_NARRATOR_SOURCE_SYSTEM,
+            source_key=source_key,
+            entity_type="voice",
+            entity_id=profile_id,
+            fingerprint=_fingerprint(
+                {
+                    "metadata": item.metadata,
+                    "asset_path": str(item.asset_path.resolve()),
+                    "engine": item.engine,
+                }
+            ),
+        )
+        imported.append(ImportedNarratorVoice(source_key, profile_id))
+
+    presets = snapshot.settings.get("custom_voice_presets")
+    for index, raw_preset in enumerate(presets if isinstance(presets, list) else []):
+        if not isinstance(raw_preset, dict):
+            continue
+        label = str(raw_preset.get("label") or "").strip()
+        speaker = str(raw_preset.get("speaker") or "").strip()
+        if not label or not speaker:
+            continue
+        source_key = f"custom-preset:{label.casefold()}:{speaker.casefold()}"
+        profile_id = str(
+            uuid5(NAMESPACE_URL, f"splicr:{_NARRATOR_SOURCE_SYSTEM}:{source_key}:voice")
+        )
+        created = _timestamp(raw_preset.get("created", 0.0))
+        source_timestamp = (
+            created
+            or (snapshot.data_directory / "narrator_settings.json").stat().st_mtime
+        )
+        timestamp = datetime.fromtimestamp(source_timestamp, tz=UTC).isoformat()
+        profile = VoiceProfile(
+            id=profile_id,
+            label=label,
+            engine_id="qwen3",
+            kind=VoiceProfileKind.PRESET,
+            description=str(raw_preset.get("instruct") or ""),
+            settings={
+                "speaker": speaker,
+                "instructions": str(raw_preset.get("instruct") or ""),
+            },
+            metadata={
+                "legacy_source_system": _NARRATOR_SOURCE_SYSTEM,
+                "legacy_preset_index": index,
+                "managed": False,
+            },
+            created_at=timestamp,
+            updated_at=timestamp,
+        )
+        studio_store.save_voice_profile(profile)
+        studio_store.record_import(
+            source_system=_NARRATOR_SOURCE_SYSTEM,
+            source_key=source_key,
+            entity_type="voice",
+            entity_id=profile_id,
+            fingerprint=_fingerprint(raw_preset),
+        )
+        imported.append(ImportedNarratorVoice(source_key, profile_id))
     return imported
 
 

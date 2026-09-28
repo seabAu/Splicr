@@ -32,6 +32,15 @@ class ArtifactKind(StrEnum):
     MANIFEST = "manifest"
 
 
+class VoiceProfileKind(StrEnum):
+    """How a reusable voice is reproduced by its engine."""
+
+    DESIGNED = "designed"
+    CLONED = "cloned"
+    PRESET = "preset"
+    BLEND = "blend"
+
+
 @dataclass(frozen=True, slots=True)
 class Project:
     """User-authored source and metadata shared by all renders."""
@@ -151,3 +160,30 @@ class Artifact:
         if self.sha256 is not None:
             if len(self.sha256) != 64 or any(character not in hexdigits for character in self.sha256):
                 raise ValueError("artifact sha256 must be a 64-character hexadecimal digest")
+
+
+@dataclass(frozen=True, slots=True)
+class VoiceProfile:
+    """A reusable voice identity, independent of where its engine runs."""
+
+    id: str
+    label: str
+    engine_id: str
+    kind: VoiceProfileKind
+    description: str = ""
+    reference_audio_path: str | None = None
+    reference_text: str | None = None
+    settings: Mapping[str, JsonValue] = field(default_factory=dict)
+    metadata: Mapping[str, JsonValue] = field(default_factory=dict)
+    created_at: str = field(default_factory=utc_now)
+    updated_at: str = field(default_factory=utc_now)
+
+    def __post_init__(self) -> None:
+        _require_identifier(self.id, "voice profile id")
+        _require_identifier(self.label, "voice profile label")
+        _require_identifier(self.engine_id, "voice profile engine id")
+        if self.kind in {VoiceProfileKind.DESIGNED, VoiceProfileKind.CLONED}:
+            if not self.reference_audio_path:
+                raise ValueError("designed and cloned voices require reference audio")
+        if self.kind is VoiceProfileKind.CLONED and not (self.reference_text or "").strip():
+            raise ValueError("cloned voices require the exact reference transcript")

@@ -72,7 +72,8 @@ path. The repository still contains neither that environment nor its model cache
 
 The SPLICR SQLite store remains the authoritative durable execution store during migration. The
 additive `studio_projects`, `studio_render_plans`, `studio_render_segments`, `studio_takes`,
-`studio_artifacts`, and `studio_imports` tables now persist the shared hierarchy without changing
+`studio_artifacts`, `studio_voice_profiles`, and `studio_imports` tables now persist the shared
+hierarchy without changing
 legacy job tables. Foreign keys enforce project/plan/take ownership, render-plan rows are
 insert-only, and take artifact identifiers are derived from artifact rows rather than duplicated.
 
@@ -91,8 +92,9 @@ The same command can scan a supplied Narrator `narrator_data` directory. Its lib
 Studio projects with stable identifiers and retained source/config/output paths. Pronunciations and
 whole-word substitutions are copied additively into Studio's language store, without overwriting a
 current Studio rule. Settings, podcast, episode, job, Qwen voice, and Kokoro blend manifests are
-recognized without importing Narrator modules or touching their files. Voice/media adoption
-remains a later workspace migration; the scanner proves and preserves those external references.
+recognized without importing Narrator modules or touching their files. Qwen reference voices,
+Kokoro blends, and CustomVoice presets are adopted as Voice Profiles with stable identifiers.
+Their assets remain externally linked and are never deleted by Studio.
 
 Existing data is never modified in place:
 
@@ -109,8 +111,11 @@ progress, pause/resume/cancel, recent jobs, playback, and WAV download. Pronunci
 Kokoro/Misaki dictionary inside Kokoro's isolated environment, previews ordinary-word respellings,
 and manages overrides alongside provider-neutral substitutions. New Kokoro jobs freeze an exact
 dictionary snapshot in their persisted variables, so an edit cannot change a resumed book midway.
-Workspace navigation keeps mounted form state intact. Dialogue, timeline, audiogram, publishing,
-voice studio, component management, and conversion remain explicit migration slots.
+Voice Studio persists cloned/designed reference identities separately from reproducible engine
+presets, plays registered references, and safely distinguishes Studio-managed files from imported
+external assets. Workspace navigation keeps mounted form state intact. Direct Qwen voice design
+and audition will arrive with its isolated engine adapter. Dialogue, timeline, audiogram,
+publishing, component management, and conversion remain explicit migration slots.
 
 The React shell now owns the essential SPLICR management workflows as well. Profiles save and load
 the full source/delivery state plus an optional resumable take. The connection editor creates,

@@ -87,6 +87,27 @@ export const api = {
   providers: () => request("/v1/providers"),
   projects: () => request("/v1/studio/projects"),
   project: (id) => request(`/v1/studio/projects/${encodeURIComponent(id)}`),
+  voices: (engineId = "") =>
+    request(`/v1/studio/voices${engineId ? `?engine_id=${encodeURIComponent(engineId)}` : ""}`),
+  createReferenceVoice: ({ file, label, engineId, referenceText, description, kind = "cloned" }) => {
+    const body = new FormData();
+    body.append("file", file);
+    body.append("label", label);
+    body.append("engine_id", engineId);
+    body.append("reference_text", referenceText);
+    body.append("description", description);
+    body.append("kind", kind);
+    return request("/v1/studio/voices/reference", { method: "POST", body });
+  },
+  createVoicePreset: (payload) =>
+    request("/v1/studio/voices/presets", { method: "POST", body: JSON.stringify(payload) }),
+  updateVoice: (id, payload) =>
+    request(`/v1/studio/voices/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+  deleteVoice: (id) =>
+    request(`/v1/studio/voices/${encodeURIComponent(id)}`, { method: "DELETE" }),
   pronunciations: () => request("/v1/studio/pronunciations"),
   pronunciationStatus: () => request("/v1/studio/pronunciation/status"),
   pronunciationSearch: (query, limit = 150) =>
