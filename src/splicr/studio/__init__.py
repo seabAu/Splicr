@@ -19,6 +19,18 @@ from .engines import (
     engine_adapter_for_provider,
 )
 from .local_subprocess import LocalSubprocessEngineAdapter, LocalSubprocessSpec
+from .migration import (
+    ImportedJob,
+    ImportedNarratorProject,
+    NarratorProjectManifest,
+    NarratorSnapshot,
+    NarratorVoiceManifest,
+    import_narrator_projects,
+    import_splicr_job,
+    import_splicr_jobs,
+    scan_narrator_data,
+)
+from .store import ImportRecord, SqliteStudioStore
 
 __all__ = [
     "Artifact",
@@ -30,11 +42,22 @@ __all__ = [
     "EngineTransport",
     "LocalSubprocessEngineAdapter",
     "LocalSubprocessSpec",
+    "ImportRecord",
+    "ImportedJob",
+    "ImportedNarratorProject",
+    "NarratorProjectManifest",
+    "NarratorSnapshot",
+    "NarratorVoiceManifest",
     "Project",
     "ProviderEngineAdapter",
     "RenderPlan",
     "RenderSegment",
     "Take",
     "TakeStatus",
+    "SqliteStudioStore",
     "engine_adapter_for_provider",
+    "import_narrator_projects",
+    "import_splicr_job",
+    "import_splicr_jobs",
+    "scan_narrator_data",
 ]

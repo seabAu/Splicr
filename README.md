@@ -40,6 +40,8 @@ Despite the source document's use of “transcription,” this service performs 
 - Character-position progress and in-progress/completed playback in the browser studio
 - Studio profiles that restore the source text, resource revision, model, voice, direction,
   custom variables, split settings, and an optional durable in-progress job link
+- Additive Studio project/render-plan/take/artifact persistence plus an idempotent, read-only
+  compatibility importer for existing SPLICR jobs and Narrator library metadata
 
 Gemini remains available as a Preview provider. Deepgram Aura-2 and Inworld TTS-2 are also
 registered, and every provider's model and voice defaults can be changed through environment
@@ -83,6 +85,20 @@ uv run splicr synthesize .\input_document.md .\kokoro-reading.wav `
   --voice af_heart `
   --pace normal
 ```
+
+To populate the new Studio hierarchy from the current SPLICR data directory and an existing
+Narrator installation, stop active renders and run:
+
+```powershell
+uv run splicr migrate-studio `
+  --narrator-data 'C:\path\to\Narrator\narrator_data'
+```
+
+The command is repeatable. It adds Studio records to SPLICR's SQLite database, updates imported
+take status as legacy jobs advance, and reads Narrator's project and voice manifests without
+moving or modifying Narrator documents, media, environments, models, or voice assets. Omit
+`--narrator-data` to import only SPLICR jobs; add `--skip-splicr-jobs` to scan/import only the
+Narrator library index.
 
 The studio populates every control from `/v1/api-resources`. Use the adjacent **+** button to add a
 TTS-compatible JSON REST resource, or **Edit** to create a new immutable revision of an existing

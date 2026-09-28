@@ -21,6 +21,14 @@ from .domain import (
     TonePreset,
     VocalStyle,
 )
+from .storage import LocalJobStorage
+from .store import SqliteJobStore
+from .studio import (
+    SqliteStudioStore,
+    import_narrator_projects,
+    import_splicr_jobs,
+    scan_narrator_data,
+)
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -69,6 +77,21 @@ def _parser() -> argparse.ArgumentParser:
         help="read one password line from standard input (for controlled automation)",
     )
     auth_subparsers.add_parser("status", help="show whether authentication is configured")
+
+    migrate = subparsers.add_parser(
+        "migrate-studio",
+        help="import existing SPLICR jobs and optional Narrator metadata into Studio",
+    )
+    migrate.add_argument(
+        "--narrator-data",
+        type=Path,
+        help="path to an existing Narrator narrator_data directory (read-only)",
+    )
+    migrate.add_argument(
+        "--skip-splicr-jobs",
+        action="store_true",
+        help="only import Narrator metadata",
+    )
     return parser
 
 
@@ -153,6 +176,39 @@ def _manage_auth(args: argparse.Namespace) -> int:
     raise ValueError(f"unknown auth command: {args.auth_command}")
 
 
+def _migrate_studio(args: argparse.Namespace) -> int:
+    settings = Settings.from_env()
+    studio_store = SqliteStudioStore(settings.database_path)
+    studio_store.initialize()
+    imported_jobs = []
+    if not args.skip_splicr_jobs:
+        job_store = SqliteJobStore(settings.database_path)
+        job_store.initialize()
+        job_storage = LocalJobStorage(settings.jobs_dir)
+        job_storage.initialize()
+        imported_jobs = import_splicr_jobs(
+            job_store=job_store,
+            job_storage=job_storage,
+            studio_store=studio_store,
+        )
+
+    imported_projects = []
+    warnings: tuple[str, ...] = ()
+    if args.narrator_data is not None:
+        snapshot = scan_narrator_data(args.narrator_data)
+        imported_projects = import_narrator_projects(snapshot, studio_store)
+        warnings = snapshot.warnings
+
+    print(
+        "Studio migration complete: "
+        f"{len(imported_jobs)} SPLICR job(s), "
+        f"{len(imported_projects)} Narrator project(s)."
+    )
+    for warning in warnings:
+        print(f"Warning: {warning}", file=sys.stderr)
+    return 0
+
+
 def main() -> None:
     parser = _parser()
     args = parser.parse_args()
@@ -166,6 +222,8 @@ def main() -> None:
         raise SystemExit(asyncio.run(_synthesize_file(args)))
     if args.command == "auth":
         raise SystemExit(_manage_auth(args))
+    if args.command == "migrate-studio":
+        raise SystemExit(_migrate_studio(args))
     parser.error(f"unknown command: {args.command}")
 
 

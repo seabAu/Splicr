@@ -70,9 +70,22 @@ path. The repository still contains neither that environment nor its model cache
 
 ## Persistence and compatibility
 
-The SPLICR SQLite store remains the authoritative durable execution store during migration. New
-tables will be additive and versioned. Compatibility importers must be idempotent and retain links
-back to their source identifiers.
+The SPLICR SQLite store remains the authoritative durable execution store during migration. The
+additive `studio_projects`, `studio_render_plans`, `studio_render_segments`, `studio_takes`,
+`studio_artifacts`, and `studio_imports` tables now persist the shared hierarchy without changing
+legacy job tables. Foreign keys enforce project/plan/take ownership, render-plan rows are
+insert-only, and take artifact identifiers are derived from artifact rows rather than duplicated.
+
+`splicr migrate-studio` converts every existing SPLICR job into a deterministic Project, immutable
+Render Plan, and Take, then links a completed WAV as an Artifact when it exists. Import mappings
+and fingerprints make reruns idempotent while still allowing take status to catch up with a legacy
+job. A changed chunk/configuration is rejected instead of silently rewriting an imported plan.
+
+The same command can scan a supplied Narrator `narrator_data` directory. Its library entries become
+Studio projects with stable identifiers and retained source/config/output paths. Settings, podcast,
+episode, job, pronunciation, substitution, Qwen voice, and Kokoro blend manifests are recognized
+without importing Narrator modules or touching their files. Voice/media adoption remains a later
+workspace migration; the scanner proves and preserves those external references now.
 
 Existing data is never modified in place:
 
