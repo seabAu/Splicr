@@ -98,6 +98,21 @@ from .studio import (
     VoiceProfileKind,
     import_splicr_job,
 )
+from .studio.audiogram import (
+    AudiogramJob,
+    AudiogramJobKind,
+    AudiogramJobNotFoundError,
+    AudiogramJobService,
+    AudiogramJobStatus,
+    AudiogramJobStore,
+    AudiogramOutputFormat,
+    AudiogramRenderError,
+    AudiogramSource,
+    AudiogramSpec,
+    FfmpegAudiogramRenderer,
+    InvalidAudiogramJobStateError,
+    estimate_render_seconds,
+)
 from .studio.chat import ChatCompletionError, OpenAiChatCompleter
 from .studio.dialogue import (
     DialogueGenerationError,
@@ -1105,6 +1120,87 @@ class TimelineRevisionRequest(BaseModel):
         return value
 
 
+class AudiogramSpecPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source: AudiogramSource = AudiogramSource.WAVEFORM
+    width: int = Field(default=1280, ge=320, le=3840, multiple_of=2)
+    height: int = Field(default=720, ge=180, le=2160, multiple_of=2)
+    fps: int = Field(default=24, ge=12, le=60)
+    visualizer_height: int = Field(default=300, ge=64, le=2160)
+    vertical_position: float = Field(default=0.5, ge=0, le=1)
+    foreground_color: str = Field(default="#F4A259", pattern=r"^#[0-9a-fA-F]{6}$")
+    background_color: str = Field(default="#0B0D10", pattern=r"^#[0-9a-fA-F]{6}$")
+    waveform_mode: Literal["cline", "line", "p2p", "point"] = "cline"
+    amplitude_scale: Literal["lin", "sqrt", "cbrt", "log"] = "sqrt"
+    blur: float = Field(default=0, ge=0, le=20)
+    sharpen: float = Field(default=0, ge=0, le=1)
+    trail: bool = False
+    output_format: AudiogramOutputFormat = AudiogramOutputFormat.MP4
+    preset: Literal["ultrafast", "veryfast", "fast", "medium"] = "ultrafast"
+    crf: int = Field(default=20, ge=0, le=63)
+
+    def to_domain(self) -> AudiogramSpec:
+        try:
+            return AudiogramSpec(**self.model_dump())
+        except ValueError as error:
+            raise ValueError(str(error)) from error
+
+
+class AudiogramCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source_job_id: str = Field(min_length=1, max_length=64)
+    kind: AudiogramJobKind = AudiogramJobKind.EXPORT
+    spec: AudiogramSpecPayload = Field(default_factory=AudiogramSpecPayload)
+
+
+class AudiogramJobResponse(BaseModel):
+    id: str
+    source_job_id: str
+    project_id: str
+    take_id: str
+    kind: AudiogramJobKind
+    status: AudiogramJobStatus
+    spec: AudiogramSpecPayload
+    duration_seconds: float
+    render_seconds: float
+    progress: float
+    output_url: str | None
+    artifact_id: str | None
+    error_code: str | None
+    error_detail: str | None
+    cancel_requested: bool
+    created_at: str
+    updated_at: str
+
+    @classmethod
+    def from_domain(cls, job: AudiogramJob) -> "AudiogramJobResponse":
+        return cls(
+            id=job.id,
+            source_job_id=job.source_job_id,
+            project_id=job.project_id,
+            take_id=job.take_id,
+            kind=job.kind,
+            status=job.status,
+            spec=AudiogramSpecPayload(**job.spec.to_mapping()),
+            duration_seconds=job.duration_seconds,
+            render_seconds=job.render_seconds,
+            progress=job.progress,
+            output_url=(
+                f"/v1/studio/audiograms/jobs/{job.id}/file"
+                if job.status is AudiogramJobStatus.COMPLETED and job.output_path
+                else None
+            ),
+            artifact_id=job.artifact_id,
+            error_code=job.error_code,
+            error_detail=job.error_detail,
+            cancel_requested=job.cancel_requested,
+            created_at=job.created_at,
+            updated_at=job.updated_at,
+        )
+
+
 class PronunciationEntryResponse(BaseModel):
     word: str
     ipa: str
@@ -1650,6 +1746,7 @@ def create_app(
     service: SynthesisService | None = None,
     chat_resource_store: SqliteChatResourceStore | None = None,
     dialogue_script_service: DialogueScriptJobService | None = None,
+    audiogram_service: AudiogramJobService | None = None,
 ) -> FastAPI:
     resolved_settings = settings or Settings.from_env()
     synthesis = service or create_service(resolved_settings)
@@ -1657,6 +1754,15 @@ def create_app(
     profiles.initialize()
     studio = SqliteStudioStore(resolved_settings.database_path)
     studio.initialize()
+    audiograms = audiogram_service or AudiogramJobService(
+        store=AudiogramJobStore(resolved_settings.database_path),
+        source_store=synthesis.store,
+        source_storage=synthesis.storage,
+        studio_store=studio,
+        output_root=resolved_settings.data_dir / "studio" / "audiograms",
+        renderer=FfmpegAudiogramRenderer(),
+    )
+    audiograms.store.initialize()
     customizations = synthesis.customizations
     kokoro_tools = (
         KokoroToolClient(
@@ -1703,7 +1809,11 @@ def create_app(
         try:
             await dialogue_scripts.start()
             try:
-                yield
+                await audiograms.start()
+                try:
+                    yield
+                finally:
+                    await audiograms.stop()
             finally:
                 await dialogue_scripts.stop()
         finally:
@@ -1719,6 +1829,7 @@ def create_app(
     application.state.api_resource_store = resource_store
     application.state.chat_resource_store = chat_resources
     application.state.dialogue_script_service = dialogue_scripts
+    application.state.audiogram_service = audiograms
     application.state.error_event_store = synthesis.store
     application.state.studio_store = studio
     application.state.text_customization_store = customizations
@@ -2459,6 +2570,134 @@ def create_app(
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
         return job_response(revised, take_label="Timeline revision")
+
+    @application.get("/v1/studio/audiograms/capabilities", tags=["studio"])
+    async def get_audiogram_capabilities() -> dict[str, Any]:
+        defaults = AudiogramSpec()
+        return {
+            "ffmpeg_available": audiograms.ffmpeg_available,
+            "preview_seconds": 8,
+            "sources": [item.value for item in AudiogramSource],
+            "output_formats": [item.value for item in AudiogramOutputFormat],
+            "presets": ["ultrafast", "veryfast", "fast", "medium"],
+            "waveform_modes": ["cline", "line", "p2p", "point"],
+            "amplitude_scales": ["lin", "sqrt", "cbrt", "log"],
+            "defaults": AudiogramSpecPayload(**defaults.to_mapping()).model_dump(mode="json"),
+        }
+
+    @application.get("/v1/studio/audiograms/sources", tags=["studio"])
+    async def list_audiogram_sources(response: Response) -> list[dict[str, Any]]:
+        response.headers["Cache-Control"] = "no-store"
+        return audiograms.list_sources()
+
+    @application.post("/v1/studio/audiograms/estimate", tags=["studio"])
+    async def estimate_audiogram(request: AudiogramCreateRequest) -> dict[str, float]:
+        try:
+            source = synthesis.get_job(request.source_job_id)
+            source_path = synthesis.output_path(source.id)
+            with wave.open(str(source_path), "rb") as wav_file:
+                duration = wav_file.getnframes() / wav_file.getframerate()
+            spec = request.spec.to_domain()
+        except JobNotFoundError as error:
+            raise HTTPException(status_code=404, detail="source take not found") from error
+        except (ValueError, FileNotFoundError, wave.Error) as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        render_duration = min(8, duration) if request.kind is AudiogramJobKind.PREVIEW else duration
+        return {
+            "audio_seconds": render_duration,
+            "estimated_render_seconds": estimate_render_seconds(spec, render_duration),
+        }
+
+    @application.get(
+        "/v1/studio/audiograms/jobs",
+        response_model=list[AudiogramJobResponse],
+        tags=["studio"],
+    )
+    async def list_audiogram_jobs(
+        response: Response,
+        limit: int = Query(default=100, ge=1, le=500),
+    ) -> list[AudiogramJobResponse]:
+        response.headers["Cache-Control"] = "no-store"
+        return [AudiogramJobResponse.from_domain(job) for job in audiograms.store.list(limit=limit)]
+
+    @application.post(
+        "/v1/studio/audiograms/jobs",
+        response_model=AudiogramJobResponse,
+        status_code=status.HTTP_202_ACCEPTED,
+        tags=["studio"],
+    )
+    async def create_audiogram_job(request: AudiogramCreateRequest) -> AudiogramJobResponse:
+        try:
+            job = await audiograms.submit(
+                request.source_job_id,
+                request.spec.to_domain(),
+                kind=request.kind,
+            )
+        except JobNotFoundError as error:
+            raise HTTPException(status_code=404, detail="source take not found") from error
+        except AudiogramRenderError as error:
+            raise HTTPException(status_code=503, detail=str(error)) from error
+        except FileNotFoundError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        return AudiogramJobResponse.from_domain(job)
+
+    @application.get(
+        "/v1/studio/audiograms/jobs/{job_id}",
+        response_model=AudiogramJobResponse,
+        tags=["studio"],
+    )
+    async def get_audiogram_job(job_id: str, response: Response) -> AudiogramJobResponse:
+        response.headers["Cache-Control"] = "no-store"
+        try:
+            return AudiogramJobResponse.from_domain(audiograms.store.get(job_id))
+        except AudiogramJobNotFoundError as error:
+            raise HTTPException(status_code=404, detail="audiogram job not found") from error
+
+    @application.post(
+        "/v1/studio/audiograms/jobs/{job_id}/cancel",
+        response_model=AudiogramJobResponse,
+        tags=["studio"],
+    )
+    async def cancel_audiogram_job(job_id: str) -> AudiogramJobResponse:
+        try:
+            return AudiogramJobResponse.from_domain(await audiograms.cancel(job_id))
+        except AudiogramJobNotFoundError as error:
+            raise HTTPException(status_code=404, detail="audiogram job not found") from error
+        except InvalidAudiogramJobStateError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+
+    @application.post(
+        "/v1/studio/audiograms/jobs/{job_id}/retry",
+        response_model=AudiogramJobResponse,
+        tags=["studio"],
+    )
+    async def retry_audiogram_job(job_id: str) -> AudiogramJobResponse:
+        try:
+            return AudiogramJobResponse.from_domain(await audiograms.retry(job_id))
+        except AudiogramJobNotFoundError as error:
+            raise HTTPException(status_code=404, detail="audiogram job not found") from error
+        except InvalidAudiogramJobStateError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+
+    @application.get("/v1/studio/audiograms/jobs/{job_id}/file", tags=["studio"])
+    async def get_audiogram_file(job_id: str) -> FileResponse:
+        try:
+            job = audiograms.store.get(job_id)
+            path = audiograms.output_for(job_id)
+        except AudiogramJobNotFoundError as error:
+            raise HTTPException(status_code=404, detail="audiogram job not found") from error
+        except InvalidAudiogramJobStateError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        except FileNotFoundError as error:
+            raise HTTPException(status_code=500, detail=str(error)) from error
+        media_type = "video/mp4" if path.suffix.casefold() == ".mp4" else "video/webm"
+        return FileResponse(
+            path,
+            media_type=media_type,
+            filename=f"splicr-{job.kind.value}-{job.id}.{job.spec.output_format.value}",
+        )
 
     @application.get(
         "/v1/studio/voices",

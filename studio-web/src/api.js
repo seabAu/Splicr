@@ -150,6 +150,25 @@ export const api = {
       `/v1/studio/timeline/jobs/${encodeURIComponent(id)}/segments/${segmentIndex}/revise`,
       { method: "POST", body: JSON.stringify({ text }) },
     ),
+  audiogramCapabilities: () => request("/v1/studio/audiograms/capabilities"),
+  audiogramSources: () => request("/v1/studio/audiograms/sources"),
+  audiogramJobs: () => request("/v1/studio/audiograms/jobs"),
+  audiogramJob: (id) =>
+    request(`/v1/studio/audiograms/jobs/${encodeURIComponent(id)}`),
+  estimateAudiogram: (payload) =>
+    request("/v1/studio/audiograms/estimate", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  createAudiogram: (payload) =>
+    request("/v1/studio/audiograms/jobs", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  audiogramJobAction: (id, action) =>
+    request(`/v1/studio/audiograms/jobs/${encodeURIComponent(id)}/${action}`, {
+      method: "POST",
+    }),
   preview: (payload) =>
     request("/v1/speech/preview", { method: "POST", body: JSON.stringify(payload) }),
   createJob: (payload) =>

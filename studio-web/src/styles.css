@@ -673,3 +673,69 @@ button:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important
   .voice-fields.two, .voice-facts { grid-template-columns: 1fr; }
   .voice-delete-row { align-items: stretch; flex-direction: column; }
 }
+
+/* Audiogram workspace */
+.audiogram-workspace { max-width: 1540px; margin: 0 auto; padding: 28px 32px 72px; }
+.audiogram-header { align-items: end; }
+.audiogram-header > div > p:last-child { max-width: 720px; margin: 10px 0 0; color: var(--muted); font-size: 0.76rem; line-height: 1.55; }
+.audiogram-source-picker { width: min(520px, 44vw); }
+.audiogram-layout { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(330px, 0.72fr); gap: 18px; align-items: start; }
+.audiogram-stage-stack { min-width: 0; display: grid; gap: 18px; }
+.audiogram-stage, .audiogram-controls, .audiogram-job-card { box-shadow: none; }
+.audiogram-canvas-shell { position: relative; width: 100%; overflow: hidden; border: 1px solid #353931; border-radius: 15px; background: #080908; box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.35); }
+.audiogram-canvas-shell svg { display: block; width: 100%; height: 100%; }
+.audiogram-canvas-shell > span { position: absolute; left: 12px; bottom: 11px; display: flex; align-items: center; gap: 6px; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 20px; background: rgba(8, 9, 8, 0.7); color: rgba(255, 255, 255, 0.66); padding: 5px 9px; backdrop-filter: blur(10px); font-size: 0.58rem; }
+.audiogram-render-bar { display: grid; grid-template-columns: minmax(190px, 1fr) auto auto; gap: 9px; align-items: center; margin-top: 15px; }
+.audiogram-render-bar > div { min-width: 0; display: flex; align-items: center; gap: 9px; color: var(--accent); }
+.audiogram-render-bar > div > span { min-width: 0; display: grid; gap: 2px; color: var(--subtle); font-size: 0.58rem; }
+.audiogram-render-bar > div strong { color: #e8e9e3; font-size: 0.68rem; }
+.audiogram-controls { position: sticky; top: 20px; }
+.audiogram-control-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px; }
+.audiogram-control-grid label { min-width: 0; display: grid; gap: 6px; color: #c8cac0; font-size: 0.64rem; font-weight: 650; }
+.audiogram-control-grid label > span { display: flex; justify-content: space-between; gap: 8px; }
+.audiogram-control-grid label > span strong { color: var(--accent); font-size: 0.61rem; }
+.audiogram-control-grid .wide { grid-column: 1 / -1; }
+.audiogram-control-grid select, .audiogram-control-grid input:not([type="range"]):not([type="checkbox"]) { width: 100%; min-height: 39px; border: 1px solid var(--line); border-radius: 9px; outline: 0; background: #10110f; color: #ecece7; padding: 7px 9px; }
+.audiogram-control-grid input[type="color"] { padding: 4px 6px; cursor: pointer; }
+.audiogram-control-grid input[type="range"] { width: 100%; accent-color: var(--accent); }
+.audiogram-control-grid label.check { grid-template-columns: auto minmax(0, 1fr); align-items: center; border: 1px solid var(--line-soft); border-radius: 9px; background: #121310; padding: 10px; cursor: pointer; }
+.audiogram-control-grid label.check span { justify-content: flex-start; color: var(--muted); font-weight: 500; }
+.audiogram-control-grid label.check input { accent-color: var(--accent); }
+.audiogram-parity-note { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 9px; margin-top: 14px; border-top: 1px solid var(--line-soft); padding-top: 13px; color: var(--accent); }
+.audiogram-parity-note p { margin: 0; color: var(--subtle); font-size: 0.62rem; line-height: 1.55; }
+.audiogram-parity-note strong { color: #dfe2d7; }
+.audiogram-job-card { border-color: #3a412f; }
+.audiogram-job-card.status-failed, .audiogram-job-card.status-cancelled { border-color: rgba(255, 129, 123, 0.3); }
+.audiogram-job-heading { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 11px; }
+.audiogram-job-heading h2 { margin: 3px 0 0; text-transform: capitalize; font-size: 1rem; }
+.audiogram-job-heading > strong { color: var(--accent); font-size: 1rem; }
+.render-kind-icon { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; color: var(--accent); background: var(--accent-soft); }
+.audiogram-job-meta { display: flex; align-items: center; gap: 6px; margin: 9px 0 0; color: var(--subtle); font-size: 0.64rem; }
+.audiogram-player { width: 100%; max-height: 480px; margin-top: 13px; border-radius: 11px; background: #070807; }
+.audiogram-job-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.audiogram-runtime-warning { margin: -10px 0 18px; border: 1px solid rgba(255, 166, 110, 0.3); border-radius: 11px; background: rgba(255, 166, 110, 0.06); color: #ffc293; padding: 11px 13px; font-size: 0.7rem; }
+.audiogram-empty { min-height: 290px; display: flex; align-items: center; justify-content: center; gap: 18px; padding: 38px; }
+.audiogram-empty > svg { color: var(--accent); }
+.audiogram-empty > div { max-width: 610px; }
+.audiogram-empty h2 { margin: 0 0 7px; }
+.audiogram-empty p { margin: 0; color: var(--muted); line-height: 1.55; font-size: 0.74rem; }
+.audiogram-empty strong { display: block; margin-top: 9px; color: #ffc293; font-size: 0.68rem; }
+
+@media (max-width: 1120px) {
+  .audiogram-layout { grid-template-columns: 1fr; }
+  .audiogram-controls { position: static; }
+  .audiogram-control-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .audiogram-control-grid .wide { grid-column: span 3; }
+}
+
+@media (max-width: 760px) {
+  .audiogram-workspace { padding: 22px 15px 56px; }
+  .audiogram-header { align-items: stretch; flex-direction: column; }
+  .audiogram-source-picker { width: 100%; }
+  .audiogram-render-bar { grid-template-columns: 1fr; }
+  .audiogram-control-grid { grid-template-columns: 1fr; }
+  .audiogram-control-grid .wide { grid-column: auto; }
+  .audiogram-job-actions { align-items: stretch; flex-direction: column; }
+  .audiogram-job-actions > * { width: 100%; }
+  .audiogram-empty { align-items: flex-start; flex-direction: column; padding: 24px; }
+}

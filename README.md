@@ -67,7 +67,9 @@ same reference clip, transcript, speaker, and settings.
 
 ## Run locally
 
-Requirements: Python 3.11+ and [uv](https://docs.astral.sh/uv/).
+Requirements: Python 3.11+, [uv](https://docs.astral.sh/uv/), and
+[FFmpeg](https://ffmpeg.org/) on `PATH` for audiogram preview and video export. The Docker image
+includes FFmpeg.
 
 ```powershell
 Copy-Item .env.example .env
@@ -80,7 +82,9 @@ Open `http://127.0.0.1:8000/studio/` for the new React Studio shell. Its Narrate
 production SPLICR API for document import, chunk preflight, synthesis, live progress, checkpoint
 controls, playback, download, profiles, API-resource configuration, diagnostics, and automatic
 Library persistence. Its Pronunciation workspace edits Kokoro overrides and shared substitutions;
-Voice Studio manages reusable local voice identities and reference recordings.
+Voice Studio manages reusable local voice identities and reference recordings. Its Audiogram
+workspace turns completed takes into checkpointed MP4 or WebM render jobs with a live composition
+preview, cancellation, retry, restart recovery, and final video artifacts in the Studio library.
 The established interface remains at `http://127.0.0.1:8000/` while the
 remaining Narrator workspaces are migrated. The generated interactive API remains at
 `http://127.0.0.1:8000/docs`.

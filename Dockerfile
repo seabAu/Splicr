@@ -36,7 +36,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     SPLICR_DATA_DIR=/data
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ca-certificates && \
+    apt-get install -y --no-install-recommends ca-certificates ffmpeg && \
     if [ "$INSTALL_LEGACY_DOC_SUPPORT" = "1" ]; then \
         apt-get install -y --no-install-recommends libreoffice-writer; \
     fi && \
