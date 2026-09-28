@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from splicr.domain import DeliveryControls, JobStatus
+from splicr.domain import SEGMENT_OPTIONS_VARIABLE, DeliveryControls, JobStatus
 from splicr.storage import LocalJobStorage
 from splicr.store import SqliteJobStore
 from splicr.studio import SqliteStudioStore, TakeStatus, import_splicr_job
@@ -62,6 +62,87 @@ def test_import_splicr_job_builds_studio_hierarchy_idempotently(tmp_path) -> Non
         assert connection.execute("SELECT COUNT(*) FROM studio_projects").fetchone()[0] == 1
         assert connection.execute("SELECT COUNT(*) FROM studio_render_plans").fetchone()[0] == 1
         assert connection.execute("SELECT COUNT(*) FROM studio_takes").fetchone()[0] == 1
+
+
+def test_import_preserves_segment_voice_and_speaker_options(tmp_path) -> None:
+    database = tmp_path / "splicr.sqlite3"
+    job_store = SqliteJobStore(database)
+    job_store.initialize()
+    storage = LocalJobStorage(tmp_path / "jobs")
+    storage.initialize()
+    studio_store = SqliteStudioStore(database)
+    studio_store.initialize()
+    job_store.create_job_with_chunks(
+        job_id="dialogue-job",
+        provider="qwen3-local",
+        model="qwen-model",
+        voice="host-profile",
+        instructions="Warm and curious.",
+        controls=DeliveryControls(),
+        resource_revision=4,
+        variables={
+            "shared": "kept",
+            SEGMENT_OPTIONS_VARIABLE: [
+                {
+                    "model": "qwen-model",
+                    "voice": "host-profile",
+                    "instructions": "Warm and curious.",
+                    "controls": {
+                        "tone": "warm",
+                        "pace": "normal",
+                        "vocal_style": "conversational",
+                        "nonverbal_frequency": "never",
+                    },
+                    "variables": {"temperature": 0.6},
+                    "session_key": "host-session",
+                    "segment_index": 0,
+                    "speaker": "Person1",
+                },
+                {
+                    "model": "qwen-model",
+                    "voice": "guest-profile",
+                    "instructions": "Measured and precise.",
+                    "controls": {
+                        "tone": "serious",
+                        "pace": "slow",
+                        "vocal_style": "narrative",
+                        "nonverbal_frequency": "never",
+                    },
+                    "variables": {"temperature": 0.2},
+                    "session_key": "guest-session",
+                    "segment_index": 1,
+                    "speaker": "Person2",
+                },
+            ],
+        },
+        chunks=["Welcome to the show.", "Thank you for having me."],
+    )
+    storage.write_source(
+        "dialogue-job",
+        "Welcome to the show.\n\nThank you for having me.",
+    )
+
+    imported = import_splicr_job(
+        job_id="dialogue-job",
+        job_store=job_store,
+        job_storage=storage,
+        studio_store=studio_store,
+        take_label="Dialogue take",
+    )
+
+    plan = studio_store.get_render_plan(imported.render_plan_id or "")
+    take = studio_store.get_take(imported.take_id or "")
+    assert [segment.voice_id for segment in plan.segments] == [
+        "host-profile",
+        "guest-profile",
+    ]
+    assert [segment.speaker for segment in plan.segments] == ["Person1", "Person2"]
+    assert plan.segments[0].instructions == "Warm and curious."
+    assert plan.segments[1].settings["source_segment_index"] == 1
+    assert plan.segments[1].settings["session_key"] == "guest-session"
+    assert plan.segments[1].settings["variables"] == {"temperature": 0.2}
+    assert SEGMENT_OPTIONS_VARIABLE not in plan.segments[0].settings["variables"]
+    assert take.label == "Dialogue take"
 
 
 def test_import_resynchronizes_take_and_adds_completed_output(tmp_path) -> None:

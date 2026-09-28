@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Sequence
 import contextlib
 import hashlib
+import json
 import logging
 import os
 import random
@@ -23,15 +25,19 @@ from .diagnostics import (
 )
 from .domain import (
     CANONICAL_AUDIO_FORMAT,
+    ChunkRecord,
     ChunkStatus,
     DeliveryControls,
     ErrorEventDraft,
     JobErrorDetail,
     JobRecord,
     JobStatus,
+    JsonValue,
     NonverbalFrequency,
     ProviderError,
+    SEGMENT_OPTIONS_VARIABLE,
     SpeechPace,
+    SynthesisSegment,
     SynthesisOptions,
     TonePreset,
     TtsProvider,
@@ -55,6 +61,94 @@ from .studio.engines import (
     EngineSessionContext,
     engine_adapter_for_provider,
 )
+
+
+def _controls_payload(controls: DeliveryControls) -> dict[str, JsonValue]:
+    return {
+        "tone": controls.tone.value,
+        "pace": controls.pace.value,
+        "vocal_style": controls.vocal_style.value,
+        "nonverbal_frequency": controls.nonverbal_frequency.value,
+    }
+
+
+def _controls_from_payload(payload: object) -> DeliveryControls:
+    if not isinstance(payload, Mapping):
+        raise ValueError("persisted segment controls are invalid")
+    try:
+        return DeliveryControls(
+            tone=TonePreset(str(payload.get("tone", TonePreset.NEUTRAL.value))),
+            pace=SpeechPace(str(payload.get("pace", SpeechPace.NORMAL.value))),
+            vocal_style=VocalStyle(
+                str(payload.get("vocal_style", VocalStyle.NATURAL.value))
+            ),
+            nonverbal_frequency=NonverbalFrequency(
+                str(
+                    payload.get(
+                        "nonverbal_frequency",
+                        NonverbalFrequency.NEVER.value,
+                    )
+                )
+            ),
+        )
+    except ValueError as error:
+        raise ValueError("persisted segment controls contain an unknown value") from error
+
+
+def _options_session_key(options: SynthesisOptions) -> str:
+    payload = {
+        "model": options.model,
+        "voice": options.voice,
+        "instructions": options.instructions,
+        "controls": _controls_payload(options.controls),
+        "variables": options.variables,
+    }
+    encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def _segment_options_payload(
+    options: SynthesisOptions,
+    *,
+    segment_index: int,
+    speaker: str | None,
+) -> dict[str, JsonValue]:
+    return {
+        "model": options.model,
+        "voice": options.voice,
+        "instructions": options.instructions,
+        "controls": _controls_payload(options.controls),
+        "variables": dict(options.variables),
+        "session_key": _options_session_key(options),
+        "segment_index": segment_index,
+        "speaker": speaker,
+    }
+
+
+def _options_from_segment_payload(payload: object) -> tuple[SynthesisOptions, str]:
+    if not isinstance(payload, Mapping):
+        raise ValueError("persisted segment options are invalid")
+    model = str(payload.get("model") or "").strip()
+    voice = str(payload.get("voice") or "").strip()
+    session_key = str(payload.get("session_key") or "").strip()
+    if not model or not voice or not session_key:
+        raise ValueError("persisted segment options are incomplete")
+    instructions_value = payload.get("instructions")
+    if instructions_value is not None and not isinstance(instructions_value, str):
+        raise ValueError("persisted segment instructions are invalid")
+    variables = payload.get("variables")
+    if not isinstance(variables, Mapping):
+        raise ValueError("persisted segment variables are invalid")
+    return (
+        SynthesisOptions(
+            model=model,
+            voice=voice,
+            instructions=instructions_value,
+            controls=_controls_from_payload(payload.get("controls")),
+            variables=dict(variables),
+        ),
+        session_key,
+    )
 
 
 logger = logging.getLogger(__name__)
@@ -181,6 +275,121 @@ class SynthesisService:
             )
         except Exception:
             logger.exception("Failed to persist job %s", job_id)
+            raise
+
+        await self._queue.put(job_id)
+        return self.store.get_job(job_id)
+
+    async def submit_segments(
+        self,
+        *,
+        segments: Sequence[SynthesisSegment],
+        provider_name: str,
+        resource_revision: int | None = None,
+        source_text: str | None = None,
+        split_strategy: SplitStrategy = SplitStrategy.SEMANTIC,
+        remove_numeric_citations: bool = False,
+    ) -> JobRecord:
+        """Submit ordered, independently voiced segments as one resumable audio job."""
+
+        if not segments:
+            raise ValueError("a segmented job must contain at least one segment")
+        original_source = source_text or "\n\n".join(segment.text.strip() for segment in segments)
+        if len(original_source.encode("utf-8")) > self.settings.max_source_bytes:
+            raise ValueError(
+                f"text exceeds the {self.settings.max_source_bytes}-byte source limit"
+            )
+        if word_count(original_source) > self.settings.max_source_words:
+            raise ValueError(
+                f"text exceeds the {self.settings.max_source_words}-word source limit"
+            )
+
+        chunk_texts: list[str] = []
+        chunk_options: list[JsonValue] = []
+        first_options: SynthesisOptions | None = None
+        canonical_provider_name: str | None = None
+        for segment_index, segment in enumerate(segments):
+            if SEGMENT_OPTIONS_VARIABLE in segment.variables:
+                raise ValueError(f"{SEGMENT_OPTIONS_VARIABLE} is managed by segmented jobs")
+            prepared_text = preprocess_text(
+                segment.text,
+                remove_numeric_citations=remove_numeric_citations,
+            ).text
+            if not prepared_text.strip():
+                raise ValueError(
+                    f"segment {segment_index + 1} contains no speakable content after preprocessing"
+                )
+            synthesis_text, _ = apply_substitutions(
+                prepared_text,
+                self.customizations.substitutions(),
+            )
+            provider, options, policy = self._prepare_request(
+                text=synthesis_text,
+                provider_name=provider_name,
+                model=segment.model,
+                voice=segment.voice,
+                instructions=segment.instructions,
+                controls=segment.controls,
+                variables=segment.variables,
+                resource_revision=resource_revision,
+            )
+            info = provider.info
+            if canonical_provider_name is None:
+                canonical_provider_name = info.name
+            elif canonical_provider_name != info.name:
+                raise ValueError("all segments in one job must use the same provider")
+            if info.name == "kokoro-local":
+                snapshot = self.customizations.pronunciation_snapshot()
+                variables_with_snapshot = dict(options.variables)
+                variables_with_snapshot[PRONUNCIATION_VARIABLE] = (
+                    self.customizations.real_pronunciations(snapshot)
+                )
+                variables_with_snapshot[PRONUNCIATION_REVISION_VARIABLE] = (
+                    self.customizations.pronunciation_revision(snapshot)
+                )
+                options = replace(options, variables=variables_with_snapshot)
+            synthesis_text = annotate_nonverbal_cues(
+                synthesis_text,
+                options.controls.nonverbal_frequency,
+                info.capabilities.nonverbal_cues,
+            )
+            plan = plan_chunks(synthesis_text, policy, split_strategy)
+            if first_options is None:
+                first_options = options
+            for chunk in plan.chunks:
+                chunk_texts.append(chunk.text)
+                chunk_options.append(
+                    _segment_options_payload(
+                        options,
+                        segment_index=segment_index,
+                        speaker=segment.speaker,
+                    )
+                )
+
+        if first_options is None or canonical_provider_name is None:
+            raise RuntimeError("segmented job preparation produced no synthesis options")
+        job_variables = dict(first_options.variables)
+        job_variables[SEGMENT_OPTIONS_VARIABLE] = chunk_options
+        job_id = uuid.uuid4().hex
+        self.storage.write_source(job_id, original_source)
+        try:
+            self.store.create_job_with_chunks(
+                job_id=job_id,
+                provider=canonical_provider_name,
+                model=first_options.model,
+                voice=first_options.voice,
+                instructions=first_options.instructions,
+                controls=first_options.controls,
+                resource_revision=(
+                    resource_revision
+                    if resource_revision is not None
+                    else self._current_provider_revision(canonical_provider_name)
+                ),
+                variables=job_variables,
+                chunks=chunk_texts,
+            )
+        except Exception:
+            logger.exception("Failed to persist segmented job %s", job_id)
             raise
 
         await self._queue.put(job_id)
@@ -472,17 +681,38 @@ class SynthesisService:
                 ),
             )
             retry_policy = self._retry_policy_for_job(job.provider, job.resource_revision)
+            default_variables = dict(job.variables)
+            raw_segment_options = default_variables.pop(SEGMENT_OPTIONS_VARIABLE, None)
             options = SynthesisOptions(
                 model=job.model,
                 voice=job.voice,
                 instructions=job.instructions,
                 controls=job.controls,
-                variables=job.variables,
+                variables=default_variables,
             )
+            work_items: list[tuple[ChunkRecord, SynthesisOptions, str]] = [
+                (chunk, options, "default") for chunk in chunks
+            ]
+            if raw_segment_options is not None:
+                if not isinstance(raw_segment_options, list) or len(raw_segment_options) != len(
+                    chunks
+                ):
+                    raise ValueError(
+                        "persisted segment options do not match the job's chunk count"
+                    )
+                work_items = []
+                session_order: dict[str, int] = {}
+                for chunk, payload in zip(chunks, raw_segment_options, strict=True):
+                    chunk_options, session_key = _options_from_segment_payload(payload)
+                    session_order.setdefault(session_key, len(session_order))
+                    work_items.append((chunk, chunk_options, session_key))
+                work_items.sort(
+                    key=lambda item: (session_order[item[2]], item[0].index)
+                )
             admitted_pcm_bytes = 0
             async with contextlib.AsyncExitStack() as session_stack:
                 session: EngineSession | None = None
-                for chunk in chunks:
+                for chunk, chunk_options, _session_key in work_items:
                     self._ensure_running(job_id)
                     active_chunk_index = chunk.index
                     prior_attempts = chunk.attempts
@@ -530,7 +760,7 @@ class SynthesisService:
                         chunk.text,
                         engine,
                         session,
-                        options,
+                        chunk_options,
                         prior_attempts,
                         retry_policy,
                     )

@@ -10,7 +10,13 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping
 from uuid import NAMESPACE_URL, uuid5
 
-from splicr.domain import ChunkRecord, JobRecord, JobStatus, JsonValue
+from splicr.domain import (
+    SEGMENT_OPTIONS_VARIABLE,
+    ChunkRecord,
+    JobRecord,
+    JobStatus,
+    JsonValue,
+)
 from splicr.pronunciation import TextCustomizationStore
 from splicr.storage import LocalJobStorage
 from splicr.store import SqliteJobStore
@@ -432,6 +438,55 @@ def _plan_payload(job: JobRecord, chunks: Iterable[ChunkRecord]) -> dict[str, An
     }
 
 
+def _render_segment_options(
+    job: JobRecord,
+    chunk_index: int,
+) -> tuple[str, str | None, str | None, dict[str, JsonValue]]:
+    base_variables = dict(job.variables)
+    raw_options = base_variables.pop(SEGMENT_OPTIONS_VARIABLE, None)
+    entry = (
+        raw_options[chunk_index]
+        if isinstance(raw_options, list)
+        and chunk_index < len(raw_options)
+        and isinstance(raw_options[chunk_index], Mapping)
+        else None
+    )
+    if entry is None:
+        settings: dict[str, JsonValue] = {
+            "model": job.model,
+            "controls": _controls(job),
+            "variables": base_variables,
+            "legacy_chunk_index": chunk_index,
+        }
+        if job.resource_revision is not None:
+            settings["resource_revision"] = job.resource_revision
+        return job.voice, job.instructions, None, settings
+
+    model = str(entry.get("model") or job.model)
+    voice = str(entry.get("voice") or job.voice)
+    instructions_value = entry.get("instructions")
+    instructions = instructions_value if isinstance(instructions_value, str) else None
+    speaker_value = entry.get("speaker")
+    speaker = speaker_value if isinstance(speaker_value, str) and speaker_value else None
+    controls = entry.get("controls")
+    variables = entry.get("variables")
+    settings = {
+        "model": model,
+        "controls": dict(controls) if isinstance(controls, Mapping) else _controls(job),
+        "variables": dict(variables) if isinstance(variables, Mapping) else base_variables,
+        "legacy_chunk_index": chunk_index,
+    }
+    source_segment_index = entry.get("segment_index")
+    if isinstance(source_segment_index, int):
+        settings["source_segment_index"] = source_segment_index
+    session_key = entry.get("session_key")
+    if isinstance(session_key, str) and session_key:
+        settings["session_key"] = session_key
+    if job.resource_revision is not None:
+        settings["resource_revision"] = job.resource_revision
+    return voice, instructions, speaker, settings
+
+
 def _source_and_spans(
     source_text: str,
     chunks: list[ChunkRecord],
@@ -554,27 +609,27 @@ def import_splicr_job(
     plan_record = studio_store.get_import_record(_SOURCE_SYSTEM, job.id, "render_plan")
     if plan_record is None:
         plan_id = _stable_id(job.id, f"render-plan:{plan_fingerprint}")
-        settings: dict[str, JsonValue] = {
-            "model": job.model,
-            "controls": _controls(job),
-            "variables": dict(job.variables),
-        }
-        if job.resource_revision is not None:
-            settings["resource_revision"] = job.resource_revision
-        segments = tuple(
-            RenderSegment(
-                id=_stable_id(job.id, f"segment:{chunk.index}"),
-                ordinal=ordinal,
-                text=chunk.text,
-                source_start=spans[ordinal][0],
-                source_end=spans[ordinal][1],
-                engine_id=job.provider,
-                voice_id=job.voice,
-                instructions=job.instructions,
-                settings={**settings, "legacy_chunk_index": chunk.index},
+        segment_rows: list[RenderSegment] = []
+        for ordinal, chunk in enumerate(chunks):
+            voice, instructions, speaker, settings = _render_segment_options(
+                job,
+                chunk.index,
             )
-            for ordinal, chunk in enumerate(chunks)
-        )
+            segment_rows.append(
+                RenderSegment(
+                    id=_stable_id(job.id, f"segment:{chunk.index}"),
+                    ordinal=ordinal,
+                    text=chunk.text,
+                    source_start=spans[ordinal][0],
+                    source_end=spans[ordinal][1],
+                    engine_id=job.provider,
+                    voice_id=voice,
+                    speaker=speaker,
+                    instructions=instructions,
+                    settings=settings,
+                )
+            )
+        segments = tuple(segment_rows)
         plan = RenderPlan(
             id=plan_id,
             project_id=project_id,

@@ -7,6 +7,7 @@ from typing import Mapping, Protocol, TypeAlias
 
 
 JsonValue: TypeAlias = None | bool | int | float | str | list["JsonValue"] | dict[str, "JsonValue"]
+SEGMENT_OPTIONS_VARIABLE = "__splicr_segment_options"
 
 
 def utc_now() -> str:
@@ -138,6 +139,23 @@ class SynthesisOptions:
     instructions: str | None = None
     controls: DeliveryControls = field(default_factory=DeliveryControls)
     variables: Mapping[str, JsonValue] = field(default_factory=dict)
+
+
+@dataclass(frozen=True, slots=True)
+class SynthesisSegment:
+    """One exact source-ordered unit with its own reproducible voice settings."""
+
+    text: str
+    model: str | None = None
+    voice: str | None = None
+    instructions: str | None = None
+    controls: DeliveryControls = field(default_factory=DeliveryControls)
+    variables: Mapping[str, JsonValue] = field(default_factory=dict)
+    speaker: str | None = None
+
+    def __post_init__(self) -> None:
+        if not self.text.strip():
+            raise ValueError("segment text must not be blank")
 
 
 @dataclass(frozen=True, slots=True)

@@ -49,6 +49,7 @@ from .bootstrap import create_service
 from .config import Settings
 from .diagnostics import sanitize_diagnostic, sanitize_url
 from .domain import (
+    SEGMENT_OPTIONS_VARIABLE,
     ControlMode,
     DeliveryControls,
     ErrorEventDraft,
@@ -61,6 +62,7 @@ from .domain import (
     ProviderError,
     ProviderInfo,
     SpeechPace,
+    SynthesisSegment,
     TonePreset,
     UnknownProviderError,
     VocalStyle,
@@ -172,6 +174,65 @@ class CreateJobRequest(BaseModel):
     @property
     def selected_resource_id(self) -> str:
         return self.resource_id or self.provider or "gemini"
+
+
+class DialogueTurnPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    speaker: Literal["Person1", "Person2"]
+    text: str = Field(min_length=1, max_length=100_000)
+
+    @field_validator("text")
+    @classmethod
+    def text_must_not_be_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("dialogue turn text must not be blank")
+        return value
+
+
+class DialogueSpeakerPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    model: str | None = Field(default=None, min_length=1, max_length=200)
+    voice: str | None = Field(default=None, min_length=1, max_length=100)
+    voice_profile_id: str | None = Field(default=None, min_length=1, max_length=64)
+    instructions: str | None = Field(default=None, max_length=2_000)
+    controls: DeliveryControlsPayload = Field(default_factory=DeliveryControlsPayload)
+    variables: dict[str, Any] = Field(default_factory=dict)
+
+
+class DialogueRenderRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    provider: str | None = Field(default=None, min_length=1, max_length=64)
+    resource_id: str | None = Field(default=None, min_length=1, max_length=64)
+    resource_revision: int | None = Field(default=None, ge=1)
+    turns: list[DialogueTurnPayload] = Field(min_length=1, max_length=2_000)
+    person1: DialogueSpeakerPayload
+    person2: DialogueSpeakerPayload
+    source_text: str | None = None
+    split_strategy: SplitStrategy = SplitStrategy.SEMANTIC
+    remove_numeric_citations: bool = False
+    project_name: str | None = Field(default=None, min_length=1, max_length=240)
+    source_name: str | None = Field(default=None, min_length=1, max_length=500)
+
+    @model_validator(mode="after")
+    def resource_identity_must_agree(self) -> "DialogueRenderRequest":
+        if self.provider and self.resource_id and self.provider != self.resource_id:
+            raise ValueError("provider and resource_id must identify the same API resource")
+        if self.source_text is not None and not self.source_text.strip():
+            raise ValueError("source_text must not be blank when supplied")
+        return self
+
+    @property
+    def selected_resource_id(self) -> str:
+        return self.resource_id or self.provider or "gemini"
+
+    def speaker_settings(self, speaker: Literal["Person1", "Person2"]) -> DialogueSpeakerPayload:
+        return self.person1 if speaker == "Person1" else self.person2
+
+    def transcript_text(self) -> str:
+        return "\n\n".join(f"{turn.speaker}: {turn.text.strip()}" for turn in self.turns)
 
 
 class AudioFormatResponse(BaseModel):
@@ -450,6 +511,26 @@ class PreviewResponse(BaseModel):
         )
 
 
+class DialogueTurnPreviewResponse(BaseModel):
+    turn_index: int
+    speaker: Literal["Person1", "Person2"]
+    text: str
+    total_chars: int
+    total_bytes: int
+    total_words: int
+    chunks: list[ChunkPreviewResponse]
+
+
+class DialoguePreviewResponse(BaseModel):
+    strategy: SplitStrategy
+    total_turns: int
+    total_chunks: int
+    total_chars: int
+    total_bytes: int
+    total_words: int
+    turns: list[DialogueTurnPreviewResponse]
+
+
 class JobResponse(BaseModel):
     id: str
     status: JobStatus
@@ -499,7 +580,11 @@ class JobResponse(BaseModel):
             instructions=job.instructions,
             controls=DeliveryControlsPayload.from_domain(job.controls),
             resource_revision=job.resource_revision,
-            variables=dict(job.variables),
+            variables={
+                key: value
+                for key, value in job.variables.items()
+                if key != SEGMENT_OPTIONS_VARIABLE
+            },
             total_chunks=job.total_chunks,
             completed_chunks=job.completed_chunks,
             progress=progress,
@@ -1337,6 +1422,7 @@ def create_app(
         *,
         project_name: str | None = None,
         source_name: str | None = None,
+        take_label: str = "Narration take",
     ) -> None:
         try:
             import_splicr_job(
@@ -1351,7 +1437,7 @@ def create_app(
                     if source_name is not None
                     else None
                 ),
-                take_label="Narration take",
+                take_label=take_label,
             )
         except Exception:
             # A queued synthesis must not be reported as failed merely because the
@@ -1363,8 +1449,14 @@ def create_app(
         *,
         project_name: str | None = None,
         source_name: str | None = None,
+        take_label: str = "Narration take",
     ) -> JobResponse:
-        sync_studio_job(job, project_name=project_name, source_name=source_name)
+        sync_studio_job(
+            job,
+            project_name=project_name,
+            source_name=source_name,
+            take_label=take_label,
+        )
         response = JobResponse.from_record(job, synthesis.progress_detail(job.id))
         if (
             response.error_event_id
@@ -1527,10 +1619,21 @@ def create_app(
     def resolved_voice_request(
         request: CreateJobRequest,
     ) -> tuple[str | None, str | None, dict[str, Any]]:
-        if VOICE_PROFILE_VARIABLE in request.variables:
+        managed_variables = {
+            key
+            for key in (VOICE_PROFILE_VARIABLE, SEGMENT_OPTIONS_VARIABLE)
+            if key in request.variables
+        }
+        if managed_variables:
+            key = sorted(managed_variables)[0]
+            owner = (
+                "Voice Profile selection"
+                if key == VOICE_PROFILE_VARIABLE
+                else "SPLICR"
+            )
             raise HTTPException(
                 status_code=422,
-                detail=f"{VOICE_PROFILE_VARIABLE} is managed by Voice Profile selection",
+                detail=f"{key} is managed by {owner}",
             )
         if not request.voice_profile_id:
             return request.model, request.voice, dict(request.variables)
@@ -1561,6 +1664,51 @@ def create_app(
             )
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
+
+    def resolved_dialogue_speaker(
+        resource_id: str,
+        speaker: DialogueSpeakerPayload,
+    ) -> tuple[str | None, str | None, dict[str, Any]]:
+        return resolved_voice_request(
+            CreateJobRequest(
+                text="Dialogue voice configuration",
+                resource_id=resource_id,
+                model=speaker.model,
+                voice=speaker.voice,
+                voice_profile_id=speaker.voice_profile_id,
+                instructions=speaker.instructions,
+                controls=speaker.controls,
+                variables=speaker.variables,
+            )
+        )
+
+    def dialogue_segments(request: DialogueRenderRequest) -> tuple[SynthesisSegment, ...]:
+        resolved = {
+            "Person1": resolved_dialogue_speaker(
+                request.selected_resource_id,
+                request.person1,
+            ),
+            "Person2": resolved_dialogue_speaker(
+                request.selected_resource_id,
+                request.person2,
+            ),
+        }
+        segments: list[SynthesisSegment] = []
+        for turn in request.turns:
+            speaker = request.speaker_settings(turn.speaker)
+            model, voice, variables = resolved[turn.speaker]
+            segments.append(
+                SynthesisSegment(
+                    text=turn.text,
+                    model=model,
+                    voice=voice,
+                    instructions=speaker.instructions,
+                    controls=speaker.controls.to_domain(),
+                    variables=variables,
+                    speaker=turn.speaker,
+                )
+            )
+        return tuple(segments)
 
     def managed_voice_directory(profile: VoiceProfile) -> Path | None:
         if not profile.metadata.get("managed") or not profile.reference_audio_path:
@@ -2308,6 +2456,90 @@ def create_app(
         except (ValueError, ProviderError) as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
         return PreviewResponse.from_plan(plan)
+
+    @application.post(
+        "/v1/studio/dialogue/preview",
+        response_model=DialoguePreviewResponse,
+        tags=["studio dialogue"],
+    )
+    async def preview_dialogue(
+        request: DialogueRenderRequest,
+    ) -> DialoguePreviewResponse:
+        segments = dialogue_segments(request)
+        turn_previews: list[DialogueTurnPreviewResponse] = []
+        try:
+            for turn_index, (turn, segment) in enumerate(zip(request.turns, segments)):
+                plan = synthesis.preview(
+                    text=segment.text,
+                    provider_name=request.selected_resource_id,
+                    model=segment.model,
+                    voice=segment.voice,
+                    instructions=segment.instructions,
+                    controls=segment.controls,
+                    variables=segment.variables,
+                    resource_revision=request.resource_revision,
+                    split_strategy=request.split_strategy,
+                    remove_numeric_citations=request.remove_numeric_citations,
+                )
+                turn_previews.append(
+                    DialogueTurnPreviewResponse(
+                        turn_index=turn_index,
+                        speaker=turn.speaker,
+                        text=plan.text,
+                        total_chars=plan.total_chars,
+                        total_bytes=plan.total_bytes,
+                        total_words=plan.total_words,
+                        chunks=[
+                            ChunkPreviewResponse.from_chunk(chunk)
+                            for chunk in plan.chunks
+                        ],
+                    )
+                )
+        except UnknownProviderError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        except (ValueError, ProviderError) as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        return DialoguePreviewResponse(
+            strategy=request.split_strategy,
+            total_turns=len(turn_previews),
+            total_chunks=sum(len(turn.chunks) for turn in turn_previews),
+            total_chars=sum(turn.total_chars for turn in turn_previews),
+            total_bytes=sum(turn.total_bytes for turn in turn_previews),
+            total_words=sum(turn.total_words for turn in turn_previews),
+            turns=turn_previews,
+        )
+
+    @application.post(
+        "/v1/studio/dialogue/jobs",
+        response_model=JobResponse,
+        status_code=status.HTTP_202_ACCEPTED,
+        tags=["studio dialogue"],
+    )
+    async def create_dialogue_job(request: DialogueRenderRequest) -> JobResponse:
+        segments = dialogue_segments(request)
+        source_text = request.source_text or request.transcript_text()
+        try:
+            job = await synthesis.submit_segments(
+                segments=segments,
+                provider_name=request.selected_resource_id,
+                resource_revision=request.resource_revision,
+                source_text=source_text,
+                split_strategy=request.split_strategy,
+                remove_numeric_citations=request.remove_numeric_citations,
+            )
+        except UnknownProviderError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        except (ValueError, ProviderError) as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        return job_response(
+            job,
+            project_name=(
+                request.project_name
+                or _suggest_project_name(source_text, request.source_name)
+            ),
+            source_name=request.source_name,
+            take_label="Dialogue take",
+        )
 
     @application.post(
         "/v1/speech/jobs",

@@ -142,6 +142,16 @@ export const api = {
     request("/v1/speech/preview", { method: "POST", body: JSON.stringify(payload) }),
   createJob: (payload) =>
     request("/v1/speech/jobs", { method: "POST", body: JSON.stringify(payload) }),
+  previewDialogue: (payload) =>
+    request("/v1/studio/dialogue/preview", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  createDialogueJob: (payload) =>
+    request("/v1/studio/dialogue/jobs", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
   jobAction: (id, action) =>
     request(`/v1/speech/jobs/${encodeURIComponent(id)}/${action}`, { method: "POST" }),
   importDocument: (file) => {

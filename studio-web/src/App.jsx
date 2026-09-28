@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 
 import { api } from "./api.js";
+import { DialogueWorkspace } from "./DialogueWorkspace.jsx";
 import { formatCount, percent, statusLabel, textStats } from "./format.js";
 import { ErrorCenter, ProfileManager, ResourceManager } from "./StudioTools.jsx";
 import { LanguageWorkspace } from "./LanguageWorkspace.jsx";
@@ -46,7 +47,7 @@ const NAVIGATION = [
     items: [
       { id: "narrate", label: "Narrate", icon: AudioLines, ready: true },
       { id: "library", label: "Library", icon: Library, ready: true },
-      { id: "dialogue", label: "Dialogue", icon: MessageSquareText },
+      { id: "dialogue", label: "Dialogue", icon: MessageSquareText, ready: true },
     ],
   },
   {
@@ -764,9 +765,10 @@ export default function App() {
         <NarrateWorkspace active={active === "narrate"} projectToLoad={projectToLoad} />
       </div>
       {active === "library" && <LibraryWorkspace onOpen={openProject} />}
+      {active === "dialogue" && <DialogueWorkspace active={active === "dialogue"} />}
       {active === "pronunciation" && <LanguageWorkspace />}
       {active === "voices" && <VoiceStudio />}
-      {active !== "narrate" && active !== "library" && active !== "pronunciation" && active !== "voices" && <WorkspacePlaceholder workspace={active} />}
+      {active !== "narrate" && active !== "library" && active !== "dialogue" && active !== "pronunciation" && active !== "voices" && <WorkspacePlaceholder workspace={active} />}
       <ErrorCenter open={errorsOpen} onClose={() => setErrorsOpen(false)} onOpen={() => setErrorsOpen(true)} onUnreadChange={setUnreadErrors} />
     </Shell>
   );
