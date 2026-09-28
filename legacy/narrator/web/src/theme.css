@@ -1,0 +1,147 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* The palette the app already used, expressed as the semantic variables
+   shadcn components expect. Converted from the previous stylesheet's
+   literal hex values, so a generated component looks like the rest of
+   the app immediately instead of arriving in Tailwind's stock grey and
+   needing to be re-skinned one at a time.
+
+   Reference for what these were:
+     background       #14161a    card/panel      #1a1d23
+     input            #1d2027    foreground      #e6e6e6
+     muted-foreground #8a93a0    border          #363c47
+     primary          #6fb3e0    destructive     #ff8f7a
+     success          #5fbf7a    warning         #d6b45f
+     accent (row sel) #23303d
+
+   This app is dark-only -- there's no light theme to switch to and never
+   was, so the variables live on :root rather than under a .dark class.
+   If a light mode is ever wanted, that's the point to split them. */
+@layer base {
+  :root {
+    --background: 220 13% 9%;
+    --foreground: 0 0% 90%;
+
+    --card: 220 15% 12%;
+    --card-foreground: 0 0% 90%;
+
+    --popover: 220 15% 12%;
+    --popover-foreground: 0 0% 90%;
+
+    --primary: 204 65% 66%;
+    --primary-foreground: 220 13% 9%;
+
+    --secondary: 222 15% 13%;
+    --secondary-foreground: 0 0% 90%;
+
+    --muted: 222 15% 13%;
+    --muted-foreground: 215 10% 58%;
+
+    --accent: 210 27% 19%;
+    --accent-foreground: 204 65% 66%;
+
+    --destructive: 9 100% 74%;
+    --destructive-foreground: 220 13% 9%;
+
+    --success: 137 43% 56%;
+    --warning: 43 59% 61%;
+
+    --border: 219 14% 25%;
+    --input: 219 14% 25%;
+    --ring: 204 65% 66%;
+
+    --radius: 0.375rem;
+  }
+
+  * {
+    border-color: hsl(var(--border));
+  }
+}
+
+/* ------------------------------------------------------------------
+   Element defaults and the app's shared helper classes, moved here from
+   the old hand-written stylesheet and expressed through the theme.
+
+   Deliberately NOT here: any rule for bare `button`. The old stylesheet
+   had one (padding, background, border on every <button> in the page),
+   and Radix renders real <button>s inside tab triggers, checkboxes,
+   radio items and select triggers -- so that rule leaked into all of
+   them: checkboxes/radios squeezed into pills with their mark pushed
+   out, inactive tabs drawn as grey boxes, file-browser rows boxed.
+   Every button now gets its look from components/ui/button.jsx or its
+   own classes, and nothing global can reach into a component again.
+   ------------------------------------------------------------------ */
+@layer base {
+  /* Dark-only app: tell the browser, so native bits it still draws
+     (scrollbars, the range slider track, autofill) come out dark too. */
+  :root { color-scheme: dark; }
+
+  body {
+    margin: 0;
+    padding: 24px;
+    font: 15px/1.5 system-ui, sans-serif;
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
+  }
+  h1 { font-size: 22px; margin: 0 0 18px; }
+
+  section { border-top: 1px solid hsl(var(--border) / 0.55); padding-top: 4px; }
+  /* Scoped to section headings on purpose: a bare `h2` rule also hit
+     Radix dialog titles (they render as <h2>), uppercasing them. */
+  section > h2 {
+    margin: 22px 0 8px;
+    font-size: 15px;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+  }
+  code {
+    padding: 3px 7px;
+    border-radius: 4px;
+    word-break: break-all;
+    background: hsl(var(--secondary));
+  }
+}
+
+@layer components {
+  .app { @apply mx-auto max-w-[860px]; }
+  .tab-panel section:first-child { @apply border-t-0 pt-0; }
+
+  .row { @apply my-1.5 flex items-center gap-2.5; }
+
+  /* Status text. Named, not inlined, because each is used dozens of
+     times and means one thing everywhere. */
+  .hint  { @apply mt-[3px] text-xs text-muted-foreground; }
+  .error { @apply text-destructive; }
+  .ok    { @apply text-success; }
+  .warn, .note { @apply text-warning; }
+  .req   { @apply text-destructive; }
+
+  .problems { @apply list-none p-0; }
+  .problems li { @apply my-[3px] rounded px-[9px] py-[5px]; }
+
+  /* Two-up settings grid. minmax(0, 1fr), not plain 1fr: a plain 1fr
+     column can't shrink below its content, so one long output path was
+     widening its column and pushing the whole grid past the page edge
+     (and making the two columns uneven). */
+  .settings { @apply grid grid-cols-[repeat(2,minmax(0,1fr))] items-start gap-x-[18px] gap-y-1.5; }
+
+  .field label { @apply mb-[3px] block font-semibold; }
+
+  /* One line per setting: label left, control right. */
+  .field-row { @apply flex items-center gap-2 border-b border-secondary py-[3px]; }
+  .field-row > label {
+    @apply m-0 w-[150px] flex-none cursor-help truncate text-[13px] font-normal;
+    color: hsl(var(--foreground) / 0.8);
+    border-bottom: 1px dotted hsl(var(--muted-foreground) / 0.6);
+  }
+  /* Text inputs and select triggers fill the rest of the row. Radix
+     checkboxes are ALSO <button>s, so they're excluded by role --
+     without that they stretched into full-width bars. */
+  .field-row > input,
+  .field-row > button:not([role="checkbox"]) { @apply w-auto min-w-0 flex-1; }
+  .field-path { @apply flex min-w-0 flex-1 items-center gap-1.5; }
+  .field-path-value { @apply min-w-0 flex-1 truncate text-[11px]; }
+}

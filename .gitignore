@@ -28,3 +28,10 @@ build/
 .agents
 .serena
 splicr-doc-import-*/
+
+# Narrator migration source: keep machine-local engines, state, and generated UI out of Git.
+legacy/narrator/*-env/
+legacy/narrator/narrator_data/
+legacy/narrator/narrator_output/
+legacy/narrator/narrator/webui/
+legacy/narrator/web/node_modules/
