@@ -231,6 +231,7 @@ export function DialogueWorkspace({ active }) {
   const [sourceText, setSourceText] = useState("");
   const [writerOptions, setWriterOptions] = useState(DEFAULT_WRITER_OPTIONS);
   const [writerResult, setWriterResult] = useState(null);
+  const [scriptJob, setScriptJob] = useState(null);
   const [chatConnectionsOpen, setChatConnectionsOpen] = useState(false);
   const [refineTarget, setRefineTarget] = useState(null);
   const [refineInstruction, setRefineInstruction] = useState("");
@@ -248,9 +249,11 @@ export function DialogueWorkspace({ active }) {
   const [job, setJob] = useState(null);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
+  const appliedScriptResult = useRef("");
   const provider = providers.find((candidate) => candidate.name === providerId) || providers[0];
   const writerResource = chatResources.find((candidate) => candidate.resource_id === chatResourceId)
     || chatResources[0];
+  const writerActive = Boolean(scriptJob && !TERMINAL.has(scriptJob.status));
   const isLocalProfileEngine = provider?.name === "qwen3-local" || provider?.name === "audio8-local";
   const transcriptStats = useMemo(() => {
     const text = turns.map((turn) => turn.text).join(" ").trim();
@@ -300,11 +303,12 @@ export function DialogueWorkspace({ active }) {
   };
 
   useEffect(() => {
-    Promise.all([api.providers(), api.voices(), api.chatResources()])
-      .then(([providerRows, voiceRows, chatRows]) => {
+    Promise.all([api.providers(), api.voices(), api.chatResources(), api.dialogueScriptJobs()])
+      .then(([providerRows, voiceRows, chatRows, scriptRows]) => {
         setProviders(providerRows);
         setVoiceProfiles(voiceRows);
         setChatResources(chatRows);
+        setScriptJob(scriptRows[0]?.status !== "completed" ? scriptRows[0] : null);
         if (providerRows.length) setProviderId((current) => current || providerRows[0].name);
         if (chatRows.length) setChatResourceId((current) => current || chatRows[0].resource_id);
       })
@@ -313,10 +317,15 @@ export function DialogueWorkspace({ active }) {
 
   useEffect(() => {
     if (!active) return;
-    Promise.all([api.voices(), api.chatResources()])
-      .then(([voiceRows, chatRows]) => {
+    Promise.all([api.voices(), api.chatResources(), api.dialogueScriptJobs()])
+      .then(([voiceRows, chatRows, scriptRows]) => {
         setVoiceProfiles(voiceRows);
         setChatResources(chatRows);
+        setScriptJob((current) => (
+          scriptRows.find((row) => row.id === current?.id)
+          || (scriptRows[0]?.status !== "completed" ? scriptRows[0] : null)
+          || current
+        ));
       })
       .catch((reason) => setError(reason.message));
   }, [active]);
@@ -344,6 +353,27 @@ export function DialogueWorkspace({ active }) {
     }, 750);
     return () => window.clearInterval(timer);
   }, [job?.id, job?.status]);
+
+  useEffect(() => {
+    if (!scriptJob || TERMINAL.has(scriptJob.status)) return undefined;
+    const timer = window.setInterval(() => {
+      api.dialogueScriptJob(scriptJob.id)
+        .then(setScriptJob)
+        .catch((reason) => setError(reason.message));
+    }, 500);
+    return () => window.clearInterval(timer);
+  }, [scriptJob?.id, scriptJob?.status]);
+
+  useEffect(() => {
+    if (!scriptJob?.result || !TERMINAL.has(scriptJob.status)) return;
+    const signature = `${scriptJob.id}:${scriptJob.status}:${scriptJob.updated_at}`;
+    if (appliedScriptResult.current === signature) return;
+    appliedScriptResult.current = signature;
+    setTurns(scriptJob.result.turns);
+    setPreview(null);
+    setWriterResult(scriptJob.result);
+    setRefineTarget(null);
+  }, [scriptJob?.id, scriptJob?.status, scriptJob?.updated_at]);
 
   const changeTurns = (next) => {
     setTurns(next);
@@ -411,16 +441,23 @@ export function DialogueWorkspace({ active }) {
   };
   const generateDialogue = async () => {
     if (!writerResource || !sourceText.trim()) return;
-    const result = await run("generate", () => api.generateDialogueScript({
+    const result = await run("generate", () => api.createDialogueScriptJob({
       text: sourceText,
       chat_resource_id: writerResource.resource_id,
       model: writerModel || null,
       options: writerOptions,
     }));
     if (!result) return;
-    changeTurns(result.turns);
-    setWriterResult(result);
+    setScriptJob(result);
+    setWriterResult(null);
     setRefineTarget(null);
+  };
+  const actOnScriptJob = async (action) => {
+    if (!scriptJob) return;
+    const result = await run(`script-${action}`, () => (
+      api.dialogueScriptJobAction(scriptJob.id, action)
+    ));
+    if (result) setScriptJob(result);
   };
   const openRefinement = (index, range) => {
     setRefineTarget({ index, ...range });
@@ -547,11 +584,32 @@ export function DialogueWorkspace({ active }) {
               <Control label="Creativity" hint={writerOptions.temperature.toFixed(1)}><input type="range" min="0" max="2" step="0.1" value={writerOptions.temperature} onChange={(event) => setWriterOptions((current) => ({ ...current, temperature: Number(event.target.value) }))} /></Control>
             </div>
           </details>
+          {scriptJob && (
+            <div className={`dialogue-writer-progress status-${scriptJob.status}`}>
+              <div className="dialogue-writer-progress-heading">
+                <div>
+                  <strong>{scriptJob.status === "completed" ? "Script ready" : scriptJob.status.replaceAll("_", " ")}</strong>
+                  <span>{formatCount(scriptJob.completed_sections)} of {formatCount(scriptJob.total_sections)} sections</span>
+                </div>
+                <span>{percent(scriptJob.progress)}</span>
+              </div>
+              <progress max="1" value={scriptJob.progress} aria-label="Dialogue writing progress" />
+              <small>{scriptJob.error_detail || scriptJob.progress_message}</small>
+              <div className="dialogue-writer-progress-actions">
+                {writerActive && scriptJob.status !== "cancel_requested" && (
+                  <button className="ghost-button small danger" type="button" disabled={!!busy} onClick={() => actOnScriptJob("cancel")}>Cancel writing</button>
+                )}
+                {["cancelled", "failed"].includes(scriptJob.status) && scriptJob.completed_sections < scriptJob.total_sections && (
+                  <button className="secondary-button small" type="button" disabled={!!busy} onClick={() => actOnScriptJob("resume")}>Resume from checkpoint</button>
+                )}
+              </div>
+            </div>
+          )}
           <div className="dialogue-writer-actions">
             {writerResult && <span>{formatCount(writerResult.sections)} sections · {formatCount(writerResult.word_count)} words · {formatCount(writerResult.removed_duplicates)} duplicates removed</span>}
-            <button className="primary-button" type="button" disabled={!writerResource || !sourceText.trim() || !!busy} onClick={generateDialogue}>
+            <button className="primary-button" type="button" disabled={!writerResource || !sourceText.trim() || !!busy || writerActive} onClick={generateDialogue}>
               {busy === "generate" ? <LoaderCircle className="spin" size={16} /> : <WandSparkles size={16} />}
-              {busy === "generate" ? "Writing dialogue…" : "Generate script"}
+              {busy === "generate" ? "Queueing writer…" : writerActive ? "Writing dialogue…" : "Generate script"}
             </button>
           </div>
         </div>

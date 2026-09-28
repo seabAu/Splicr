@@ -200,6 +200,17 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+  createDialogueScriptJob: (payload) =>
+    request("/v1/studio/dialogue/script-jobs", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  dialogueScriptJobs: () => request("/v1/studio/dialogue/script-jobs"),
+  dialogueScriptJob: (id) => request(`/v1/studio/dialogue/script-jobs/${encodeURIComponent(id)}`),
+  dialogueScriptJobAction: (id, action) =>
+    request(`/v1/studio/dialogue/script-jobs/${encodeURIComponent(id)}/${action}`, {
+      method: "POST",
+    }),
   refineDialogueSelection: (payload) =>
     request("/v1/studio/dialogue/refine", {
       method: "POST",

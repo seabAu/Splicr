@@ -7,6 +7,7 @@ import pytest
 
 from splicr.studio.dialogue import (
     ChatMessage,
+    DialogueGenerationCheckpoint,
     DialogueGenerationError,
     DialogueGenerationOptions,
     DialogueTurn,
@@ -141,3 +142,54 @@ def test_generate_script_requires_first_section_and_refine_cleans_wrappers() -> 
     prompt = refiner.calls[0]["messages"][1]["content"]
     assert "Person2: Can you explain that?" in prompt
     assert "[[[muddy wording]]]" in prompt
+
+
+def test_generate_script_resumes_from_a_section_checkpoint() -> None:
+    checkpoints: list[DialogueGenerationCheckpoint] = []
+    first = ScriptedCompleter(
+        [
+            "1. Opening\n2. Closing",
+            "<Person1>Opening point.</Person1><Person2>Opening reply.</Person2>",
+            "The hosts covered the opening point.",
+        ]
+    )
+
+    partial = asyncio.run(
+        generate_script(
+            "# Opening\nFirst source.\n# Closing\nSecond source.",
+            first,
+            options=DialogueGenerationOptions(section_chars=500),
+            save_checkpoint=checkpoints.append,
+            should_cancel=lambda: bool(
+                checkpoints and checkpoints[-1].completed_sections == 1
+            ),
+        )
+    )
+
+    assert partial.cancelled is True
+    assert checkpoints[-1].completed_sections == 1
+    assert len(partial.turns) == 2
+
+    resumed_checkpoints: list[DialogueGenerationCheckpoint] = []
+    second = ScriptedCompleter(
+        ["<Person1>Closing point.</Person1><Person2>Closing reply.</Person2>"]
+    )
+    resumed = asyncio.run(
+        generate_script(
+            "# Opening\nFirst source.\n# Closing\nSecond source.",
+            second,
+            options=DialogueGenerationOptions(section_chars=500),
+            checkpoint=checkpoints[-1],
+            save_checkpoint=resumed_checkpoints.append,
+        )
+    )
+
+    assert resumed.cancelled is False
+    assert [turn.text for turn in resumed.turns] == [
+        "Opening point.",
+        "Opening reply.",
+        "Closing point.",
+        "Closing reply.",
+    ]
+    assert len(second.calls) == 1
+    assert resumed_checkpoints[-1].completed_sections == 2

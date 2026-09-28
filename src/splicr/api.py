@@ -55,6 +55,14 @@ from .chat_resources import (
 )
 from .config import Settings
 from .diagnostics import sanitize_diagnostic, sanitize_url
+from .dialogue_jobs import (
+    DialogueScriptJob,
+    DialogueScriptJobNotFoundError,
+    DialogueScriptJobRequest,
+    DialogueScriptJobService,
+    InvalidDialogueScriptJobStateError,
+    SqliteDialogueScriptJobStore,
+)
 from .domain import (
     SEGMENT_OPTIONS_VARIABLE,
     ControlMode,
@@ -93,6 +101,7 @@ from .studio.chat import ChatCompletionError, OpenAiChatCompleter
 from .studio.dialogue import (
     DialogueGenerationError,
     DialogueGenerationOptions,
+    DialogueScript as GeneratedDialogueScript,
     DialogueTurn as GeneratedDialogueTurn,
     generate_script,
     refine_selection,
@@ -588,6 +597,24 @@ class DialogueScriptResponse(BaseModel):
     word_count: int
     cancelled: bool
     progress: list[str]
+
+
+class DialogueScriptJobResponse(BaseModel):
+    id: str
+    status: str
+    chat_resource_id: str
+    resource_revision: int
+    model: str
+    total_sections: int
+    completed_sections: int
+    progress: float
+    progress_message: str
+    progress_messages: list[str]
+    result: DialogueScriptResponse | None
+    error_code: str | None
+    error_detail: str | None
+    created_at: str
+    updated_at: str
 
 
 class DialogueRefineRequest(BaseModel):
@@ -1546,6 +1573,7 @@ def create_app(
     settings: Settings | None = None,
     service: SynthesisService | None = None,
     chat_resource_store: SqliteChatResourceStore | None = None,
+    dialogue_script_service: DialogueScriptJobService | None = None,
 ) -> FastAPI:
     resolved_settings = settings or Settings.from_env()
     synthesis = service or create_service(resolved_settings)
@@ -1578,11 +1606,30 @@ def create_app(
     chat_resources.initialize()
     chat_resources.seed_builtins()
 
+    def dialogue_completer(request: DialogueScriptJobRequest) -> OpenAiChatCompleter:
+        stored = chat_resources.get_revision(
+            request.chat_resource_id,
+            request.resource_revision,
+        )
+        runtime = stored.spec.runtime(model=request.model)
+        api_key = chat_resources.resolve_api_key(request.chat_resource_id)
+        return OpenAiChatCompleter(runtime, api_key=api_key)
+
+    dialogue_scripts = dialogue_script_service or DialogueScriptJobService(
+        SqliteDialogueScriptJobStore(resolved_settings.database_path),
+        dialogue_completer,
+    )
+    dialogue_scripts.store.initialize()
+
     @asynccontextmanager
     async def lifespan(_: FastAPI):
         await synthesis.start()
         try:
-            yield
+            await dialogue_scripts.start()
+            try:
+                yield
+            finally:
+                await dialogue_scripts.stop()
         finally:
             await synthesis.stop()
 
@@ -1595,6 +1642,7 @@ def create_app(
     application.state.synthesis_service = synthesis
     application.state.api_resource_store = resource_store
     application.state.chat_resource_store = chat_resources
+    application.state.dialogue_script_service = dialogue_scripts
     application.state.error_event_store = synthesis.store
     application.state.studio_store = studio
     application.state.text_customization_store = customizations
@@ -1697,6 +1745,68 @@ def create_app(
             if secret:
                 secrets.append(secret)
         return tuple(dict.fromkeys(secrets))
+
+    def dialogue_script_response(
+        script: GeneratedDialogueScript,
+        progress_messages: list[str] | tuple[str, ...],
+    ) -> DialogueScriptResponse:
+        return DialogueScriptResponse(
+            turns=[
+                DialogueTurnPayload(speaker=turn.speaker, text=turn.text)
+                for turn in script.turns
+            ],
+            sections=script.sections,
+            outline=list(script.outline),
+            removed_duplicates=script.removed_duplicates,
+            word_count=script.word_count,
+            cancelled=script.cancelled,
+            progress=list(progress_messages),
+        )
+
+    def dialogue_script_job_response(
+        job: DialogueScriptJob,
+    ) -> DialogueScriptJobResponse:
+        known_secrets = known_provider_secrets()
+        safe_progress_messages = [
+            str(sanitize_diagnostic(message, known_secrets=known_secrets))
+            for message in job.progress_messages
+        ]
+        safe_error = (
+            str(
+                sanitize_diagnostic(
+                    job.error_detail,
+                    known_secrets=known_secrets,
+                )
+            )
+            if job.error_detail
+            else None
+        )
+        return DialogueScriptJobResponse(
+            id=job.id,
+            status=job.status.value,
+            chat_resource_id=job.request.chat_resource_id,
+            resource_revision=job.request.resource_revision,
+            model=job.request.model,
+            total_sections=job.total_sections,
+            completed_sections=job.completed_sections,
+            progress=job.progress,
+            progress_message=str(
+                sanitize_diagnostic(
+                    job.progress_message,
+                    known_secrets=known_secrets,
+                )
+            ),
+            progress_messages=safe_progress_messages,
+            result=(
+                dialogue_script_response(job.result, safe_progress_messages)
+                if job.result is not None
+                else None
+            ),
+            error_code=job.error_code,
+            error_detail=safe_error,
+            created_at=job.created_at,
+            updated_at=job.updated_at,
+        )
 
     async def invalidate_resource(resource_id: str) -> None:
         invalidator = getattr(synthesis.providers, "invalidate", None)
@@ -2459,6 +2569,90 @@ def create_app(
         )
 
     @application.post(
+        "/v1/studio/dialogue/script-jobs",
+        response_model=DialogueScriptJobResponse,
+        status_code=status.HTTP_202_ACCEPTED,
+        tags=["studio"],
+    )
+    async def create_dialogue_script_job(
+        payload: DialogueGenerateRequest,
+    ) -> DialogueScriptJobResponse:
+        try:
+            stored = chat_resources.get_current(payload.chat_resource_id)
+            selected_model = (payload.model or stored.spec.default_model).strip()
+            stored.spec.runtime(model=selected_model)
+            chat_resources.resolve_api_key(payload.chat_resource_id)
+            job = await dialogue_scripts.create(
+                DialogueScriptJobRequest(
+                    chat_resource_id=stored.spec.resource_id,
+                    resource_revision=stored.spec.revision,
+                    model=selected_model,
+                    text=payload.text,
+                    options=payload.options.to_domain(),
+                )
+            )
+        except ChatResourceNotFoundError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except SecretVaultUnavailableError as error:
+            raise secure_storage_error(error) from error
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        return dialogue_script_job_response(job)
+
+    @application.get(
+        "/v1/studio/dialogue/script-jobs",
+        response_model=list[DialogueScriptJobResponse],
+        tags=["studio"],
+    )
+    async def list_dialogue_script_jobs(
+        limit: int = Query(default=50, ge=1, le=200),
+    ) -> list[DialogueScriptJobResponse]:
+        return [
+            dialogue_script_job_response(job)
+            for job in dialogue_scripts.store.list(limit=limit)
+        ]
+
+    @application.get(
+        "/v1/studio/dialogue/script-jobs/{job_id}",
+        response_model=DialogueScriptJobResponse,
+        tags=["studio"],
+    )
+    async def get_dialogue_script_job(job_id: str) -> DialogueScriptJobResponse:
+        try:
+            job = dialogue_scripts.store.get(job_id)
+        except DialogueScriptJobNotFoundError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        return dialogue_script_job_response(job)
+
+    @application.post(
+        "/v1/studio/dialogue/script-jobs/{job_id}/cancel",
+        response_model=DialogueScriptJobResponse,
+        tags=["studio"],
+    )
+    async def cancel_dialogue_script_job(job_id: str) -> DialogueScriptJobResponse:
+        try:
+            job = await dialogue_scripts.cancel(job_id)
+        except DialogueScriptJobNotFoundError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except InvalidDialogueScriptJobStateError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        return dialogue_script_job_response(job)
+
+    @application.post(
+        "/v1/studio/dialogue/script-jobs/{job_id}/resume",
+        response_model=DialogueScriptJobResponse,
+        tags=["studio"],
+    )
+    async def resume_dialogue_script_job(job_id: str) -> DialogueScriptJobResponse:
+        try:
+            job = await dialogue_scripts.resume(job_id)
+        except DialogueScriptJobNotFoundError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except InvalidDialogueScriptJobStateError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        return dialogue_script_job_response(job)
+
+    @application.post(
         "/v1/studio/dialogue/generate",
         response_model=DialogueScriptResponse,
         tags=["studio"],
@@ -2488,18 +2682,7 @@ def create_app(
             raise HTTPException(status_code=422, detail=str(error)) from error
         except (ChatCompletionError, DialogueGenerationError) as error:
             raise chat_provider_error(error) from error
-        return DialogueScriptResponse(
-            turns=[
-                DialogueTurnPayload(speaker=turn.speaker, text=turn.text)
-                for turn in script.turns
-            ],
-            sections=script.sections,
-            outline=list(script.outline),
-            removed_duplicates=script.removed_duplicates,
-            word_count=script.word_count,
-            cancelled=script.cancelled,
-            progress=progress_messages,
-        )
+        return dialogue_script_response(script, progress_messages)
 
     @application.post(
         "/v1/studio/dialogue/refine",

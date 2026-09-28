@@ -479,6 +479,14 @@ button:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important
 .dialogue-writer-options summary { color: var(--muted); font-size: 0.68rem; font-weight: 750; cursor: pointer; }
 .dialogue-writer-options-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px; margin-top: 12px; }
 .dialogue-writer-options-grid .control:nth-child(5) { grid-column: 1 / -1; }
+.dialogue-writer-progress { display: grid; gap: 8px; margin-top: 12px; border: 1px solid #3b4430; border-radius: 11px; background: rgba(10, 12, 8, 0.72); padding: 11px 12px; }
+.dialogue-writer-progress.status-failed { border-color: var(--danger-border); }
+.dialogue-writer-progress-heading, .dialogue-writer-progress-heading > div, .dialogue-writer-progress-actions { display: flex; align-items: center; gap: 9px; }
+.dialogue-writer-progress-heading { justify-content: space-between; }
+.dialogue-writer-progress-heading strong { text-transform: capitalize; font-size: 0.72rem; }
+.dialogue-writer-progress-heading span, .dialogue-writer-progress > small { color: var(--subtle); font-size: 0.64rem; }
+.dialogue-writer-progress progress { width: 100%; height: 6px; accent-color: var(--accent); }
+.dialogue-writer-progress-actions { justify-content: flex-end; }
 .dialogue-writer-actions { justify-content: flex-end; margin-top: 13px; }
 .dialogue-writer-actions > span { margin-right: auto; color: var(--subtle); font-size: 0.65rem; }
 .dialogue-turns { display: grid; gap: 8px; }

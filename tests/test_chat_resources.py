@@ -73,6 +73,7 @@ def test_chat_resource_revisions_use_optimistic_concurrency(tmp_path) -> None:
     )
     assert updated.spec.revision == 2
     assert updated.spec.name == "Renamed chat"
+    assert store.get_revision("hosted-chat", 1).spec.name == "Hosted chat"
     with pytest.raises(ChatResourceConflictError, match="expected revision 1"):
         store.update("hosted-chat", _remote(), expected_revision=1)
 

@@ -277,6 +277,21 @@ class SqliteChatResourceStore:
             raise ChatResourceNotFoundError(f"chat resource not found: {resource_id}")
         return self._stored(row)
 
+    def get_revision(self, resource_id: str, revision: int) -> StoredChatResource:
+        with self._lock, self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT * FROM chat_resource_revisions
+                WHERE resource_id = ? AND revision = ? AND deleted = 0
+                """,
+                (resource_id, revision),
+            ).fetchone()
+        if row is None:
+            raise ChatResourceNotFoundError(
+                f"chat resource revision not found: {resource_id}@{revision}"
+            )
+        return self._stored(row)
+
     def set_api_key(self, resource_id: str, api_key: str) -> None:
         self.get_current(resource_id)
         self.vault.set_secret(self._credential_reference(resource_id), api_key)

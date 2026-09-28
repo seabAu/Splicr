@@ -89,6 +89,27 @@ class DialogueScript:
     cancelled: bool = False
 
 
+@dataclass(frozen=True, slots=True)
+class DialogueGenerationCheckpoint:
+    sections: int
+    outline: tuple[str, ...]
+    completed_sections: int = 0
+    turns: tuple[DialogueTurn, ...] = ()
+    running_summary: str = ""
+    last_speaker: Speaker | None = None
+
+    def __post_init__(self) -> None:
+        if self.sections < 1:
+            raise ValueError("checkpoint sections must be positive")
+        if len(self.outline) != self.sections:
+            raise ValueError("checkpoint outline must match the section count")
+        if not 0 <= self.completed_sections <= self.sections:
+            raise ValueError("checkpoint completed_sections is out of range")
+
+
+CheckpointCallback = Callable[[DialogueGenerationCheckpoint], None]
+
+
 class DialogueGenerationError(RuntimeError):
     pass
 
@@ -276,7 +297,12 @@ async def _build_outline(
         for line in reply.splitlines()
         if re.match(r"^\s*\d+[.)]", line)
     )
-    return titles or tuple(f"Part {index + 1}" for index in range(len(sections)))
+    if not titles:
+        return tuple(f"Part {index + 1}" for index in range(len(sections)))
+    return tuple(
+        titles[index] if index < len(titles) else f"Part {index + 1}"
+        for index in range(len(sections))
+    )
 
 
 async def _summarize(
@@ -321,6 +347,8 @@ async def generate_script(
     model: str | None = None,
     progress: ProgressCallback = lambda _message: None,
     should_cancel: CancelCallback = lambda: False,
+    checkpoint: DialogueGenerationCheckpoint | None = None,
+    save_checkpoint: CheckpointCallback = lambda _checkpoint: None,
 ) -> DialogueScript:
     selected = options or DialogueGenerationOptions()
     sections = split_sections(
@@ -330,22 +358,35 @@ async def generate_script(
     )
     if not sections:
         raise DialogueGenerationError("There is no text to turn into dialogue.")
-    progress(f"Planning {len(sections)} section(s).")
-    outline = await _build_outline(
-        document,
-        sections,
-        completer,
-        model=model,
-        progress=progress,
-    )
+    if checkpoint is not None:
+        if checkpoint.sections != len(sections):
+            raise DialogueGenerationError(
+                "The saved dialogue checkpoint no longer matches the source document."
+            )
+        outline = checkpoint.outline
+        progress(
+            f"Resuming after {checkpoint.completed_sections} of {len(sections)} section(s)."
+        )
+    else:
+        progress(f"Planning {len(sections)} section(s).")
+        outline = await _build_outline(
+            document,
+            sections,
+            completer,
+            model=model,
+            progress=progress,
+        )
+        checkpoint = DialogueGenerationCheckpoint(len(sections), outline)
+        save_checkpoint(checkpoint)
     outline_text = "\n".join(f"{index + 1}. {title}" for index, title in enumerate(outline))
     persona = _persona(selected)
-    all_turns: list[DialogueTurn] = []
-    running = ""
-    last_speaker: Speaker | None = None
+    all_turns = list(checkpoint.turns)
+    running = checkpoint.running_summary
+    last_speaker = checkpoint.last_speaker
     cancelled = False
 
-    for index, (title, body) in enumerate(sections):
+    for index in range(checkpoint.completed_sections, len(sections)):
+        title, body = sections[index]
         if should_cancel():
             cancelled = True
             progress("Cancelled; keeping the script generated so far.")
@@ -388,10 +429,28 @@ async def generate_script(
             if index == 0:
                 raise DialogueGenerationError(f"The first dialogue section failed: {error}") from error
             progress(f"Section {index + 1} failed and was skipped: {error}")
+            checkpoint = DialogueGenerationCheckpoint(
+                len(sections),
+                outline,
+                completed_sections=index + 1,
+                turns=tuple(all_turns),
+                running_summary=running,
+                last_speaker=last_speaker,
+            )
+            save_checkpoint(checkpoint)
             continue
         turns = merge_consecutive(parse_turns(reply))
         if not turns:
             progress(f"Section {index + 1} contained no usable speaker tags and was skipped.")
+            checkpoint = DialogueGenerationCheckpoint(
+                len(sections),
+                outline,
+                completed_sections=index + 1,
+                turns=tuple(all_turns),
+                running_summary=running,
+                last_speaker=last_speaker,
+            )
+            save_checkpoint(checkpoint)
             continue
         all_turns.extend(turns)
         last_speaker = turns[-1].speaker
@@ -403,6 +462,15 @@ async def generate_script(
                 model=model,
                 progress=progress,
             )
+        checkpoint = DialogueGenerationCheckpoint(
+            len(sections),
+            outline,
+            completed_sections=index + 1,
+            turns=tuple(all_turns),
+            running_summary=running,
+            last_speaker=last_speaker,
+        )
+        save_checkpoint(checkpoint)
 
     if not all_turns:
         if cancelled:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from collections.abc import Sequence
 
 from fastapi.testclient import TestClient
@@ -247,3 +248,88 @@ def test_chat_provider_failures_are_structured_without_exposing_credentials(
         "retryable": True,
     }
     assert "must-not-leak" not in failed.text
+
+
+def test_dialogue_script_jobs_run_in_background_and_return_persisted_results(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    client, _, _ = _client(tmp_path, monkeypatch)
+
+    with client:
+        created_resource = client.post(
+            "/v1/chat-resources",
+            json=_payload(api_key="background-secret"),
+        )
+        assert created_resource.status_code == 201
+        FakeOpenAiChatCompleter.responses = [
+            "1. Introduction",
+            "<Person1>Welcome.</Person1><Person2>Let us begin.</Person2>",
+        ]
+
+        created = client.post(
+            "/v1/studio/dialogue/script-jobs",
+            json={
+                "text": "# Introduction\nA compact source section.",
+                "chat_resource_id": "openai-compatible",
+                "model": "writer-large",
+                "options": {"section_chars": 500},
+            },
+        )
+        assert created.status_code == 202, created.text
+        job_id = created.json()["id"]
+
+        current = created
+        for _ in range(200):
+            current = client.get(f"/v1/studio/dialogue/script-jobs/{job_id}")
+            if current.json()["status"] in {"completed", "failed"}:
+                break
+            time.sleep(0.005)
+
+        payload = current.json()
+        assert payload["status"] == "completed", payload
+        assert payload["resource_revision"] == 1
+        assert payload["completed_sections"] == 1
+        assert payload["progress"] == 1
+        assert [turn["text"] for turn in payload["result"]["turns"]] == [
+            "Welcome.",
+            "Let us begin.",
+        ]
+        assert "background-secret" not in current.text
+        listed = client.get("/v1/studio/dialogue/script-jobs")
+        assert listed.status_code == 200
+        assert listed.json()[0]["id"] == job_id
+
+
+def test_dialogue_script_job_diagnostics_redact_the_connection_secret(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    client, _, _ = _client(tmp_path, monkeypatch)
+    secret = "background-job-secret"
+
+    with client:
+        client.post("/v1/chat-resources", json=_payload(api_key=secret))
+        FakeOpenAiChatCompleter.responses = [
+            ChatCompletionError(f"Outline echoed {secret}"),
+            ChatCompletionError(f"Section echoed {secret}"),
+        ]
+        created = client.post(
+            "/v1/studio/dialogue/script-jobs",
+            json={
+                "text": "A compact source section.",
+                "chat_resource_id": "openai-compatible",
+            },
+        )
+        job_id = created.json()["id"]
+
+        current = created
+        for _ in range(200):
+            current = client.get(f"/v1/studio/dialogue/script-jobs/{job_id}")
+            if current.json()["status"] == "failed":
+                break
+            time.sleep(0.005)
+
+    assert current.json()["status"] == "failed"
+    assert secret not in current.text
+    assert "[REDACTED]" in current.text
