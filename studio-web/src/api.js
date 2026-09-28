@@ -180,6 +180,31 @@ export const api = {
     }),
   deleteResource: (id) =>
     request(`/v1/api-resources/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  chatResources: () => request("/v1/chat-resources"),
+  chatResource: (id) => request(`/v1/chat-resources/${encodeURIComponent(id)}`),
+  createChatResource: (payload) =>
+    request("/v1/chat-resources", { method: "POST", body: JSON.stringify(payload) }),
+  updateChatResource: (id, payload) =>
+    request(`/v1/chat-resources/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+  deleteChatResource: (id) =>
+    request(`/v1/chat-resources/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  verifyChatResource: (id, model = "") =>
+    request(`/v1/chat-resources/${encodeURIComponent(id)}/verify${model ? `?model=${encodeURIComponent(model)}` : ""}`, {
+      method: "POST",
+    }),
+  generateDialogueScript: (payload) =>
+    request("/v1/studio/dialogue/generate", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  refineDialogueSelection: (payload) =>
+    request("/v1/studio/dialogue/refine", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
   errors: ({ after = 0, unreadOnly = false } = {}) =>
     request(`/v1/errors?after=${after}&limit=500&unread_only=${unreadOnly}`),
   error: (id) => request(`/v1/errors/${encodeURIComponent(id)}`),

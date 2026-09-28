@@ -46,6 +46,13 @@ from .api_resources import (
 )
 from .auth import AuthManager, AuthMiddleware, register_auth
 from .bootstrap import create_service
+from .chat_resources import (
+    ChatResourceConflictError,
+    ChatResourceNotFoundError,
+    ChatResourceSpec,
+    SqliteChatResourceStore,
+    StoredChatResource,
+)
 from .config import Settings
 from .diagnostics import sanitize_diagnostic, sanitize_url
 from .domain import (
@@ -81,6 +88,14 @@ from .studio import (
     VoiceProfile,
     VoiceProfileKind,
     import_splicr_job,
+)
+from .studio.chat import ChatCompletionError, OpenAiChatCompleter
+from .studio.dialogue import (
+    DialogueGenerationError,
+    DialogueGenerationOptions,
+    DialogueTurn as GeneratedDialogueTurn,
+    generate_script,
+    refine_selection,
 )
 from .studio.voice_resolution import (
     VOICE_PROFILE_VARIABLE,
@@ -462,6 +477,142 @@ class ApiResourcePayload(BaseModel):
     @property
     def selected_adapter(self) -> str | None:
         return self.adapter_type or self.adapter
+
+
+class ChatResourcePayload(BaseModel):
+    """Editable OpenAI-compatible chat endpoint; credentials are write-only."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    resource_id: str = Field(min_length=1, max_length=64)
+    revision: int | None = Field(default=None, ge=1)
+    name: str = Field(min_length=1, max_length=255)
+    description: str = Field(default="", max_length=10_000)
+    base_url: str = Field(min_length=1, max_length=2_048)
+    default_model: str = Field(min_length=1, max_length=255)
+    models: list[str] = Field(default_factory=list, max_length=1_000)
+    local: bool = False
+    allow_insecure_http: bool = False
+    headers: dict[str, str] = Field(default_factory=dict)
+    timeout_seconds: float = Field(default=180.0, gt=0, le=900)
+    api_key_envs: list[str] = Field(default_factory=list, max_length=100)
+    api_key: str | None = Field(default=None, max_length=10_000)
+    clear_api_key: bool = False
+
+    @model_validator(mode="after")
+    def secret_action_must_be_unambiguous(self) -> "ChatResourcePayload":
+        if self.clear_api_key and self.api_key:
+            raise ValueError("api_key and clear_api_key cannot be used together")
+        return self
+
+
+class ChatResourceResponse(BaseModel):
+    resource_id: str
+    revision: int
+    name: str
+    description: str
+    base_url: str
+    default_model: str
+    models: list[str]
+    local: bool
+    allow_insecure_http: bool
+    headers: dict[str, str]
+    timeout_seconds: float
+    api_key_envs: list[str]
+    built_in: bool
+    has_api_key: bool
+    api_key_source: str | None
+    secure_storage_available: bool
+    created_at: str
+
+
+class ChatResourceVerificationResponse(BaseModel):
+    ok: bool
+    detail: str
+    resource_id: str
+    model: str
+
+
+class DialogueGenerationOptionsPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    host1_name: str = Field(default="Alex", min_length=1, max_length=100)
+    host2_name: str = Field(default="Sam", min_length=1, max_length=100)
+    host1_role: str = Field(
+        default="explains the material clearly and with enthusiasm",
+        min_length=1,
+        max_length=2_000,
+    )
+    host2_role: str = Field(
+        default="asks the questions a smart newcomer would ask",
+        min_length=1,
+        max_length=2_000,
+    )
+    style: str = Field(
+        default="warm, curious and unhurried; plain language over jargon",
+        min_length=1,
+        max_length=4_000,
+    )
+    words_per_section: int = Field(default=320, ge=50, le=2_000)
+    section_chars: int = Field(default=6_000, ge=500, le=100_000)
+    max_sections: int = Field(default=40, ge=1, le=200)
+    temperature: float = Field(default=0.8, ge=0, le=2)
+
+    def to_domain(self) -> DialogueGenerationOptions:
+        return DialogueGenerationOptions(**self.model_dump())
+
+
+class DialogueGenerateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    text: str = Field(min_length=1, max_length=20_000_000)
+    chat_resource_id: str = Field(min_length=1, max_length=64)
+    model: str | None = Field(default=None, max_length=255)
+    options: DialogueGenerationOptionsPayload = Field(
+        default_factory=DialogueGenerationOptionsPayload
+    )
+
+    @field_validator("text")
+    @classmethod
+    def document_must_not_be_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("document text must not be blank")
+        return value
+
+
+class DialogueScriptResponse(BaseModel):
+    turns: list[DialogueTurnPayload]
+    sections: int
+    outline: list[str]
+    removed_duplicates: int
+    word_count: int
+    cancelled: bool
+    progress: list[str]
+
+
+class DialogueRefineRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    chat_resource_id: str = Field(min_length=1, max_length=64)
+    model: str | None = Field(default=None, max_length=255)
+    before: str = Field(default="", max_length=100_000)
+    selected: str = Field(min_length=1, max_length=100_000)
+    after: str = Field(default="", max_length=100_000)
+    instruction: str = Field(min_length=1, max_length=10_000)
+    speaker: Literal["Person1", "Person2"]
+    neighbor_before: DialogueTurnPayload | None = None
+    neighbor_after: DialogueTurnPayload | None = None
+
+    @field_validator("selected", "instruction")
+    @classmethod
+    def required_text_must_not_be_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("selected text and instruction must not be blank")
+        return value
+
+
+class DialogueRefineResponse(BaseModel):
+    replacement: str
 
 
 class ImportedDocumentMetadataResponse(BaseModel):
@@ -1349,10 +1500,52 @@ def _resource_response(
     return data
 
 
+def _chat_resource_spec_from_payload(
+    payload: ChatResourcePayload,
+    current: ChatResourceSpec | None = None,
+) -> ChatResourceSpec:
+    return ChatResourceSpec(
+        resource_id=payload.resource_id,
+        revision=1 if current is None else current.revision + 1,
+        name=payload.name,
+        description=payload.description,
+        base_url=payload.base_url,
+        default_model=payload.default_model,
+        models=tuple(payload.models),
+        local=payload.local,
+        allow_insecure_http=payload.allow_insecure_http,
+        headers=payload.headers,
+        timeout_seconds=payload.timeout_seconds,
+        api_key_envs=tuple(payload.api_key_envs),
+        built_in=False if current is None else current.built_in,
+    )
+
+
+def _chat_resource_response(
+    stored: StoredChatResource,
+    store: SqliteChatResourceStore,
+) -> ChatResourceResponse:
+    spec = stored.spec
+    secure_storage_available = True
+    try:
+        api_key_source = store.api_key_source(spec.resource_id)
+    except SecretVaultUnavailableError:
+        api_key_source = None
+        secure_storage_available = False
+    return ChatResourceResponse(
+        **spec.to_dict(),
+        has_api_key=api_key_source is not None,
+        api_key_source=api_key_source,
+        secure_storage_available=secure_storage_available,
+        created_at=stored.created_at,
+    )
+
+
 def create_app(
     *,
     settings: Settings | None = None,
     service: SynthesisService | None = None,
+    chat_resource_store: SqliteChatResourceStore | None = None,
 ) -> FastAPI:
     resolved_settings = settings or Settings.from_env()
     synthesis = service or create_service(resolved_settings)
@@ -1378,6 +1571,12 @@ def create_app(
         if isinstance(candidate_resource_store, SqliteApiResourceStore)
         else None
     )
+    chat_resources = chat_resource_store or SqliteChatResourceStore(
+        resolved_settings.database_path,
+        vault=resource_store.vault if resource_store is not None else None,
+    )
+    chat_resources.initialize()
+    chat_resources.seed_builtins()
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
@@ -1395,6 +1594,7 @@ def create_app(
     )
     application.state.synthesis_service = synthesis
     application.state.api_resource_store = resource_store
+    application.state.chat_resource_store = chat_resources
     application.state.error_event_store = synthesis.store
     application.state.studio_store = studio
     application.state.text_customization_store = customizations
@@ -1489,6 +1689,13 @@ def create_app(
                     continue
                 if secret:
                     secrets.append(secret)
+        for stored in chat_resources.list():
+            try:
+                secret = chat_resources.resolve_api_key(stored.spec.resource_id)
+            except SecretVaultUnavailableError:
+                continue
+            if secret:
+                secrets.append(secret)
         return tuple(dict.fromkeys(secrets))
 
     async def invalidate_resource(resource_id: str) -> None:
@@ -1509,6 +1716,27 @@ def create_app(
         return HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail={"code": "SECURE_STORAGE_UNAVAILABLE", "message": str(error)},
+        )
+
+    def configured_chat(
+        resource_id: str,
+        model: str | None,
+    ) -> tuple[OpenAiChatCompleter, str]:
+        stored = chat_resources.get_current(resource_id)
+        selected_model = (model or stored.spec.default_model).strip()
+        runtime = stored.spec.runtime(model=selected_model)
+        api_key = chat_resources.resolve_api_key(stored.spec.resource_id)
+        return OpenAiChatCompleter(runtime, api_key=api_key), selected_model
+
+    def chat_provider_error(error: ChatCompletionError | DialogueGenerationError) -> HTTPException:
+        return HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={
+                "code": "CHAT_PROVIDER_ERROR",
+                "message": str(error),
+                "provider_status": getattr(error, "status_code", None),
+                "retryable": bool(getattr(error, "retryable", False)),
+            },
         )
 
     def profile_response(profile: StudioProfile) -> StudioProfileResponse:
@@ -2106,6 +2334,223 @@ def create_app(
         if directory := managed_voice_directory(profile):
             shutil.rmtree(directory, ignore_errors=True)
         return Response(status_code=204)
+
+    @application.get(
+        "/v1/chat-resources",
+        response_model=list[ChatResourceResponse],
+        tags=["chat resources"],
+    )
+    async def list_chat_resources() -> list[ChatResourceResponse]:
+        return [_chat_resource_response(stored, chat_resources) for stored in chat_resources.list()]
+
+    @application.post(
+        "/v1/chat-resources",
+        response_model=ChatResourceResponse,
+        status_code=status.HTTP_201_CREATED,
+        tags=["chat resources"],
+    )
+    async def create_chat_resource(payload: ChatResourcePayload) -> ChatResourceResponse:
+        try:
+            spec = _chat_resource_spec_from_payload(payload)
+            stored = chat_resources.create(spec)
+            if payload.api_key:
+                chat_resources.set_api_key(spec.resource_id, payload.api_key)
+        except ChatResourceConflictError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        except SecretVaultUnavailableError as error:
+            raise secure_storage_error(error) from error
+        except (KeyError, TypeError, ValueError) as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        return _chat_resource_response(stored, chat_resources)
+
+    @application.get(
+        "/v1/chat-resources/{resource_id}",
+        response_model=ChatResourceResponse,
+        tags=["chat resources"],
+    )
+    async def get_chat_resource(resource_id: str) -> ChatResourceResponse:
+        try:
+            stored = chat_resources.get_current(resource_id)
+        except ChatResourceNotFoundError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        return _chat_resource_response(stored, chat_resources)
+
+    @application.put(
+        "/v1/chat-resources/{resource_id}",
+        response_model=ChatResourceResponse,
+        tags=["chat resources"],
+    )
+    async def update_chat_resource(
+        resource_id: str,
+        payload: ChatResourcePayload,
+    ) -> ChatResourceResponse:
+        if payload.resource_id != resource_id:
+            raise HTTPException(status_code=422, detail="resource id cannot be changed")
+        try:
+            current = chat_resources.get_current(resource_id)
+            expected_revision = payload.revision or current.spec.revision
+            replacement = _chat_resource_spec_from_payload(payload, current.spec)
+            stored = chat_resources.update(
+                resource_id,
+                replacement,
+                expected_revision=expected_revision,
+            )
+            if payload.clear_api_key:
+                chat_resources.clear_api_key(resource_id)
+            elif payload.api_key:
+                chat_resources.set_api_key(resource_id, payload.api_key)
+        except ChatResourceNotFoundError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except ChatResourceConflictError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        except SecretVaultUnavailableError as error:
+            raise secure_storage_error(error) from error
+        except (KeyError, TypeError, ValueError) as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        return _chat_resource_response(stored, chat_resources)
+
+    @application.delete(
+        "/v1/chat-resources/{resource_id}",
+        status_code=status.HTTP_204_NO_CONTENT,
+        tags=["chat resources"],
+    )
+    async def delete_chat_resource(resource_id: str) -> Response:
+        try:
+            chat_resources.soft_delete(resource_id)
+        except ChatResourceNotFoundError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except ChatResourceConflictError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        except SecretVaultUnavailableError as error:
+            raise secure_storage_error(error) from error
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    @application.post(
+        "/v1/chat-resources/{resource_id}/verify",
+        response_model=ChatResourceVerificationResponse,
+        tags=["chat resources"],
+    )
+    async def verify_chat_resource(
+        resource_id: str,
+        model: str | None = Query(default=None, max_length=255),
+    ) -> ChatResourceVerificationResponse:
+        try:
+            completer, selected_model = configured_chat(resource_id, model)
+            async with completer:
+                await completer.complete(
+                    [{"role": "user", "content": "Reply with exactly: ready"}],
+                    model=selected_model,
+                    temperature=0,
+                    max_tokens=16,
+                )
+        except ChatResourceNotFoundError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except SecretVaultUnavailableError as error:
+            raise secure_storage_error(error) from error
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        except ChatCompletionError as error:
+            raise chat_provider_error(error) from error
+        return ChatResourceVerificationResponse(
+            ok=True,
+            detail="Connection succeeded.",
+            resource_id=resource_id,
+            model=selected_model,
+        )
+
+    @application.post(
+        "/v1/studio/dialogue/generate",
+        response_model=DialogueScriptResponse,
+        tags=["studio"],
+    )
+    async def generate_dialogue_script(
+        payload: DialogueGenerateRequest,
+    ) -> DialogueScriptResponse:
+        progress_messages: list[str] = []
+        try:
+            completer, selected_model = configured_chat(
+                payload.chat_resource_id,
+                payload.model,
+            )
+            async with completer:
+                script = await generate_script(
+                    payload.text,
+                    completer,
+                    options=payload.options.to_domain(),
+                    model=selected_model,
+                    progress=progress_messages.append,
+                )
+        except ChatResourceNotFoundError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except SecretVaultUnavailableError as error:
+            raise secure_storage_error(error) from error
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        except (ChatCompletionError, DialogueGenerationError) as error:
+            raise chat_provider_error(error) from error
+        return DialogueScriptResponse(
+            turns=[
+                DialogueTurnPayload(speaker=turn.speaker, text=turn.text)
+                for turn in script.turns
+            ],
+            sections=script.sections,
+            outline=list(script.outline),
+            removed_duplicates=script.removed_duplicates,
+            word_count=script.word_count,
+            cancelled=script.cancelled,
+            progress=progress_messages,
+        )
+
+    @application.post(
+        "/v1/studio/dialogue/refine",
+        response_model=DialogueRefineResponse,
+        tags=["studio"],
+    )
+    async def refine_dialogue_selection(
+        payload: DialogueRefineRequest,
+    ) -> DialogueRefineResponse:
+        neighbor_before = (
+            GeneratedDialogueTurn(
+                speaker=payload.neighbor_before.speaker,
+                text=payload.neighbor_before.text,
+            )
+            if payload.neighbor_before is not None
+            else None
+        )
+        neighbor_after = (
+            GeneratedDialogueTurn(
+                speaker=payload.neighbor_after.speaker,
+                text=payload.neighbor_after.text,
+            )
+            if payload.neighbor_after is not None
+            else None
+        )
+        try:
+            completer, selected_model = configured_chat(
+                payload.chat_resource_id,
+                payload.model,
+            )
+            async with completer:
+                replacement = await refine_selection(
+                    before=payload.before,
+                    selected=payload.selected,
+                    after=payload.after,
+                    instruction=payload.instruction,
+                    speaker=payload.speaker,
+                    completer=completer,
+                    model=selected_model,
+                    neighbor_before=neighbor_before,
+                    neighbor_after=neighbor_after,
+                )
+        except ChatResourceNotFoundError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except SecretVaultUnavailableError as error:
+            raise secure_storage_error(error) from error
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        except (ChatCompletionError, DialogueGenerationError) as error:
+            raise chat_provider_error(error) from error
+        return DialogueRefineResponse(replacement=replacement)
 
     @application.get("/v1/api-resources", tags=["API resources"])
     async def list_api_resources() -> list[dict[str, Any]]:

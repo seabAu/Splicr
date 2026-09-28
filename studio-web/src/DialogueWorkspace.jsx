@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeftRight,
+  Bot,
   LoaderCircle,
   MessageSquareText,
   Plus,
+  Settings2,
   Sparkles,
   Trash2,
   UsersRound,
@@ -12,6 +14,7 @@ import {
 
 import { api } from "./api.js";
 import { formatCount, percent } from "./format.js";
+import { ChatResourceManager } from "./StudioTools.jsx";
 
 const TERMINAL = new Set(["completed", "failed", "cancelled"]);
 const DEFAULT_CONTROLS = {
@@ -19,6 +22,17 @@ const DEFAULT_CONTROLS = {
   pace: "normal",
   vocal_style: "natural",
   nonverbal_frequency: "never",
+};
+const DEFAULT_WRITER_OPTIONS = {
+  host1_name: "Alex",
+  host2_name: "Sam",
+  host1_role: "explains the material clearly and with enthusiasm",
+  host2_role: "asks the questions a smart newcomer would ask",
+  style: "warm, curious and unhurried; plain language over jargon",
+  words_per_section: 320,
+  section_chars: 6000,
+  max_sections: 40,
+  temperature: 0.8,
 };
 
 function freshSpeaker() {
@@ -143,7 +157,17 @@ function SpeakerCard({
   );
 }
 
-function TurnEditor({ turn, index, onChange, onRemove, canRemove, preview }) {
+function TurnEditor({ turn, index, onChange, onRemove, onRefine, canRemove, preview }) {
+  const textArea = useRef(null);
+  const refine = () => {
+    const node = textArea.current;
+    const start = node?.selectionStart ?? 0;
+    const end = node?.selectionEnd ?? turn.text.length;
+    onRefine({
+      start: start === end ? 0 : start,
+      end: start === end ? turn.text.length : end,
+    });
+  };
   return (
     <article className={`dialogue-turn ${turn.speaker === "Person1" ? "person-one" : "person-two"}`}>
       <div className="turn-rail">
@@ -164,17 +188,30 @@ function TurnEditor({ turn, index, onChange, onRemove, canRemove, preview }) {
             {formatCount(turn.text.length)} chars
             {preview ? ` · ${preview.chunks.length} chunk${preview.chunks.length === 1 ? "" : "s"}` : ""}
           </span>
-          <button
-            className="icon-button compact"
-            type="button"
-            disabled={!canRemove}
-            onClick={onRemove}
-            aria-label={`Remove turn ${index + 1}`}
-          >
-            <Trash2 size={15} />
-          </button>
+          <div className="turn-actions">
+            <button
+              className="icon-button compact"
+              type="button"
+              disabled={!turn.text.trim()}
+              onClick={refine}
+              aria-label={`Refine turn ${index + 1}`}
+              title="Refine selected text, or the whole turn"
+            >
+              <WandSparkles size={15} />
+            </button>
+            <button
+              className="icon-button compact"
+              type="button"
+              disabled={!canRemove}
+              onClick={onRemove}
+              aria-label={`Remove turn ${index + 1}`}
+            >
+              <Trash2 size={15} />
+            </button>
+          </div>
         </div>
         <textarea
+          ref={textArea}
           rows="3"
           value={turn.text}
           placeholder={turn.speaker === "Person1" ? "Opening, question, or response…" : "Reply…"}
@@ -188,6 +225,15 @@ function TurnEditor({ turn, index, onChange, onRemove, canRemove, preview }) {
 export function DialogueWorkspace({ active }) {
   const [providers, setProviders] = useState([]);
   const [voiceProfiles, setVoiceProfiles] = useState([]);
+  const [chatResources, setChatResources] = useState([]);
+  const [chatResourceId, setChatResourceId] = useState("");
+  const [writerModel, setWriterModel] = useState("");
+  const [sourceText, setSourceText] = useState("");
+  const [writerOptions, setWriterOptions] = useState(DEFAULT_WRITER_OPTIONS);
+  const [writerResult, setWriterResult] = useState(null);
+  const [chatConnectionsOpen, setChatConnectionsOpen] = useState(false);
+  const [refineTarget, setRefineTarget] = useState(null);
+  const [refineInstruction, setRefineInstruction] = useState("");
   const [providerId, setProviderId] = useState("");
   const [projectName, setProjectName] = useState("Untitled dialogue");
   const [turns, setTurns] = useState([
@@ -203,6 +249,8 @@ export function DialogueWorkspace({ active }) {
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const provider = providers.find((candidate) => candidate.name === providerId) || providers[0];
+  const writerResource = chatResources.find((candidate) => candidate.resource_id === chatResourceId)
+    || chatResources[0];
   const isLocalProfileEngine = provider?.name === "qwen3-local" || provider?.name === "audio8-local";
   const transcriptStats = useMemo(() => {
     const text = turns.map((turn) => turn.text).join(" ").trim();
@@ -243,20 +291,42 @@ export function DialogueWorkspace({ active }) {
     };
   };
 
+  const refreshChatResources = async (preferred = chatResourceId) => {
+    const rows = await api.chatResources();
+    setChatResources(rows);
+    const selected = rows.find((item) => item.resource_id === preferred) || rows[0];
+    if (selected) setChatResourceId(selected.resource_id);
+    return rows;
+  };
+
   useEffect(() => {
-    Promise.all([api.providers(), api.voices()])
-      .then(([providerRows, voiceRows]) => {
+    Promise.all([api.providers(), api.voices(), api.chatResources()])
+      .then(([providerRows, voiceRows, chatRows]) => {
         setProviders(providerRows);
         setVoiceProfiles(voiceRows);
+        setChatResources(chatRows);
         if (providerRows.length) setProviderId((current) => current || providerRows[0].name);
+        if (chatRows.length) setChatResourceId((current) => current || chatRows[0].resource_id);
       })
       .catch((reason) => setError(reason.message));
   }, []);
 
   useEffect(() => {
     if (!active) return;
-    api.voices().then(setVoiceProfiles).catch((reason) => setError(reason.message));
+    Promise.all([api.voices(), api.chatResources()])
+      .then(([voiceRows, chatRows]) => {
+        setVoiceProfiles(voiceRows);
+        setChatResources(chatRows);
+      })
+      .catch((reason) => setError(reason.message));
   }, [active]);
+
+  useEffect(() => {
+    if (!writerResource) return;
+    setWriterModel((current) => (
+      writerResource.models.includes(current) ? current : writerResource.default_model
+    ));
+  }, [writerResource?.resource_id, writerResource?.revision]);
 
   useEffect(() => {
     if (!provider) return;
@@ -339,6 +409,49 @@ export function DialogueWorkspace({ active }) {
     const result = await run(action, () => api.jobAction(job.id, action));
     if (result) setJob(result);
   };
+  const generateDialogue = async () => {
+    if (!writerResource || !sourceText.trim()) return;
+    const result = await run("generate", () => api.generateDialogueScript({
+      text: sourceText,
+      chat_resource_id: writerResource.resource_id,
+      model: writerModel || null,
+      options: writerOptions,
+    }));
+    if (!result) return;
+    changeTurns(result.turns);
+    setWriterResult(result);
+    setRefineTarget(null);
+  };
+  const openRefinement = (index, range) => {
+    setRefineTarget({ index, ...range });
+    setRefineInstruction("");
+  };
+  const applyRefinement = async () => {
+    if (!writerResource || !refineTarget || !refineInstruction.trim()) return;
+    const turn = turns[refineTarget.index];
+    if (!turn) return;
+    const before = turn.text.slice(0, refineTarget.start);
+    const selected = turn.text.slice(refineTarget.start, refineTarget.end);
+    const after = turn.text.slice(refineTarget.end);
+    const result = await run("refine", () => api.refineDialogueSelection({
+      chat_resource_id: writerResource.resource_id,
+      model: writerModel || null,
+      before,
+      selected,
+      after,
+      instruction: refineInstruction,
+      speaker: turn.speaker,
+      neighbor_before: turns[refineTarget.index - 1] || null,
+      neighbor_after: turns[refineTarget.index + 1] || null,
+    }));
+    if (!result) return;
+    updateTurn(refineTarget.index, {
+      ...turn,
+      text: `${before}${result.replacement}${after}`,
+    });
+    setRefineTarget(null);
+    setRefineInstruction("");
+  };
 
   return (
     <main className="dialogue-workspace">
@@ -397,6 +510,51 @@ export function DialogueWorkspace({ active }) {
             <button className="secondary-button small" type="button" onClick={addTurn}><Plus size={15} />Add turn</button>
           </div>
         </div>
+        <div className="dialogue-writer">
+          <div className="dialogue-writer-heading">
+            <div className="dialogue-writer-title">
+              <span className="writer-icon"><Bot size={18} /></span>
+              <div><strong>Draft from source material</strong><small>Outline-first writing with continuity and duplicate cleanup</small></div>
+            </div>
+            <button className="ghost-button small" type="button" onClick={() => setChatConnectionsOpen(true)}><Settings2 size={14} />Connections</button>
+          </div>
+          <div className="dialogue-writer-grid">
+            <Control label="Writer connection" hint={writerResource?.local ? "Runs on this computer" : "Remote HTTPS provider"}>
+              <select value={writerResource?.resource_id || ""} onChange={(event) => setChatResourceId(event.target.value)}>
+                {chatResources.map((item) => <option key={item.resource_id} value={item.resource_id}>{item.name}</option>)}
+              </select>
+            </Control>
+            <Control label="Writer model">
+              <select value={writerModel} onChange={(event) => setWriterModel(event.target.value)}>
+                {(writerResource?.models || []).map((model) => <option key={model} value={model}>{model}</option>)}
+              </select>
+            </Control>
+            <Control label="Words per section">
+              <input type="number" min="50" max="2000" value={writerOptions.words_per_section} onChange={(event) => setWriterOptions((current) => ({ ...current, words_per_section: Number(event.target.value) }))} />
+            </Control>
+          </div>
+          <Control label="Source document" hint="Paste or import source text here; the generated turns remain fully editable.">
+            <textarea rows="8" value={sourceText} onChange={(event) => setSourceText(event.target.value)} placeholder="Paste the document, article, notes, or chapter to adapt into dialogue..." />
+          </Control>
+          <details className="dialogue-writer-options">
+            <summary>Hosts and writing direction</summary>
+            <div className="dialogue-writer-options-grid">
+              <Control label="Host 1 name"><input value={writerOptions.host1_name} onChange={(event) => setWriterOptions((current) => ({ ...current, host1_name: event.target.value }))} /></Control>
+              <Control label="Host 2 name"><input value={writerOptions.host2_name} onChange={(event) => setWriterOptions((current) => ({ ...current, host2_name: event.target.value }))} /></Control>
+              <Control label="Host 1 role"><textarea rows="2" value={writerOptions.host1_role} onChange={(event) => setWriterOptions((current) => ({ ...current, host1_role: event.target.value }))} /></Control>
+              <Control label="Host 2 role"><textarea rows="2" value={writerOptions.host2_role} onChange={(event) => setWriterOptions((current) => ({ ...current, host2_role: event.target.value }))} /></Control>
+              <Control label="Conversation style"><textarea rows="2" value={writerOptions.style} onChange={(event) => setWriterOptions((current) => ({ ...current, style: event.target.value }))} /></Control>
+              <Control label="Creativity" hint={writerOptions.temperature.toFixed(1)}><input type="range" min="0" max="2" step="0.1" value={writerOptions.temperature} onChange={(event) => setWriterOptions((current) => ({ ...current, temperature: Number(event.target.value) }))} /></Control>
+            </div>
+          </details>
+          <div className="dialogue-writer-actions">
+            {writerResult && <span>{formatCount(writerResult.sections)} sections · {formatCount(writerResult.word_count)} words · {formatCount(writerResult.removed_duplicates)} duplicates removed</span>}
+            <button className="primary-button" type="button" disabled={!writerResource || !sourceText.trim() || !!busy} onClick={generateDialogue}>
+              {busy === "generate" ? <LoaderCircle className="spin" size={16} /> : <WandSparkles size={16} />}
+              {busy === "generate" ? "Writing dialogue…" : "Generate script"}
+            </button>
+          </div>
+        </div>
         <div className="dialogue-turns">
           {turns.map((turn, index) => (
             <TurnEditor
@@ -407,9 +565,18 @@ export function DialogueWorkspace({ active }) {
               canRemove={turns.length > 1}
               onChange={(value) => updateTurn(index, value)}
               onRemove={() => removeTurn(index)}
+              onRefine={(range) => openRefinement(index, range)}
             />
           ))}
         </div>
+        {refineTarget && turns[refineTarget.index] && (
+          <div className="dialogue-refine">
+            <div><p className="eyebrow">Refine turn {refineTarget.index + 1}</p><strong>“{turns[refineTarget.index].text.slice(refineTarget.start, refineTarget.end)}”</strong></div>
+            <input autoFocus value={refineInstruction} onChange={(event) => setRefineInstruction(event.target.value)} onKeyDown={(event) => event.key === "Enter" && applyRefinement()} placeholder="Make it clearer, warmer, shorter..." />
+            <button className="secondary-button small" type="button" onClick={() => setRefineTarget(null)}>Cancel</button>
+            <button className="primary-button small" type="button" disabled={!refineInstruction.trim() || !!busy} onClick={applyRefinement}>{busy === "refine" ? <LoaderCircle className="spin" size={14} /> : <Sparkles size={14} />}{busy === "refine" ? "Refining…" : "Apply"}</button>
+          </div>
+        )}
         <button className="dialogue-add-turn" type="button" onClick={addTurn}><Plus size={16} />Add another turn</button>
       </section>
 
@@ -458,6 +625,11 @@ export function DialogueWorkspace({ active }) {
           </div>
         )}
       </section>
+      <ChatResourceManager
+        open={chatConnectionsOpen}
+        onClose={() => setChatConnectionsOpen(false)}
+        onChanged={refreshChatResources}
+      />
     </main>
   );
 }

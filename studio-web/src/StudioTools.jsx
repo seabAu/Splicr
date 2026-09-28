@@ -437,6 +437,217 @@ export function ResourceManager({ open, onClose, onChanged }) {
   );
 }
 
+const EMPTY_CHAT_RESOURCE = {
+  resource_id: "",
+  revision: null,
+  name: "",
+  description: "",
+  base_url: "http://localhost:11434/v1",
+  default_model: "",
+  models: "[]",
+  local: true,
+  allow_insecure_http: false,
+  headers: "{}",
+  timeout_seconds: "180",
+  api_key_envs: "[]",
+  api_key: "",
+  clear_api_key: false,
+  has_api_key: false,
+  api_key_source: null,
+  built_in: false,
+};
+
+function chatResourceForm(resource) {
+  return {
+    ...EMPTY_CHAT_RESOURCE,
+    ...resource,
+    models: pretty(resource.models, []),
+    headers: pretty(resource.headers, {}),
+    api_key_envs: pretty(resource.api_key_envs, []),
+    timeout_seconds: `${resource.timeout_seconds ?? 180}`,
+    api_key: "",
+    clear_api_key: false,
+  };
+}
+
+export function ChatResourceManager({ open, onClose, onChanged = () => {} }) {
+  const [resources, setResources] = useState([]);
+  const [editingId, setEditingId] = useState(null);
+  const [form, setForm] = useState({ ...EMPTY_CHAT_RESOURCE });
+  const [showKey, setShowKey] = useState(false);
+  const [busy, setBusy] = useState("");
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const patch = (values) => setForm((current) => ({ ...current, ...values }));
+  const refresh = async (preferred = editingId) => {
+    setBusy("refresh");
+    setError("");
+    try {
+      const rows = await api.chatResources();
+      setResources(rows);
+      const selected = rows.find((item) => item.resource_id === preferred);
+      if (selected) {
+        setEditingId(selected.resource_id);
+        setForm(chatResourceForm(selected));
+      } else if (!preferred) {
+        setEditingId(null);
+        setForm({ ...EMPTY_CHAT_RESOURCE });
+      }
+    } catch (reason) { setError(reason.message); }
+    finally { setBusy(""); }
+  };
+
+  useEffect(() => { if (open) refresh(null); }, [open]);
+  useEffect(() => {
+    if (!showKey) return undefined;
+    const timer = window.setTimeout(() => setShowKey(false), 15000);
+    return () => window.clearTimeout(timer);
+  }, [showKey]);
+  useEffect(() => { if (!open) setShowKey(false); }, [open]);
+
+  const choose = async (id) => {
+    setBusy("detail");
+    setError("");
+    try {
+      const detail = await api.chatResource(id);
+      setEditingId(id);
+      setForm(chatResourceForm(detail));
+      setMessage("");
+      setConfirmDelete(false);
+      setShowKey(false);
+    } catch (reason) { setError(reason.message); }
+    finally { setBusy(""); }
+  };
+
+  const beginNew = () => {
+    setEditingId(null);
+    setForm({ ...EMPTY_CHAT_RESOURCE });
+    setError("");
+    setMessage("");
+    setConfirmDelete(false);
+  };
+
+  const payload = () => {
+    const value = {
+      resource_id: form.resource_id.trim(),
+      name: form.name.trim(),
+      description: form.description.trim(),
+      base_url: form.base_url.trim(),
+      default_model: form.default_model.trim(),
+      models: parseJson(form.models, "Models", "array"),
+      local: form.local,
+      allow_insecure_http: form.allow_insecure_http,
+      headers: parseJson(form.headers, "Headers", "object"),
+      timeout_seconds: Number(form.timeout_seconds),
+      api_key_envs: parseJson(form.api_key_envs, "API key environment names", "array"),
+    };
+    if (editingId) value.revision = form.revision;
+    if (form.clear_api_key) value.clear_api_key = true;
+    else if (form.api_key) value.api_key = form.api_key;
+    return value;
+  };
+
+  const save = async (event) => {
+    event.preventDefault();
+    setBusy("save");
+    setError("");
+    setMessage("");
+    try {
+      const value = payload();
+      const saved = editingId
+        ? await api.updateChatResource(editingId, value)
+        : await api.createChatResource(value);
+      setEditingId(saved.resource_id);
+      setForm(chatResourceForm(saved));
+      setMessage(`${saved.name} is ready for dialogue writing.`);
+      await refresh(saved.resource_id);
+      await onChanged(saved.resource_id);
+    } catch (reason) { setError(reason.message); }
+    finally { setBusy(""); }
+  };
+
+  const verify = async () => {
+    if (!editingId) return;
+    setBusy("verify");
+    setError("");
+    setMessage("");
+    try {
+      const result = await api.verifyChatResource(editingId, form.default_model);
+      setMessage(`${result.detail} ${result.model} responded.`);
+    } catch (reason) { setError(reason.message); }
+    finally { setBusy(""); }
+  };
+
+  const remove = async () => {
+    if (!editingId || form.built_in) return;
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      setMessage("Click confirm delete to remove this writer connection.");
+      return;
+    }
+    setBusy("delete");
+    setError("");
+    try {
+      await api.deleteChatResource(editingId);
+      beginNew();
+      await refresh(null);
+      await onChanged(null);
+    } catch (reason) { setError(reason.message); }
+    finally { setBusy(""); }
+  };
+
+  return (
+    <Modal open={open} onClose={onClose} eyebrow="Dialogue writer" title="Chat connections" wide>
+      <p className="modal-intro">Configure any OpenAI-compatible local or hosted chat endpoint. API keys are write-only, encrypted locally, and hidden again after 15 seconds.</p>
+      <InlineNotice error={error} message={message} />
+      <div className="resource-editor-layout">
+        <aside className="resource-list">
+          <button className={!editingId ? "active" : ""} onClick={beginNew}><Plus size={15} /><span><strong>New connection</strong><small>OpenAI-compatible</small></span></button>
+          {resources.map((resource) => (
+            <button className={editingId === resource.resource_id ? "active" : ""} key={resource.resource_id} onClick={() => choose(resource.resource_id)}>
+              <span><strong>{resource.name}</strong><small>{resource.resource_id} · r{resource.revision}{resource.local ? " · local" : ""}</small></span>
+            </button>
+          ))}
+        </aside>
+        <form className="resource-form" onSubmit={save}>
+          <div className="resource-section-heading">
+            <div><strong>{editingId ? "Edit writer connection" : "Add writer connection"}</strong><span>Every save creates an immutable revision.</span></div>
+            {editingId && !form.built_in && <button type="button" className="ghost-button small danger" onClick={remove} disabled={busy === "delete"}><Trash2 size={14} />{confirmDelete ? "Confirm delete" : "Delete"}</button>}
+          </div>
+          <div className="resource-fields three">
+            <label><span>ID</span><input required pattern="[a-z][a-z0-9._-]*" disabled={!!editingId} value={form.resource_id} onChange={(event) => patch({ resource_id: event.target.value })} /></label>
+            <label><span>Name</span><input required value={form.name} onChange={(event) => patch({ name: event.target.value })} /></label>
+            <label><span>Default model</span><input required value={form.default_model} onChange={(event) => patch({ default_model: event.target.value })} /></label>
+            <label className="span-two"><span>Base URL</span><input required value={form.base_url} onChange={(event) => patch({ base_url: event.target.value })} placeholder="http://localhost:11434/v1" /></label>
+            <label><span>Timeout seconds</span><input required type="number" min="1" max="900" value={form.timeout_seconds} onChange={(event) => patch({ timeout_seconds: event.target.value })} /></label>
+            <label className="span-two"><span>Description</span><input value={form.description} onChange={(event) => patch({ description: event.target.value })} /></label>
+            <label className="check-row"><input type="checkbox" checked={form.local} onChange={(event) => patch({ local: event.target.checked })} />Local model server</label>
+            <label className="check-row"><input type="checkbox" checked={form.allow_insecure_http} onChange={(event) => patch({ allow_insecure_http: event.target.checked })} />Allow non-loopback HTTP</label>
+          </div>
+          <details open><summary>Authentication</summary><div className="resource-fields three">
+            <label className="span-two"><span>API key {form.has_api_key && <small>Stored via {form.api_key_source}</small>}</span><div className="secret-input"><KeyRound size={15} /><input type={showKey ? "text" : "password"} value={form.api_key} onChange={(event) => patch({ api_key: event.target.value, clear_api_key: false })} placeholder={form.has_api_key ? "Leave blank to keep stored key" : "Optional for local servers"} autoComplete="new-password" /><button type="button" onClick={() => setShowKey((value) => !value)} aria-label={showKey ? "Hide API key" : "Show API key"}>{showKey ? <EyeOff size={16} /> : <Eye size={16} />}</button></div></label>
+            <label className="check-row"><input type="checkbox" checked={form.clear_api_key} onChange={(event) => patch({ clear_api_key: event.target.checked, api_key: "" })} />Remove stored key</label>
+          </div></details>
+          <details open><summary>Models and request headers</summary><div className="resource-json-grid">
+            <label className="resource-json-field"><span>Available models</span><textarea rows="5" spellCheck="false" value={form.models} onChange={(event) => patch({ models: event.target.value })} /></label>
+            <label className="resource-json-field"><span>Static headers</span><textarea rows="5" spellCheck="false" value={form.headers} onChange={(event) => patch({ headers: event.target.value })} /></label>
+            <label className="resource-json-field"><span>API key environment names</span><textarea rows="5" spellCheck="false" value={form.api_key_envs} onChange={(event) => patch({ api_key_envs: event.target.value })} /></label>
+          </div></details>
+          <footer>
+            <span>{form.built_in ? "Built-in template · editable, not deletable" : editingId ? `Editing revision ${form.revision}` : "Unsaved writer connection"}</span>
+            <div className="header-tools">
+              {editingId && <button type="button" className="secondary-button" disabled={!!busy} onClick={verify}><RefreshCw size={15} />{busy === "verify" ? "Testing…" : "Test connection"}</button>}
+              <button className="primary-button" disabled={busy === "save" || !form.resource_id.trim() || !form.name.trim() || !form.default_model.trim()}><Save size={16} />{busy === "save" ? "Saving…" : "Save connection"}</button>
+            </div>
+          </footer>
+        </form>
+      </div>
+    </Modal>
+  );
+}
+
 const dateLabel = (value) => value ? new Date(value).toLocaleString() : "Unknown time";
 const detailJson = (value) => JSON.stringify(value, null, 2);
 
