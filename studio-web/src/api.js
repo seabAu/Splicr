@@ -198,6 +198,25 @@ export const api = {
     request(`/v1/studio/conversions/jobs/${encodeURIComponent(id)}/${action}`, {
       method: "POST",
     }),
+  publishingChannel: () => request("/v1/studio/publishing/channel"),
+  savePublishingChannel: (payload) =>
+    request("/v1/studio/publishing/channel", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+  publishingSources: () => request("/v1/studio/publishing/sources"),
+  publishingEpisodes: () => request("/v1/studio/publishing/episodes"),
+  publishingChapters: (takeId) =>
+    request(`/v1/studio/publishing/takes/${encodeURIComponent(takeId)}/chapters`),
+  exportPublishingTranscript: (takeId) =>
+    request(`/v1/studio/publishing/takes/${encodeURIComponent(takeId)}/transcript`, {
+      method: "POST",
+    }),
+  publishEpisode: (payload) =>
+    request("/v1/studio/publishing/episodes", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
   preview: (payload) =>
     request("/v1/speech/preview", { method: "POST", body: JSON.stringify(payload) }),
   createJob: (payload) =>

@@ -143,6 +143,13 @@ from .studio.dialogue import (
     generate_script,
     refine_selection,
 )
+from .studio.publishing import (
+    ChapterCue,
+    PodcastChannel,
+    PublishedEpisode,
+    PublishingService,
+    PublishingStore,
+)
 from .studio.timeline import JobTimeline, TimelineSegment, build_job_timeline, wav_span_bytes
 from .studio.voice_resolution import (
     VOICE_PROFILE_VARIABLE,
@@ -1320,6 +1327,115 @@ class ConversionJobResponse(BaseModel):
         )
 
 
+class PodcastChannelPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    title: str = Field(min_length=1, max_length=300)
+    author: str = Field(default="", max_length=300)
+    owner_email: str = Field(default="", max_length=320)
+    description: str = Field(min_length=1, max_length=10_000)
+    website_url: str = Field(default="", max_length=2_000)
+    media_base_url: str = Field(default="", max_length=2_000)
+    artwork_url: str = Field(default="", max_length=2_000)
+    category: str = Field(default="Technology", max_length=200)
+    language: str = Field(default="en-us", min_length=2, max_length=35)
+    explicit: bool = False
+    updated_at: str | None = None
+
+    def to_domain(self) -> PodcastChannel:
+        return PodcastChannel(
+            title=self.title.strip(),
+            author=self.author.strip(),
+            owner_email=self.owner_email.strip(),
+            description=self.description.strip(),
+            website_url=self.website_url.strip(),
+            media_base_url=self.media_base_url.strip(),
+            artwork_url=self.artwork_url.strip(),
+            category=self.category.strip(),
+            language=self.language.strip(),
+            explicit=self.explicit,
+        )
+
+    @classmethod
+    def from_domain(cls, channel: PodcastChannel) -> "PodcastChannelPayload":
+        return cls(**asdict(channel))
+
+
+class ChapterCueResponse(BaseModel):
+    title: str
+    seconds: float
+    level: int
+
+    @classmethod
+    def from_domain(cls, cue: ChapterCue) -> "ChapterCueResponse":
+        return cls(**asdict(cue))
+
+
+class PublishEpisodeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    take_id: str = Field(min_length=1, max_length=300)
+    audio_artifact_id: str = Field(min_length=1, max_length=300)
+    title: str = Field(min_length=1, max_length=500)
+    description: str = Field(default="", max_length=50_000)
+    publication_date: str | None = Field(default=None, max_length=100)
+    episode_number: int | None = Field(default=None, ge=1)
+
+
+class PublishedEpisodeResponse(BaseModel):
+    id: str
+    take_id: str
+    project_id: str
+    audio_artifact_id: str
+    title: str
+    description: str
+    publication_date: str
+    episode_number: int
+    media_type: str
+    media_size_bytes: int
+    duration_seconds: float
+    transcript_artifact_id: str | None
+    chapters_artifact_id: str | None
+    chapters: list[ChapterCueResponse]
+    media_url: str
+    transcript_url: str | None
+    chapters_url: str | None
+    created_at: str
+    updated_at: str
+
+    @classmethod
+    def from_domain(cls, episode: PublishedEpisode) -> "PublishedEpisodeResponse":
+        return cls(
+            id=episode.id,
+            take_id=episode.take_id,
+            project_id=episode.project_id,
+            audio_artifact_id=episode.audio_artifact_id,
+            title=episode.title,
+            description=episode.description,
+            publication_date=episode.publication_date,
+            episode_number=episode.episode_number,
+            media_type=episode.media_type,
+            media_size_bytes=episode.media_size_bytes,
+            duration_seconds=episode.duration_seconds,
+            transcript_artifact_id=episode.transcript_artifact_id,
+            chapters_artifact_id=episode.chapters_artifact_id,
+            chapters=[ChapterCueResponse.from_domain(cue) for cue in episode.chapters],
+            media_url=f"/v1/studio/publishing/episodes/{episode.id}/media",
+            transcript_url=(
+                f"/v1/studio/publishing/artifacts/{episode.transcript_artifact_id}"
+                if episode.transcript_artifact_id
+                else None
+            ),
+            chapters_url=(
+                f"/v1/studio/publishing/artifacts/{episode.chapters_artifact_id}"
+                if episode.chapters_artifact_id
+                else None
+            ),
+            created_at=episode.created_at,
+            updated_at=episode.updated_at,
+        )
+
+
 class EngineComponentPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -1880,6 +1996,7 @@ def create_app(
     dialogue_script_service: DialogueScriptJobService | None = None,
     audiogram_service: AudiogramJobService | None = None,
     conversion_service: ConversionJobService | None = None,
+    publishing_service: PublishingService | None = None,
 ) -> FastAPI:
     base_settings = settings or Settings.from_env()
     components = ComponentManager(base_settings)
@@ -1908,6 +2025,14 @@ def create_app(
         converter=FfmpegAudioConverter(),
     )
     conversions.store.initialize()
+    publishing = publishing_service or PublishingService(
+        store=PublishingStore(resolved_settings.database_path),
+        studio_store=studio,
+        job_store=synthesis.store,
+        job_storage=synthesis.storage,
+        output_root=resolved_settings.data_dir / "studio" / "publishing",
+    )
+    publishing.initialize()
     customizations = synthesis.customizations
     kokoro_tools = (
         KokoroToolClient(
@@ -1980,6 +2105,7 @@ def create_app(
     application.state.dialogue_script_service = dialogue_scripts
     application.state.audiogram_service = audiograms
     application.state.conversion_service = conversions
+    application.state.publishing_service = publishing
     application.state.component_manager = components
     application.state.error_event_store = synthesis.store
     application.state.studio_store = studio
@@ -3047,6 +3173,135 @@ def create_app(
             media_type=media_type_for(job.spec.output_format),
             filename=f"{Path(job.source_name).stem}-{part_index + 1:03d}.{job.spec.output_format.value}",
         )
+
+    @application.get(
+        "/v1/studio/publishing/channel",
+        response_model=PodcastChannelPayload,
+        tags=["studio"],
+    )
+    def get_podcast_channel(response: Response) -> PodcastChannelPayload:
+        response.headers["Cache-Control"] = "no-store"
+        return PodcastChannelPayload.from_domain(publishing.store.get_channel())
+
+    @application.put(
+        "/v1/studio/publishing/channel",
+        response_model=PodcastChannelPayload,
+        tags=["studio"],
+    )
+    def update_podcast_channel(payload: PodcastChannelPayload) -> PodcastChannelPayload:
+        try:
+            channel = publishing.store.save_channel(payload.to_domain())
+            publishing.rebuild_feed()
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        return PodcastChannelPayload.from_domain(channel)
+
+    @application.get("/v1/studio/publishing/sources", tags=["studio"])
+    def list_publishing_sources(response: Response) -> list[dict[str, object]]:
+        response.headers["Cache-Control"] = "no-store"
+        return publishing.list_sources()
+
+    @application.get(
+        "/v1/studio/publishing/takes/{take_id}/chapters",
+        response_model=list[ChapterCueResponse],
+        tags=["studio"],
+    )
+    def preview_publishing_chapters(
+        take_id: str, response: Response
+    ) -> list[ChapterCueResponse]:
+        response.headers["Cache-Control"] = "no-store"
+        try:
+            return [
+                ChapterCueResponse.from_domain(cue)
+                for cue in publishing.preview_chapters(take_id)
+            ]
+        except KeyError as error:
+            raise HTTPException(status_code=404, detail="publishing source not found") from error
+        except ValueError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+
+    @application.post("/v1/studio/publishing/takes/{take_id}/transcript", tags=["studio"])
+    def export_publishing_transcript(take_id: str) -> dict[str, object]:
+        try:
+            artifact = publishing.export_transcript(take_id)
+        except KeyError as error:
+            raise HTTPException(status_code=404, detail="publishing source not found") from error
+        except ValueError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        return {
+            "artifact_id": artifact.id,
+            "size_bytes": artifact.size_bytes,
+            "download_url": f"/v1/studio/publishing/artifacts/{artifact.id}",
+        }
+
+    @application.get(
+        "/v1/studio/publishing/episodes",
+        response_model=list[PublishedEpisodeResponse],
+        tags=["studio"],
+    )
+    def list_published_episodes(response: Response) -> list[PublishedEpisodeResponse]:
+        response.headers["Cache-Control"] = "no-store"
+        return [
+            PublishedEpisodeResponse.from_domain(episode)
+            for episode in publishing.store.list_episodes()
+        ]
+
+    @application.post(
+        "/v1/studio/publishing/episodes",
+        response_model=PublishedEpisodeResponse,
+        status_code=status.HTTP_201_CREATED,
+        tags=["studio"],
+    )
+    def publish_podcast_episode(payload: PublishEpisodeRequest) -> PublishedEpisodeResponse:
+        try:
+            episode = publishing.publish_episode(
+                take_id=payload.take_id,
+                audio_artifact_id=payload.audio_artifact_id,
+                title=payload.title,
+                description=payload.description,
+                publication_date=payload.publication_date,
+                episode_number=payload.episode_number,
+            )
+        except KeyError as error:
+            raise HTTPException(status_code=404, detail="publishing source not found") from error
+        except FileNotFoundError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        return PublishedEpisodeResponse.from_domain(episode)
+
+    @application.get("/v1/studio/publishing/feed", tags=["studio"])
+    def get_podcast_feed() -> FileResponse:
+        path = publishing.rebuild_feed()
+        return FileResponse(path, media_type="application/rss+xml", filename="podcast.xml")
+
+    @application.get(
+        "/v1/studio/publishing/episodes/{episode_id}/media", tags=["studio"]
+    )
+    def get_published_episode_media(episode_id: str) -> FileResponse:
+        try:
+            episode = publishing.store.get_episode(episode_id)
+            path = publishing.episode_media_path(episode_id)
+        except KeyError as error:
+            raise HTTPException(status_code=404, detail="published episode not found") from error
+        except FileNotFoundError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        return FileResponse(path, media_type=episode.media_type, filename=path.name)
+
+    @application.get(
+        "/v1/studio/publishing/artifacts/{artifact_id}", tags=["studio"]
+    )
+    def get_publishing_artifact(artifact_id: str) -> FileResponse:
+        try:
+            artifact = studio.get_artifact(artifact_id)
+            path = publishing.artifact_path(artifact_id)
+        except KeyError as error:
+            raise HTTPException(status_code=404, detail="publishing artifact not found") from error
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        except FileNotFoundError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        return FileResponse(path, media_type=artifact.media_type, filename=path.name)
 
     @application.get(
         "/v1/studio/voices",

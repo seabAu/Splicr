@@ -53,6 +53,8 @@ Despite the source document's use of “transcription,” this service performs 
 - A provider-neutral Voice Studio that manages playable reference recordings and exact transcripts,
   reusable engine presets, safe rename/delete operations, and read-only links to imported Narrator
   Qwen voices and Kokoro blends
+- A local publishing workspace that exports Markdown transcripts, heading-derived YouTube chapters,
+  stable episode media, and an RSS 2.0/iTunes feed without uploading or mutating external services
 
 Gemini remains available as a Preview provider. Deepgram Aura-2 and Inworld TTS-2 are also
 registered, and every provider's model and voice defaults can be changed through environment
@@ -95,6 +97,10 @@ Qwen3-TTS, and Audio8 environments. Saved engine changes activate after restart 
 never has its provider registry changed underneath it. Explicit `SPLICR_*_PYTHON` environment
 variables remain authoritative and appear read-only in the UI. SPLICR does not copy those
 environments or download their model weights.
+The Publish workspace turns completed Takes into durable local delivery artifacts. Channel metadata
+and episodes persist in SQLite, transcript and chapter exports join the Take artifact history, and
+republishing a Take updates its stable episode instead of creating a duplicate. The configured
+media base URL is used only to construct podcast enclosure links; SPLICR does not upload the files.
 The established interface remains at `http://127.0.0.1:8000/` while the
 remaining Narrator workspaces are migrated. The generated interactive API remains at
 `http://127.0.0.1:8000/docs`.
@@ -280,6 +286,14 @@ uv run splicr synthesize .\input_document.md .\continuous_reading.wav `
 | `POST` | `/v1/studio/conversions/jobs/{id}/{cancel,retry}` | Cancel or retry a conversion |
 | `GET` | `/v1/studio/conversions/jobs/{id}/file` | Download the complete converted file |
 | `GET` | `/v1/studio/conversions/jobs/{id}/parts/{index}` | Download one verified split part |
+| `GET`, `PUT` | `/v1/studio/publishing/channel` | Read or save local podcast channel metadata |
+| `GET` | `/v1/studio/publishing/sources` | List completed Takes and their available audio artifacts |
+| `GET` | `/v1/studio/publishing/takes/{id}/chapters` | Preview heading-derived chapter timestamps |
+| `POST` | `/v1/studio/publishing/takes/{id}/transcript` | Export the source document as a Markdown artifact |
+| `GET`, `POST` | `/v1/studio/publishing/episodes` | List or locally publish durable feed episodes |
+| `GET` | `/v1/studio/publishing/feed` | Rebuild and download the RSS feed |
+| `GET` | `/v1/studio/publishing/episodes/{id}/media` | Download managed published media |
+| `GET` | `/v1/studio/publishing/artifacts/{id}` | Download a managed transcript or chapter export |
 | `GET`, `POST` | `/v1/api-resources` | List or create versioned TTS API resources |
 | `GET`, `PUT`, `DELETE` | `/v1/api-resources/{id}` | Inspect, revise, or soft-delete a resource |
 | `GET`, `POST` | `/v1/profiles` | List or save complete studio profiles |
