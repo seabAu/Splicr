@@ -109,10 +109,18 @@ mounted form state intact. Library, dialogue, timeline, audiogram, publishing, v
 pronunciation, component management, and conversion are explicit migration slots rather than
 silently exposing their legacy APIs.
 
-The established SPLICR UI remains at `/` until the React replacement also reaches parity for API
-resource/profile editing and the complete diagnostic center. Vite source lives in `studio-web/`;
-hashed production assets are packaged under `src/splicr/static/studio/` so Python/Docker runtime
-images do not need Node.js.
+The React shell now owns the essential SPLICR management workflows as well. Profiles save and load
+the full source/delivery state plus an optional resumable take. The connection editor creates,
+revises, and soft-deletes versioned API resources; it exposes arbitrary nested request JSON,
+variable definitions, capabilities, limits, pacing, retry policy, response extraction, and a
+write-only API key whose temporary clear-text view hides itself. The global error center polls the
+durable redacted event store, shows unread badges and unobtrusive toasts, and inspects complete
+request/response/exception/context records. React-side 5xx and network failures are reported to the
+same store without copying request bodies that may contain credentials.
+
+The established SPLICR UI remains at `/` as a transition surface while the remaining Narrator
+workspaces are migrated. Vite source lives in `studio-web/`; hashed production assets are packaged
+under `src/splicr/static/studio/` so Python/Docker runtime images do not need Node.js.
 
 The Library workspace now reads the additive Studio tables through `/v1/studio/projects`. It can
 search source names/previews, distinguish imported origins and statuses, display plan/take counts,

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   AudioLines,
+  AlertTriangle,
   BookOpen,
   Boxes,
   ChevronRight,
@@ -35,6 +36,7 @@ import {
 
 import { api } from "./api.js";
 import { formatCount, percent, statusLabel, textStats } from "./format.js";
+import { ErrorCenter, ProfileManager, ResourceManager } from "./StudioTools.jsx";
 
 const NAVIGATION = [
   {
@@ -102,7 +104,7 @@ function RangeControl({ label, values, value, onChange }) {
   );
 }
 
-function Shell({ active, onChange, collapsed, setCollapsed, children }) {
+function Shell({ active, onChange, collapsed, setCollapsed, onOpenErrors, unreadErrors, children }) {
   return (
     <div className={`studio-shell${collapsed ? " nav-collapsed" : ""}`}>
       <aside className="studio-nav">
@@ -142,6 +144,7 @@ function Shell({ active, onChange, collapsed, setCollapsed, children }) {
           ))}
         </nav>
         <div className="nav-footer">
+          <button onClick={onOpenErrors} title="Open error center"><AlertTriangle size={17} />{!collapsed && <span>Errors</span>}{unreadErrors > 0 && <i>{unreadErrors > 99 ? "99+" : unreadErrors}</i>}</button>
           <a href="/" title="Open classic SPLICR"><RotateCcw size={17} />{!collapsed && "Classic UI"}</a>
           <a href="/auth/settings" title="Account settings"><CircleUserRound size={17} />{!collapsed && "Account"}</a>
         </div>
@@ -385,6 +388,8 @@ function NarrateWorkspace({ projectToLoad }) {
   const [error, setError] = useState("");
   const [sourceName, setSourceName] = useState("");
   const [projectName, setProjectName] = useState("");
+  const [profilesOpen, setProfilesOpen] = useState(false);
+  const [resourcesOpen, setResourcesOpen] = useState(false);
   const [form, setForm] = useState({
     text: "",
     provider: "",
@@ -395,6 +400,7 @@ function NarrateWorkspace({ projectToLoad }) {
     remove_numeric_citations: false,
     controls: { tone: "neutral", pace: "normal", vocal_style: "natural", nonverbal_frequency: "never" },
     variables: {},
+    resource_revision: null,
   });
 
   const provider = providers.find((item) => item.name === form.provider) || providers[0];
@@ -414,6 +420,24 @@ function NarrateWorkspace({ projectToLoad }) {
       const fresh = next.find((item) => item.id === job.id);
       if (fresh) setJob(fresh);
     }
+  };
+
+  const refreshProviders = async (preferredId = null) => {
+    const providerRows = await api.providers();
+    setProviders(providerRows);
+    if (providerRows.length) {
+      setForm((current) => {
+        const selected = providerRows.find((item) => item.name === (preferredId || current.provider)) || providerRows[0];
+        return {
+          ...current,
+          provider: selected.name,
+          resource_revision: preferredId ? null : current.resource_revision,
+          model: selected.name === current.provider ? current.model : selected.default_model,
+          voice: selected.name === current.provider ? current.voice : selected.default_voice,
+        };
+      });
+    }
+    return providerRows;
   };
 
   useEffect(() => {
@@ -488,6 +512,44 @@ function NarrateWorkspace({ projectToLoad }) {
     source_name: sourceName.trim() || null,
   });
 
+  const buildProfilePayload = (name, includeJob) => ({
+    name,
+    resource_id: form.provider,
+    resource_revision: form.resource_revision,
+    text: form.text,
+    model: form.model || null,
+    voice: form.voice || null,
+    instructions: form.instructions.trim() || null,
+    controls: form.controls,
+    split_strategy: form.split_strategy,
+    remove_numeric_citations: form.remove_numeric_citations,
+    variables: form.variables,
+    job_id: includeJob ? job?.id || null : null,
+  });
+
+  const loadProfile = (profile) => {
+    setForm((current) => ({
+      ...current,
+      text: profile.text,
+      provider: profile.resource_id,
+      resource_revision: profile.resource_revision,
+      model: profile.model || "",
+      voice: profile.voice || "",
+      instructions: profile.instructions || "",
+      controls: profile.controls,
+      split_strategy: profile.split_strategy,
+      remove_numeric_citations: profile.remove_numeric_citations,
+      variables: profile.variables || {},
+    }));
+    setSourceName(`${profile.name} profile`);
+    setProjectName(profile.name);
+    setPreview(null);
+    if (profile.job) {
+      setJob(profile.job);
+      setJobs((current) => [profile.job, ...current.filter((item) => item.id !== profile.job.id)]);
+    }
+  };
+
   const run = async (label, operation) => {
     setBusy(label);
     setError("");
@@ -526,11 +588,14 @@ function NarrateWorkspace({ projectToLoad }) {
   };
 
   return (
+    <>
     <main className="narrate-workspace">
       <header className="workspace-header">
         <div><p className="eyebrow">Create · Narrate</p><h1>Turn a document into a finished voice performance.</h1></div>
         <div className="header-tools">
           <span className="local-pill"><i />Local workspace</span>
+          <button className="secondary-button small" onClick={() => setProfilesOpen(true)}>Profiles</button>
+          <button className="secondary-button small" onClick={() => setResourcesOpen(true)}><Plus size={15} />Connections</button>
           <a className="icon-button" href="/docs" aria-label="API documentation"><Settings2 size={18} /></a>
         </div>
       </header>
@@ -578,7 +643,7 @@ function NarrateWorkspace({ projectToLoad }) {
             <div className="section-heading"><div><p className="eyebrow">02 · Performance</p><h2>Engine & direction</h2></div><SlidersHorizontal size={20} /></div>
             <div className="control-grid three">
               <Control label="Engine">
-                <select value={form.provider} onChange={(event) => patchForm({ provider: event.target.value })}>{providers.map((item) => <option key={item.name} value={item.name}>{item.name}</option>)}</select>
+              <select value={form.provider} onChange={(event) => patchForm({ provider: event.target.value, resource_revision: null })}>{providers.map((item) => <option key={item.name} value={item.name}>{item.name}</option>)}</select>
               </Control>
               <Control label="Model"><input value={form.model} onChange={(event) => patchForm({ model: event.target.value })} list="studio-models" /><datalist id="studio-models">{(capabilities.models || []).map((item) => <option key={item} value={item} />)}</datalist></Control>
               <Control label="Voice">
@@ -606,6 +671,9 @@ function NarrateWorkspace({ projectToLoad }) {
         </aside>
       </div>
     </main>
+    <ProfileManager open={profilesOpen} onClose={() => setProfilesOpen(false)} buildPayload={buildProfilePayload} onLoad={loadProfile} />
+    <ResourceManager open={resourcesOpen} onClose={() => setResourcesOpen(false)} onChanged={refreshProviders} />
+    </>
   );
 }
 
@@ -613,17 +681,20 @@ export default function App() {
   const [active, setActive] = useState("narrate");
   const [collapsed, setCollapsed] = useState(false);
   const [projectToLoad, setProjectToLoad] = useState(null);
+  const [errorsOpen, setErrorsOpen] = useState(false);
+  const [unreadErrors, setUnreadErrors] = useState(0);
   const openProject = (project) => {
     setProjectToLoad(project);
     setActive("narrate");
   };
   return (
-    <Shell active={active} onChange={setActive} collapsed={collapsed} setCollapsed={setCollapsed}>
+    <Shell active={active} onChange={setActive} collapsed={collapsed} setCollapsed={setCollapsed} onOpenErrors={() => setErrorsOpen(true)} unreadErrors={unreadErrors}>
       <div hidden={active !== "narrate"}>
         <NarrateWorkspace projectToLoad={projectToLoad} />
       </div>
       {active === "library" && <LibraryWorkspace onOpen={openProject} />}
       {active !== "narrate" && active !== "library" && <WorkspacePlaceholder workspace={active} />}
+      <ErrorCenter open={errorsOpen} onClose={() => setErrorsOpen(false)} onOpen={() => setErrorsOpen(true)} onUnreadChange={setUnreadErrors} />
     </Shell>
   );
 }

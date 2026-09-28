@@ -46,6 +46,8 @@ Despite the source document's use of “transcription,” this service performs 
   counts, and reopens locally stored source text directly in the Narrate workspace
 - Automatic live mirroring of every new Narrate job into its Project, immutable Render Plan, Take,
   and completed audio Artifact, with readable titles retained from imported documents
+- React-native profile management, versioned API-resource editing with arbitrary nested JSON and
+  timed secret visibility, plus a durable error center with unread badges, toasts, and full details
 
 Gemini remains available as a Preview provider. Deepgram Aura-2 and Inworld TTS-2 are also
 registered, and every provider's model and voice defaults can be changed through environment
@@ -69,8 +71,9 @@ uv run splicr serve --reload
 
 Open `http://127.0.0.1:8000/studio/` for the new React Studio shell. Its Narrate workspace uses the
 production SPLICR API for document import, chunk preflight, synthesis, live progress, checkpoint
-controls, playback, download, and automatic Library persistence. The established interface remains
-at `http://127.0.0.1:8000/` until every Narrator workspace reaches parity. The generated interactive API remains at
+controls, playback, download, profiles, API-resource configuration, diagnostics, and automatic
+Library persistence. The established interface remains at `http://127.0.0.1:8000/` while the
+remaining Narrator workspaces are migrated. The generated interactive API remains at
 `http://127.0.0.1:8000/docs`.
 
 The React source is in `studio-web/`; production assets are committed with the Python package so a
