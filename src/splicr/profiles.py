@@ -43,6 +43,7 @@ class StudioProfile:
     job_id: str | None
     created_at: str
     updated_at: str
+    voice_profile_id: str | None = None
 
 
 def _encode_controls(controls: DeliveryControls) -> str:
@@ -114,6 +115,7 @@ class StudioProfileStore:
                     text TEXT NOT NULL,
                     model TEXT,
                     voice TEXT,
+                    voice_profile_id TEXT,
                     instructions TEXT,
                     controls_json TEXT NOT NULL,
                     split_strategy TEXT NOT NULL,
@@ -127,6 +129,13 @@ class StudioProfileStore:
                     ON studio_profiles(updated_at DESC);
                 """
             )
+            columns = {
+                row["name"] for row in connection.execute("PRAGMA table_info(studio_profiles)")
+            }
+            if "voice_profile_id" not in columns:
+                connection.execute(
+                    "ALTER TABLE studio_profiles ADD COLUMN voice_profile_id TEXT"
+                )
 
     def create(
         self,
@@ -137,6 +146,7 @@ class StudioProfileStore:
         text: str,
         model: str | None,
         voice: str | None,
+        voice_profile_id: str | None = None,
         instructions: str | None,
         controls: DeliveryControls,
         split_strategy: SplitStrategy,
@@ -152,9 +162,10 @@ class StudioProfileStore:
                 """
                 INSERT INTO studio_profiles (
                     id, name, resource_id, resource_revision, text, model, voice,
+                    voice_profile_id,
                     instructions, controls_json, split_strategy,
                     remove_numeric_citations, variables_json, job_id, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     profile_id,
@@ -164,6 +175,7 @@ class StudioProfileStore:
                     text,
                     model,
                     voice,
+                    voice_profile_id,
                     instructions,
                     _encode_controls(controls),
                     split_strategy.value,
@@ -191,6 +203,7 @@ class StudioProfileStore:
         text: str,
         model: str | None,
         voice: str | None,
+        voice_profile_id: str | None = None,
         instructions: str | None,
         controls: DeliveryControls,
         split_strategy: SplitStrategy,
@@ -205,7 +218,7 @@ class StudioProfileStore:
                 """
                 UPDATE studio_profiles
                 SET name = ?, resource_id = ?, resource_revision = ?, text = ?,
-                    model = ?, voice = ?, instructions = ?, controls_json = ?,
+                    model = ?, voice = ?, voice_profile_id = ?, instructions = ?, controls_json = ?,
                     split_strategy = ?, remove_numeric_citations = ?, variables_json = ?,
                     job_id = ?, updated_at = ?
                 WHERE id = ?
@@ -217,6 +230,7 @@ class StudioProfileStore:
                     text,
                     model,
                     voice,
+                    voice_profile_id,
                     instructions,
                     _encode_controls(controls),
                     split_strategy.value,
@@ -290,6 +304,7 @@ class StudioProfileStore:
             text=row["text"],
             model=row["model"],
             voice=row["voice"],
+            voice_profile_id=row["voice_profile_id"],
             instructions=row["instructions"],
             controls=_decode_controls(row["controls_json"]),
             split_strategy=split_strategy,

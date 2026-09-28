@@ -24,19 +24,30 @@ def test_bootstrap_registers_all_tts_providers_without_credentials(tmp_path) -> 
     asyncio.run(service.providers.close())
 
 
-def test_bootstrap_adds_configured_local_kokoro_engine(tmp_path) -> None:
+def test_bootstrap_adds_configured_local_engines(tmp_path) -> None:
     service = create_service(
         Settings(
             data_dir=tmp_path,
             kokoro_python=Path(sys.executable),
+            qwen3_python=Path(sys.executable),
+            audio8_python=Path(sys.executable),
         )
     )
 
     providers = {info.name: info for info in service.providers.list()}
 
-    assert list(providers) == ["gemini", "deepgram", "inworld", "kokoro-local"]
+    assert list(providers) == [
+        "gemini",
+        "deepgram",
+        "inworld",
+        "kokoro-local",
+        "qwen3-local",
+        "audio8-local",
+    ]
     assert providers["kokoro-local"].default_model == "kokoro-82m"
     assert providers["kokoro-local"].default_voice == "af_heart"
     assert providers["kokoro-local"].max_input_tokens == 510
+    assert providers["qwen3-local"].recommended_chunk_characters == 250
+    assert providers["audio8-local"].recommended_chunk_characters == 150
 
     asyncio.run(service.providers.close())

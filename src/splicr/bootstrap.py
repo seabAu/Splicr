@@ -6,7 +6,9 @@ from .resource_registry import ResourceProviderRegistry
 from .secret_vault import EncryptedFileSecretVault
 from .service import SynthesisService
 from .providers import CompositeProviderRegistry
+from .providers.audio8 import Audio8TtsProvider
 from .providers.kokoro import KokoroTtsProvider
+from .providers.qwen3 import Qwen3TtsProvider
 
 
 def create_service(settings: Settings) -> SynthesisService:
@@ -25,16 +27,24 @@ def create_service(settings: Settings) -> SynthesisService:
     resource_store = SqliteApiResourceStore(settings.database_path, vault=vault)
     resource_store.initialize(seed_builtins=True)
     resource_providers = ResourceProviderRegistry(resource_store, settings=settings)
-    providers = resource_providers
-    if settings.kokoro_python is not None:
-        providers = CompositeProviderRegistry(
-            resource_providers,
-            (
-                KokoroTtsProvider(
-                    settings.kokoro_python,
+    local_providers = []
+    for provider_type, executable in (
+        (KokoroTtsProvider, settings.kokoro_python),
+        (Qwen3TtsProvider, settings.qwen3_python),
+        (Audio8TtsProvider, settings.audio8_python),
+    ):
+        if executable is not None:
+            local_providers.append(
+                provider_type(
+                    executable,
                     startup_timeout_seconds=settings.local_engine_startup_timeout_seconds,
                     request_timeout_seconds=settings.local_engine_request_timeout_seconds,
-                ),
-            ),
+                )
+            )
+    providers = resource_providers
+    if local_providers:
+        providers = CompositeProviderRegistry(
+            resource_providers,
+            tuple(local_providers),
         )
     return SynthesisService(settings=settings, providers=providers)

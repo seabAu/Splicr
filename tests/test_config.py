@@ -84,15 +84,21 @@ def test_auth_environment_is_explicit_and_resolves_persistent_credentials(
     assert settings.auth_credentials_path == (tmp_path / "state" / "auth" / "credentials.json")
 
 
-def test_local_kokoro_environment_is_optional_and_resolved(monkeypatch, tmp_path) -> None:
+def test_local_engine_environments_are_optional_and_resolved(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
-    python_path = tmp_path / "kokoro-env" / "Scripts" / "python.exe"
-    monkeypatch.setenv("SPLICR_KOKORO_PYTHON", str(python_path))
+    kokoro_path = tmp_path / "kokoro-env" / "Scripts" / "python.exe"
+    qwen3_path = tmp_path / "qwen3-env" / "Scripts" / "python.exe"
+    audio8_path = tmp_path / "audio8-env" / "Scripts" / "python.exe"
+    monkeypatch.setenv("SPLICR_KOKORO_PYTHON", str(kokoro_path))
+    monkeypatch.setenv("SPLICR_QWEN3_PYTHON", str(qwen3_path))
+    monkeypatch.setenv("SPLICR_AUDIO8_PYTHON", str(audio8_path))
     monkeypatch.setenv("SPLICR_LOCAL_ENGINE_STARTUP_TIMEOUT_SECONDS", "900")
     monkeypatch.setenv("SPLICR_LOCAL_ENGINE_REQUEST_TIMEOUT_SECONDS", "450")
 
     settings = Settings.from_env()
 
-    assert settings.kokoro_python == python_path.resolve()
+    assert settings.kokoro_python == kokoro_path.resolve()
+    assert settings.qwen3_python == qwen3_path.resolve()
+    assert settings.audio8_python == audio8_path.resolve()
     assert settings.local_engine_startup_timeout_seconds == 900
     assert settings.local_engine_request_timeout_seconds == 450

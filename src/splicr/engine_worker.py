@@ -9,9 +9,11 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import hashlib
 import importlib
 import json
 import os
+import re
 import sys
 import traceback
 from pathlib import Path
@@ -27,6 +29,20 @@ PACE_SPEEDS = {
     "very_fast": 1.30,
 }
 PRONUNCIATION_VARIABLE = "__splicr_pronunciations"
+VOICE_PROFILE_VARIABLE = "__splicr_voice_profile"
+QWEN_CLONE_REPOS = (
+    "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "Qwen/Qwen3-TTS-12Hz-0.6B-Base",
+)
+QWEN_CUSTOM_REPO = "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice"
+QWEN_SAMPLING = {
+    "temperature": 0.75,
+    "subtalker_temperature": 0.75,
+    "top_k": 50,
+    "top_p": 1.0,
+    "repetition_penalty": 1.05,
+}
+AUDIO8_REPO = "Audio8/Audio8-TTS-Preview-0.6b"
 
 
 class EngineRuntime(Protocol):
@@ -112,6 +128,256 @@ class KokoroRuntime:
             temporary_path.unlink(missing_ok=True)
 
 
+def _voice_profile(options: Mapping[str, Any]) -> Mapping[str, Any]:
+    variables = options.get("variables")
+    if not isinstance(variables, Mapping):
+        raise ValueError("local voice engine requires job variables")
+    snapshot = variables.get(VOICE_PROFILE_VARIABLE)
+    if not isinstance(snapshot, Mapping):
+        raise ValueError("select a compatible Voice Profile before rendering")
+    return snapshot
+
+
+def _profile_settings(snapshot: Mapping[str, Any]) -> Mapping[str, Any]:
+    settings = snapshot.get("settings")
+    return settings if isinstance(settings, Mapping) else {}
+
+
+def _reference_voice(snapshot: Mapping[str, Any]) -> tuple[str, str]:
+    reference_path = str(snapshot.get("reference_audio_path") or "").strip()
+    reference_text = str(snapshot.get("reference_text") or "").strip()
+    if not reference_path or not Path(reference_path).is_file():
+        raise ValueError("Voice Profile reference audio is missing or unreadable")
+    if not reference_text:
+        raise ValueError("Voice Profile needs the exact reference transcript")
+    return reference_path, reference_text
+
+
+def _seed_for(snapshot: Mapping[str, Any], text: str) -> int:
+    raw = f"{snapshot.get('id', '')}|{snapshot.get('updated_at', '')}|{text}"
+    return int(hashlib.sha256(raw.encode("utf-8")).hexdigest()[:8], 16)
+
+
+def _audio_pieces(text: str, limit: int) -> list[str]:
+    sentences = re.split(r"(?<=[.!?])\s+", text.strip())
+    pieces: list[str] = []
+    for sentence in sentences:
+        remaining = sentence.strip()
+        while len(remaining) > limit:
+            cut = remaining.rfind(" ", 0, limit + 1)
+            if cut < limit // 2:
+                cut = limit
+            pieces.append(remaining[:cut].strip())
+            remaining = remaining[cut:].strip()
+        if remaining:
+            pieces.append(remaining)
+    return pieces
+
+
+def _write_canonical_pcm(
+    np: Any,
+    samples: Any,
+    sample_rate: int,
+    output_path: Path,
+) -> None:
+    if sample_rate < 1:
+        raise ValueError("engine returned an invalid sample rate")
+    audio = np.asarray(samples, dtype=np.float32)
+    if audio.ndim > 1:
+        channel_axis = 0 if audio.shape[0] <= 8 else 1
+        audio = audio.mean(axis=channel_axis)
+    audio = audio.reshape(-1)
+    if not len(audio):
+        audio = np.zeros(1, dtype=np.float32)
+    if sample_rate != 24_000:
+        output_length = max(1, round(len(audio) * 24_000 / sample_rate))
+        source_positions = np.linspace(0.0, 1.0, num=len(audio), endpoint=False)
+        target_positions = np.linspace(0.0, 1.0, num=output_length, endpoint=False)
+        audio = np.interp(target_positions, source_positions, audio).astype(np.float32)
+    pcm = (np.clip(audio, -1.0, 1.0) * 32767.0).astype("<i2", copy=False)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path = output_path.with_name(f".{output_path.name}.{os.getpid()}.tmp")
+    try:
+        temporary_path.write_bytes(pcm.tobytes())
+        os.replace(temporary_path, output_path)
+    finally:
+        temporary_path.unlink(missing_ok=True)
+
+
+class Qwen3Runtime:
+    def __init__(self) -> None:
+        with contextlib.redirect_stdout(sys.stderr):
+            self._np = importlib.import_module("numpy")
+            self._torch = importlib.import_module("torch")
+            self._model_type = getattr(importlib.import_module("qwen_tts"), "Qwen3TTSModel")
+        self._model: Any | None = None
+        self._model_repo: str | None = None
+        self._prompt: Any | None = None
+        self._prompt_profile_id: str | None = None
+
+    def _load_model(self, repo: str) -> Any:
+        if self._model is not None and self._model_repo == repo:
+            return self._model
+        if self._model is not None:
+            self._model = None
+            self._prompt = None
+            self._prompt_profile_id = None
+            if self._torch.cuda.is_available():
+                self._torch.cuda.empty_cache()
+        kwargs: dict[str, Any] = {}
+        if self._torch.cuda.is_available():
+            _event("info", f"Loading Qwen3-TTS on {self._torch.cuda.get_device_name(0)}")
+            kwargs = {"device_map": "cuda:0", "dtype": self._torch.bfloat16}
+        else:
+            _event("warning", "CUDA is unavailable; Qwen3-TTS will be slow on CPU")
+        with contextlib.redirect_stdout(sys.stderr):
+            self._model = self._model_type.from_pretrained(repo, **kwargs)
+        self._model_repo = repo
+        return self._model
+
+    def synthesize(
+        self,
+        text: str,
+        options: Mapping[str, Any],
+        output_path: Path,
+    ) -> None:
+        snapshot = _voice_profile(options)
+        settings = _profile_settings(snapshot)
+        kind = str(snapshot.get("kind") or "")
+        sampling = dict(QWEN_SAMPLING)
+        custom_sampling = settings.get("sampling")
+        if isinstance(custom_sampling, Mapping):
+            for key in QWEN_SAMPLING:
+                if key in custom_sampling:
+                    sampling[key] = custom_sampling[key]
+        self._torch.manual_seed(_seed_for(snapshot, text))
+        budget = max(2048, min(8192, len(text) * 2))
+
+        if kind == "preset":
+            model = self._load_model(QWEN_CUSTOM_REPO)
+            speaker = str(settings.get("speaker") or settings.get("voice_id") or "").strip()
+            if not speaker:
+                raise ValueError("Qwen3 preset Voice Profile has no speaker")
+            directions = [
+                str(settings.get("instructions") or "").strip(),
+                str(options.get("instructions") or "").strip(),
+            ]
+            instruction = ". ".join(item for item in directions if item) or None
+            with contextlib.redirect_stdout(sys.stderr):
+                wavs, rate = model.generate_custom_voice(
+                    text=text,
+                    speaker=speaker,
+                    instruct=instruction,
+                    language=str(settings.get("language") or "English"),
+                    max_new_tokens=budget,
+                    **sampling,
+                )
+        elif kind in {"cloned", "designed"}:
+            reference_path, reference_text = _reference_voice(snapshot)
+            requested_model = str(options.get("model") or "")
+            repo = requested_model if requested_model in QWEN_CLONE_REPOS else QWEN_CLONE_REPOS[0]
+            model = self._load_model(repo)
+            profile_id = str(snapshot.get("id") or "")
+            if self._prompt is None or self._prompt_profile_id != profile_id:
+                with contextlib.redirect_stdout(sys.stderr):
+                    self._prompt = model.create_voice_clone_prompt(
+                        ref_audio=reference_path,
+                        ref_text=reference_text,
+                        x_vector_only_mode=False,
+                    )
+                self._prompt_profile_id = profile_id
+            with contextlib.redirect_stdout(sys.stderr):
+                wavs, rate = model.generate_voice_clone(
+                    text=text,
+                    language=str(settings.get("language") or "English"),
+                    voice_clone_prompt=self._prompt,
+                    max_new_tokens=budget,
+                    **sampling,
+                )
+        else:
+            raise ValueError(f"Qwen3 does not support Voice Profile kind {kind!r}")
+        _write_canonical_pcm(self._np, wavs[0], int(rate), output_path)
+
+
+class Audio8Runtime:
+    def __init__(self) -> None:
+        with contextlib.redirect_stdout(sys.stderr):
+            self._np = importlib.import_module("numpy")
+            self._torch = importlib.import_module("torch")
+            transformers = importlib.import_module("transformers")
+            self._model_type = getattr(transformers, "AutoModel")
+            self._processor_type = getattr(transformers, "AutoProcessor")
+        self._model: Any | None = None
+        self._processor: Any | None = None
+        self._device = "cuda" if self._torch.cuda.is_available() else "cpu"
+
+    def _load(self) -> tuple[Any, Any]:
+        if self._model is not None and self._processor is not None:
+            return self._model, self._processor
+        if self._device == "cpu":
+            _event("warning", "CUDA is unavailable; Audio8 will be slow on CPU")
+        _event("info", f"Loading {AUDIO8_REPO}")
+        with contextlib.redirect_stdout(sys.stderr):
+            processor = self._processor_type.from_pretrained(
+                AUDIO8_REPO,
+                trust_remote_code=True,
+            )
+            model = self._model_type.from_pretrained(
+                AUDIO8_REPO,
+                trust_remote_code=True,
+                dtype=(self._torch.bfloat16 if self._device == "cuda" else self._torch.float32),
+            ).to(self._device)
+            model.eval()
+        self._processor = processor
+        self._model = model
+        return model, processor
+
+    @staticmethod
+    def _duration_is_plausible(text: str, seconds: float) -> bool:
+        characters = max(1, len(text))
+        return seconds > 0 and seconds >= (characters / 20.0) * 0.5 and seconds <= characters * 0.5
+
+    def synthesize(
+        self,
+        text: str,
+        options: Mapping[str, Any],
+        output_path: Path,
+    ) -> None:
+        snapshot = _voice_profile(options)
+        if str(snapshot.get("kind") or "") != "cloned":
+            raise ValueError("Audio8 requires a cloned Voice Profile")
+        reference_path, reference_text = _reference_voice(snapshot)
+        model, processor = self._load()
+        pieces = []
+        rate = 44_100
+        for piece in _audio_pieces(text, 150):
+            audio = None
+            for attempt in range(1, 4):
+                with contextlib.redirect_stdout(sys.stderr):
+                    inputs = processor(
+                        text=piece,
+                        ref_audio=reference_path,
+                        ref_text=reference_text,
+                        return_tensors="pt",
+                    ).to(self._device)
+                    with self._torch.no_grad():
+                        generated = model.generate(**inputs)
+                    audio, rate = model.decode_audio(generated)
+                flattened = self._np.asarray(audio, dtype=self._np.float32).reshape(-1)
+                seconds = len(flattened) / rate if rate else 0.0
+                if self._duration_is_plausible(piece, seconds):
+                    audio = flattened
+                    break
+                _event(
+                    "warning",
+                    f"Audio8 retry {attempt}/3: implausible {seconds:.2f}s result",
+                )
+            if audio is not None:
+                pieces.append(self._np.asarray(audio, dtype=self._np.float32).reshape(-1))
+        merged = self._np.concatenate(pieces) if pieces else self._np.zeros(1, dtype=self._np.float32)
+        _write_canonical_pcm(self._np, merged, int(rate), output_path)
+
+
 def _kokoro_speed(options: Mapping[str, Any]) -> float:
     variables = options.get("variables")
     if isinstance(variables, Mapping) and "speed" in variables:
@@ -133,6 +399,10 @@ def _kokoro_speed(options: Mapping[str, Any]) -> float:
 def _runtime(engine: str) -> EngineRuntime:
     if engine == "kokoro-local":
         return KokoroRuntime()
+    if engine == "qwen3-local":
+        return Qwen3Runtime()
+    if engine == "audio8-local":
+        return Audio8Runtime()
     raise ValueError(f"unknown local engine {engine!r}")
 
 

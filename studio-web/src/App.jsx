@@ -379,9 +379,10 @@ function LibraryWorkspace({ onOpen }) {
   );
 }
 
-function NarrateWorkspace({ projectToLoad }) {
+function NarrateWorkspace({ active, projectToLoad }) {
   const inputRef = useRef(null);
   const [providers, setProviders] = useState([]);
+  const [voiceProfiles, setVoiceProfiles] = useState([]);
   const [jobs, setJobs] = useState([]);
   const [job, setJob] = useState(null);
   const [preview, setPreview] = useState(null);
@@ -397,6 +398,7 @@ function NarrateWorkspace({ projectToLoad }) {
     provider: "",
     model: "",
     voice: "",
+    voice_profile_id: "",
     instructions: "",
     split_strategy: "semantic",
     remove_numeric_citations: false,
@@ -408,12 +410,31 @@ function NarrateWorkspace({ projectToLoad }) {
   const provider = providers.find((item) => item.name === form.provider) || providers[0];
   const stats = useMemo(() => textStats(form.text), [form.text]);
   const capabilities = provider?.capabilities || {};
+  const voiceEngine = provider?.name === "qwen3-local"
+    ? "qwen3"
+    : provider?.name === "audio8-local"
+      ? "audio8"
+      : null;
+  const profileVoices = voiceEngine
+    ? voiceProfiles.filter((item) => {
+        const engine = item.engine_id.toLowerCase();
+        return engine === voiceEngine || engine === `${voiceEngine}-local`;
+      })
+    : [];
+  const requiresVoiceProfile = Boolean(voiceEngine);
+  const selectedVoiceProfile = profileVoices.find((item) => item.id === form.voice_profile_id);
+  const directorNotesSupported = Boolean(capabilities.supports_custom_instructions)
+    && !(provider?.name === "qwen3-local" && selectedVoiceProfile?.kind !== "preset");
 
   const patchForm = (values) => {
     setForm((current) => ({ ...current, ...values }));
     if ("text" in values || "provider" in values || "split_strategy" in values || "remove_numeric_citations" in values) setPreview(null);
   };
   const patchControls = (values) => setForm((current) => ({ ...current, controls: { ...current.controls, ...values } }));
+
+  const selectVoiceProfile = (voiceProfileId) => {
+    patchForm({ voice_profile_id: voiceProfileId });
+  };
 
   const loadJobs = async () => {
     const next = await api.jobs();
@@ -436,6 +457,7 @@ function NarrateWorkspace({ projectToLoad }) {
           resource_revision: preferredId ? null : current.resource_revision,
           model: selected.name === current.provider ? current.model : selected.default_model,
           voice: selected.name === current.provider ? current.voice : selected.default_voice,
+          voice_profile_id: selected.name === current.provider ? current.voice_profile_id : "",
         };
       });
     }
@@ -456,6 +478,24 @@ function NarrateWorkspace({ projectToLoad }) {
   }, []);
 
   useEffect(() => {
+    if (!active) return;
+    api.voices().then(setVoiceProfiles).catch((reason) => setError(reason.message));
+  }, [active]);
+
+  useEffect(() => {
+    if (provider?.name !== "qwen3-local" || !selectedVoiceProfile) return;
+    const customVoiceModel = (capabilities.models || []).find((item) => item.endsWith("CustomVoice"));
+    setForm((current) => {
+      const nextModel = selectedVoiceProfile.kind === "preset"
+        ? customVoiceModel || current.model
+        : current.model.endsWith("CustomVoice")
+          ? provider.default_model
+          : current.model;
+      return nextModel === current.model ? current : { ...current, model: nextModel };
+    });
+  }, [provider?.name, selectedVoiceProfile?.id, selectedVoiceProfile?.kind]);
+
+  useEffect(() => {
     if (!projectToLoad) return;
     setForm((current) => ({ ...current, text: projectToLoad.source_text || "" }));
     setSourceName(projectToLoad.source_name || projectToLoad.name);
@@ -468,15 +508,18 @@ function NarrateWorkspace({ projectToLoad }) {
     if (!provider) return;
     const models = capabilities.models || [];
     const voices = capabilities.voices || [];
-    const tones = capabilities.tone_presets || ["neutral"];
-    const paces = capabilities.speech_paces || ["normal"];
-    const styles = capabilities.vocal_styles || ["natural"];
-    const nonverbals = capabilities.nonverbal_frequencies || ["never"];
+    const tones = capabilities.tone_presets?.length ? capabilities.tone_presets : ["neutral"];
+    const paces = capabilities.speech_paces?.length ? capabilities.speech_paces : ["normal"];
+    const styles = capabilities.vocal_styles?.length ? capabilities.vocal_styles : ["natural"];
+    const nonverbals = capabilities.nonverbal_frequencies?.length ? capabilities.nonverbal_frequencies : ["never"];
     setForm((current) => ({
       ...current,
       provider: provider.name,
       model: models.includes(current.model) ? current.model : provider.default_model,
       voice: voices.some((item) => item.id === current.voice) ? current.voice : provider.default_voice,
+      voice_profile_id: voiceEngine && profileVoices.some((item) => item.id === current.voice_profile_id)
+        ? current.voice_profile_id
+        : "",
       controls: {
         tone: tones.includes(current.controls.tone) ? current.controls.tone : tones[0],
         pace: paces.includes(current.controls.pace) ? current.controls.pace : paces[0],
@@ -486,7 +529,7 @@ function NarrateWorkspace({ projectToLoad }) {
           : nonverbals[0],
       },
     }));
-  }, [provider?.name]);
+  }, [provider?.name, voiceProfiles.length]);
 
   useEffect(() => {
     if (!job || TERMINAL.has(job.status) || job.status === "paused") return undefined;
@@ -509,7 +552,8 @@ function NarrateWorkspace({ projectToLoad }) {
     ...form,
     model: form.model || null,
     voice: form.voice || null,
-    instructions: form.instructions.trim() || null,
+    voice_profile_id: form.voice_profile_id || null,
+    instructions: directorNotesSupported ? form.instructions.trim() || null : null,
     project_name: projectName.trim() || null,
     source_name: sourceName.trim() || null,
   });
@@ -521,6 +565,7 @@ function NarrateWorkspace({ projectToLoad }) {
     text: form.text,
     model: form.model || null,
     voice: form.voice || null,
+    voice_profile_id: form.voice_profile_id || null,
     instructions: form.instructions.trim() || null,
     controls: form.controls,
     split_strategy: form.split_strategy,
@@ -537,6 +582,7 @@ function NarrateWorkspace({ projectToLoad }) {
       resource_revision: profile.resource_revision,
       model: profile.model || "",
       voice: profile.voice || "",
+      voice_profile_id: profile.voice_profile_id || "",
       instructions: profile.instructions || "",
       controls: profile.controls,
       split_strategy: profile.split_strategy,
@@ -635,7 +681,7 @@ function NarrateWorkspace({ projectToLoad }) {
                 </select>
               </Control>
               <label className="check-control"><input type="checkbox" checked={form.remove_numeric_citations} onChange={(event) => patchForm({ remove_numeric_citations: event.target.checked })} /><span><strong>Remove numeric citations</strong><small>[123] and \[123\]</small></span></label>
-              <button className="secondary-button" disabled={!form.text.trim() || !!busy} onClick={previewChunks}><WandSparkles size={16} />{busy === "preview" ? "Planning…" : "Preview chunks"}</button>
+              <button className="secondary-button" disabled={!form.text.trim() || (requiresVoiceProfile && !form.voice_profile_id) || !!busy} onClick={previewChunks}><WandSparkles size={16} />{busy === "preview" ? "Planning…" : "Preview chunks"}</button>
             </div>
           </section>
 
@@ -648,20 +694,43 @@ function NarrateWorkspace({ projectToLoad }) {
               <select value={form.provider} onChange={(event) => patchForm({ provider: event.target.value, resource_revision: null })}>{providers.map((item) => <option key={item.name} value={item.name}>{item.name}</option>)}</select>
               </Control>
               <Control label="Model"><input value={form.model} onChange={(event) => patchForm({ model: event.target.value })} list="studio-models" /><datalist id="studio-models">{(capabilities.models || []).map((item) => <option key={item} value={item} />)}</datalist></Control>
-              <Control label="Voice">
-                <select value={form.voice} onChange={(event) => patchForm({ voice: event.target.value })}>{(capabilities.voices || []).map((item) => <option key={item.id} value={item.id}>{item.id}{item.traits?.length ? ` · ${item.traits.join(", ")}` : ""}</option>)}</select>
-              </Control>
+              {requiresVoiceProfile ? (
+                <Control label="Voice Profile">
+                  <select value={form.voice_profile_id} onChange={(event) => selectVoiceProfile(event.target.value)}>
+                    <option value="">Select a Voice Profile…</option>
+                    {profileVoices.map((item) => <option key={item.id} value={item.id}>{item.label} · {item.kind}</option>)}
+                  </select>
+                  {!profileVoices.length && <small className="control-help">Create a compatible voice in Voice studio first.</small>}
+                </Control>
+              ) : (
+                <Control label="Voice">
+                  <select value={form.voice} onChange={(event) => patchForm({ voice: event.target.value })}>{(capabilities.voices || []).map((item) => <option key={item.id} value={item.id}>{item.id}{item.traits?.length ? ` · ${item.traits.join(", ")}` : ""}</option>)}</select>
+                </Control>
+              )}
             </div>
             <div className="control-grid two">
               <Control label="Emotion & tone"><select value={form.controls.tone} onChange={(event) => patchControls({ tone: event.target.value })}>{(capabilities.tone_presets || ["neutral"]).map((item) => <option key={item}>{item}</option>)}</select></Control>
               <Control label="Vocal style"><select value={form.controls.vocal_style} onChange={(event) => patchControls({ vocal_style: event.target.value })}>{(capabilities.vocal_styles || ["natural"]).map((item) => <option key={item}>{item}</option>)}</select></Control>
               <RangeControl label="Speaking pace" values={capabilities.speech_paces?.length ? capabilities.speech_paces : PACE} value={form.controls.pace} onChange={(value) => patchControls({ pace: value })} />
               <RangeControl label="Non-verbal sounds" values={capabilities.nonverbal_frequencies?.length ? capabilities.nonverbal_frequencies : NONVERBAL} value={form.controls.nonverbal_frequency} onChange={(value) => patchControls({ nonverbal_frequency: value })} />
-              <Control label="Director's notes" wide help="Optional instructions are stored with the take."><textarea rows="3" value={form.instructions} maxLength="2000" onChange={(event) => patchForm({ instructions: event.target.value })} placeholder="Emphasize quotations and pause before each new section." /></Control>
+              <Control
+                label="Director's notes"
+                wide
+                help={directorNotesSupported ? "Optional instructions are stored with the take." : "This engine and voice mode does not accept per-take directions."}
+              >
+                <textarea
+                  rows="3"
+                  value={form.instructions}
+                  maxLength="2000"
+                  disabled={!directorNotesSupported}
+                  onChange={(event) => patchForm({ instructions: event.target.value })}
+                  placeholder={directorNotesSupported ? "Emphasize quotations and pause before each new section." : "Unavailable for this voice mode"}
+                />
+              </Control>
             </div>
             <div className="render-row">
               <span><Sparkles size={16} />Chunks are checkpointed locally and resume safely.</span>
-              <button className="primary-button" disabled={!form.text.trim() || !form.provider || !!busy} onClick={startJob}>{busy === "start" ? "Starting…" : "Start new take"}<ChevronRight size={17} /></button>
+              <button className="primary-button" disabled={!form.text.trim() || !form.provider || (requiresVoiceProfile && !form.voice_profile_id) || !!busy} onClick={startJob}>{busy === "start" ? "Starting…" : "Start new take"}<ChevronRight size={17} /></button>
             </div>
           </section>
         </div>
@@ -692,7 +761,7 @@ export default function App() {
   return (
     <Shell active={active} onChange={setActive} collapsed={collapsed} setCollapsed={setCollapsed} onOpenErrors={() => setErrorsOpen(true)} unreadErrors={unreadErrors}>
       <div hidden={active !== "narrate"}>
-        <NarrateWorkspace projectToLoad={projectToLoad} />
+        <NarrateWorkspace active={active === "narrate"} projectToLoad={projectToLoad} />
       </div>
       {active === "library" && <LibraryWorkspace onOpen={openProject} />}
       {active === "pronunciation" && <LanguageWorkspace />}

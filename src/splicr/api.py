@@ -80,6 +80,11 @@ from .studio import (
     VoiceProfileKind,
     import_splicr_job,
 )
+from .studio.voice_resolution import (
+    VOICE_PROFILE_VARIABLE,
+    model_for_voice_profile,
+    resolve_voice_profile,
+)
 from .ui import register_ui
 
 
@@ -133,6 +138,7 @@ class CreateJobRequest(BaseModel):
     resource_revision: int | None = Field(default=None, ge=1)
     model: str | None = Field(default=None, min_length=1, max_length=200)
     voice: str | None = Field(default=None, min_length=1, max_length=100)
+    voice_profile_id: str | None = Field(default=None, min_length=1, max_length=64)
     instructions: str | None = Field(
         default=None,
         max_length=2_000,
@@ -692,6 +698,7 @@ class StudioProfilePayload(BaseModel):
     text: str = ""
     model: str | None = Field(default=None, max_length=200)
     voice: str | None = Field(default=None, max_length=200)
+    voice_profile_id: str | None = Field(default=None, max_length=64)
     instructions: str | None = Field(default=None, max_length=2_000)
     controls: DeliveryControlsPayload = Field(default_factory=DeliveryControlsPayload)
     split_strategy: SplitStrategy = SplitStrategy.SEMANTIC
@@ -1427,6 +1434,7 @@ def create_app(
             text=profile.text,
             model=profile.model,
             voice=profile.voice,
+            voice_profile_id=profile.voice_profile_id,
             instructions=profile.instructions,
             controls=DeliveryControlsPayload.from_domain(profile.controls),
             split_strategy=profile.split_strategy,
@@ -1439,6 +1447,11 @@ def create_app(
         )
 
     def validate_profile_payload(payload: StudioProfilePayload) -> None:
+        if VOICE_PROFILE_VARIABLE in payload.variables:
+            raise HTTPException(
+                status_code=422,
+                detail=f"{VOICE_PROFILE_VARIABLE} is managed by Voice Profile selection",
+            )
         if len(payload.text.encode("utf-8")) > resolved_settings.max_source_bytes:
             raise HTTPException(
                 status_code=status.HTTP_413_CONTENT_TOO_LARGE,
@@ -1449,6 +1462,12 @@ def create_app(
                 synthesis.get_job(payload.job_id)
             except JobNotFoundError as error:
                 raise HTTPException(status_code=422, detail="linked job was not found") from error
+        if payload.voice_profile_id:
+            voice_profile = require_voice_profile(payload.voice_profile_id)
+            try:
+                resolve_voice_profile(payload.resource_id, voice_profile, payload.variables)
+            except ValueError as error:
+                raise HTTPException(status_code=422, detail=str(error)) from error
         try:
             if resource_store is not None:
                 resource = (
@@ -1504,6 +1523,44 @@ def create_app(
             return studio.get_voice_profile(profile_id)
         except KeyError as error:
             raise HTTPException(status_code=404, detail="Voice profile not found") from error
+
+    def resolved_voice_request(
+        request: CreateJobRequest,
+    ) -> tuple[str | None, str | None, dict[str, Any]]:
+        if VOICE_PROFILE_VARIABLE in request.variables:
+            raise HTTPException(
+                status_code=422,
+                detail=f"{VOICE_PROFILE_VARIABLE} is managed by Voice Profile selection",
+            )
+        if not request.voice_profile_id:
+            return request.model, request.voice, dict(request.variables)
+        profile = require_voice_profile(request.voice_profile_id)
+        if (
+            request.instructions
+            and profile.engine_id.strip().casefold() in {"qwen3", "qwen3-local"}
+            and profile.kind is not VoiceProfileKind.PRESET
+        ):
+            raise HTTPException(
+                status_code=422,
+                detail="Qwen3 custom directions are available for preset speakers, not cloned voices",
+            )
+        try:
+            voice, variables = resolve_voice_profile(
+                request.selected_resource_id,
+                profile,
+                request.variables,
+            )
+            return (
+                model_for_voice_profile(
+                    request.selected_resource_id,
+                    profile,
+                    request.model,
+                ),
+                voice,
+                variables,
+            )
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
 
     def managed_voice_directory(profile: VoiceProfile) -> Path | None:
         if not profile.metadata.get("managed") or not profile.reference_audio_path:
@@ -2162,6 +2219,7 @@ def create_app(
             text=payload.text,
             model=payload.model,
             voice=payload.voice,
+            voice_profile_id=payload.voice_profile_id,
             instructions=payload.instructions,
             controls=payload.controls.to_domain(),
             split_strategy=payload.split_strategy,
@@ -2201,6 +2259,7 @@ def create_app(
                 text=payload.text,
                 model=payload.model,
                 voice=payload.voice,
+                voice_profile_id=payload.voice_profile_id,
                 instructions=payload.instructions,
                 controls=payload.controls.to_domain(),
                 split_strategy=payload.split_strategy,
@@ -2230,15 +2289,16 @@ def create_app(
         tags=["speech jobs"],
     )
     async def preview_speech(request: CreateJobRequest) -> PreviewResponse:
+        model, voice, variables = resolved_voice_request(request)
         try:
             plan = synthesis.preview(
                 text=request.text,
                 provider_name=request.selected_resource_id,
-                model=request.model,
-                voice=request.voice,
+                model=model,
+                voice=voice,
                 instructions=request.instructions,
                 controls=request.controls.to_domain(),
-                variables=request.variables,
+                variables=variables,
                 resource_revision=request.resource_revision,
                 split_strategy=request.split_strategy,
                 remove_numeric_citations=request.remove_numeric_citations,
@@ -2256,15 +2316,16 @@ def create_app(
         tags=["speech jobs"],
     )
     async def create_job(request: CreateJobRequest) -> JobResponse:
+        model, voice, variables = resolved_voice_request(request)
         try:
             job = await synthesis.submit(
                 text=request.text,
                 provider_name=request.selected_resource_id,
-                model=request.model,
-                voice=request.voice,
+                model=model,
+                voice=voice,
                 instructions=request.instructions,
                 controls=request.controls.to_domain(),
-                variables=request.variables,
+                variables=variables,
                 resource_revision=request.resource_revision,
                 split_strategy=request.split_strategy,
                 remove_numeric_citations=request.remove_numeric_citations,

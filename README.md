@@ -58,10 +58,12 @@ Gemini remains available as a Preview provider. Deepgram Aura-2 and Inworld TTS-
 registered, and every provider's model and voice defaults can be changed through environment
 variables.
 
-Kokoro is registered as `kokoro-local` when `SPLICR_KOKORO_PYTHON` points to a Python executable
-whose environment contains Kokoro. The environment and its model cache stay where they already
-live; SPLICR launches its bundled worker file through that interpreter and keeps the model process
-alive for the duration of one job.
+Kokoro, Qwen3-TTS, and Audio8 are registered as `kokoro-local`, `qwen3-local`, and `audio8-local`
+when their corresponding environment settings point to Python executables containing those
+engines. Environments and model caches stay where they already live; SPLICR launches its bundled
+worker through the selected interpreter and keeps the model process alive for one job. Qwen3 and
+Audio8 renders use a Studio Voice Profile, frozen into the job before synthesis so resumes keep the
+same reference clip, transcript, speaker, and settings.
 
 ## Run locally
 
@@ -93,16 +95,18 @@ npm test
 npm run build
 ```
 
-To reuse an existing Narrator Kokoro environment on Windows, add its interpreter to `.env` before
+To reuse existing Narrator engine environments on Windows, add their interpreters to `.env` before
 starting SPLICR:
 
 ```dotenv
 SPLICR_KOKORO_PYTHON=C:\path\to\Narrator\kokoro-env\Scripts\python.exe
+SPLICR_QWEN3_PYTHON=C:\path\to\Narrator\qwen3-env\Scripts\python.exe
+SPLICR_AUDIO8_PYTHON=C:\path\to\Narrator\audio8-env\Scripts\python.exe
 ```
 
-On Linux or macOS, use the environment's `bin/python`. The first uncached Kokoro run may download
-its model into that environment's normal model cache. SPLICR never places environments, weights,
-or generated engine caches in the repository.
+On Linux or macOS, use each environment's `bin/python`. The first uncached local-engine run may
+download its model into that environment's normal model cache. SPLICR never places environments,
+weights, or generated engine caches in the repository.
 
 Once configured, the same CLI pipeline can render locally:
 
@@ -324,7 +328,8 @@ The important tuning controls are:
   `SPLICR_MAX_OUTPUT_PCM_BYTES`
 - `SPLICR_PACING_SECONDS`
 - `SPLICR_DEEPGRAM_PACING_SECONDS` and `SPLICR_INWORLD_PACING_SECONDS`
-- `SPLICR_KOKORO_PYTHON` to enable the isolated local Kokoro engine
+- `SPLICR_KOKORO_PYTHON`, `SPLICR_QWEN3_PYTHON`, and `SPLICR_AUDIO8_PYTHON` to enable isolated
+  local engines
 - `SPLICR_LOCAL_ENGINE_STARTUP_TIMEOUT_SECONDS` and
   `SPLICR_LOCAL_ENGINE_REQUEST_TIMEOUT_SECONDS`
 - `SPLICR_PROVIDER_TIMEOUT_SECONDS`
