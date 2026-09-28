@@ -26,6 +26,7 @@ PACE_SPEEDS = {
     "fast": 1.15,
     "very_fast": 1.30,
 }
+PRONUNCIATION_VARIABLE = "__splicr_pronunciations"
 
 
 class EngineRuntime(Protocol):
@@ -35,6 +36,27 @@ class EngineRuntime(Protocol):
         options: Mapping[str, Any],
         output_path: Path,
     ) -> None: ...
+
+
+def _apply_pronunciation_overrides(pipeline: Any, options: Mapping[str, Any]) -> int:
+    variables = options.get("variables")
+    pronunciations = (
+        variables.get(PRONUNCIATION_VARIABLE)
+        if isinstance(variables, Mapping)
+        else None
+    )
+    if not isinstance(pronunciations, Mapping):
+        return 0
+    golds = pipeline.g2p.lexicon.golds
+    applied = 0
+    for word, phonemes in pronunciations.items():
+        if isinstance(word, str) and isinstance(phonemes, str):
+            word = word.strip().lower()
+            phonemes = phonemes.strip()
+            if word and phonemes:
+                golds[word] = phonemes
+                applied += 1
+    return applied
 
 
 class KokoroRuntime:
@@ -65,6 +87,8 @@ class KokoroRuntime:
             with contextlib.redirect_stdout(sys.stderr):
                 pipeline = self._pipeline_type(lang_code=language)
             self._pipelines[language] = pipeline
+
+        _apply_pronunciation_overrides(pipeline, options)
 
         speed = _kokoro_speed(options)
         pieces = []
@@ -193,10 +217,167 @@ def run(engine: str) -> int:
     return 0
 
 
+def _gold_to_text(value: object) -> str:
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        preferred = value.get("DEFAULT") or next(iter(value.values()), "")
+        others = [str(key) for key in value if key != "DEFAULT"]
+        if others:
+            return f"{preferred}  (varies by role: {', '.join(sorted(others))})"
+        return str(preferred)
+    return str(value)
+
+
+def _pronunciation_overrides(payload: Mapping[str, Any]) -> dict[str, str]:
+    value = payload.get("overrides")
+    if not isinstance(value, Mapping):
+        return {}
+    return {
+        str(key).strip().lower(): str(item).strip()
+        for key, item in value.items()
+        if str(key).strip()
+        and str(item).strip()
+        and not str(key).endswith("__respelling")
+    }
+
+
+def _misaki_g2p():
+    with contextlib.redirect_stdout(sys.stderr):
+        misaki_en = importlib.import_module("misaki.en")
+        return misaki_en.G2P(trf=False, british=False)
+
+
+def _tool_lookup_words(payload: Mapping[str, Any]) -> dict[str, Any]:
+    query = str(payload.get("query") or "").strip().lower()
+    limit = max(1, min(int(payload.get("limit") or 150), 500))
+    overrides = _pronunciation_overrides(payload)
+    g2p = _misaki_g2p()
+    golds = getattr(g2p.lexicon, "golds", {}) or {}
+    words = set(golds)
+    words.update(overrides)
+    if query:
+        starts = sorted(word for word in words if word.startswith(query))
+        contains = sorted(
+            word for word in words if query in word and not word.startswith(query)
+        )
+        hits = starts + contains
+    else:
+        hits = sorted(words)
+    matches = []
+    for word in hits[:limit]:
+        if word in overrides:
+            matches.append(
+                {"word": word, "phonemes": overrides[word], "source": "override"}
+            )
+        else:
+            matches.append(
+                {
+                    "word": word,
+                    "phonemes": _gold_to_text(golds.get(word, "")),
+                    "source": "dictionary",
+                }
+            )
+    return {"matches": matches, "total": len(hits), "error": None}
+
+
+def _tool_current_phonemes(payload: Mapping[str, Any]) -> dict[str, Any]:
+    original = str(payload.get("word") or "")
+    word = original.strip().lower()
+    if not word:
+        raise ValueError("No word given.")
+    overrides = _pronunciation_overrides(payload)
+    if word in overrides:
+        return {
+            "word": original,
+            "phonemes": overrides[word],
+            "source": "override",
+            "error": None,
+        }
+    g2p = _misaki_g2p()
+    golds = getattr(g2p.lexicon, "golds", {}) or {}
+    if word in golds:
+        return {
+            "word": original,
+            "phonemes": _gold_to_text(golds[word]),
+            "source": "dictionary",
+            "error": None,
+        }
+    phonemes, _ = g2p(original)
+    if phonemes in ("", "❓", None):
+        return {
+            "word": original,
+            "phonemes": None,
+            "source": None,
+            "error": "Kokoro cannot pronounce this word.",
+        }
+    return {
+        "word": original,
+        "phonemes": phonemes,
+        "source": "guessed",
+        "error": None,
+    }
+
+
+def _tool_respell_to_ipa(payload: Mapping[str, Any]) -> dict[str, Any]:
+    respelling = str(payload.get("respelling") or "").strip()
+    raw_pieces = respelling.split()
+    if not raw_pieces:
+        return {"ipa": "", "failed": None}
+    pieces: list[str] = []
+    stress_on: int | None = None
+    for index, raw_piece in enumerate(raw_pieces):
+        piece = raw_piece
+        if piece.startswith("*") and len(piece) > 1:
+            stress_on = index
+            piece = piece[1:]
+        pieces.append(piece)
+    if stress_on is None:
+        stress_on = 0
+    g2p = _misaki_g2p()
+    phoneme_parts = []
+    for index, piece in enumerate(pieces):
+        result, _ = g2p(piece)
+        if not result or result == "❓":
+            return {"ipa": None, "failed": piece}
+        if index != stress_on:
+            result = result.replace("ˈ", "ˌ")
+        phoneme_parts.append(result)
+    return {"ipa": "".join(phoneme_parts) or None, "failed": None}
+
+
+def run_tool(operation: str) -> int:
+    try:
+        payload = json.loads(sys.stdin.read() or "{}")
+        if not isinstance(payload, Mapping):
+            raise ValueError("tool payload must be a JSON object")
+        with contextlib.redirect_stdout(sys.stderr):
+            if operation == "lookup_words":
+                result = _tool_lookup_words(payload)
+            elif operation == "current_phonemes":
+                result = _tool_current_phonemes(payload)
+            elif operation == "respell_to_ipa":
+                result = _tool_respell_to_ipa(payload)
+            else:
+                raise ValueError(f"unknown tool operation {operation!r}")
+    except Exception as error:
+        result = {
+            "error_type": error.__class__.__name__,
+            "message": str(error) or error.__class__.__name__,
+        }
+    sys.stdout.write(json.dumps(result, ensure_ascii=False, allow_nan=False))
+    sys.stdout.flush()
+    return 0
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="SPLICR isolated local-engine worker")
-    parser.add_argument("--engine", required=True)
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--engine")
+    mode.add_argument("--tool")
     args = parser.parse_args()
+    if args.tool:
+        raise SystemExit(run_tool(args.tool))
     raise SystemExit(run(args.engine))
 
 

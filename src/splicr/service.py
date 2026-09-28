@@ -41,6 +41,12 @@ from .errors import classify_job_error
 from .preprocessing import preprocess_text
 from .providers import TtsProviderRegistry
 from .planning import ChunkPlan, SplitStrategy, plan_chunks
+from .pronunciation import (
+    PRONUNCIATION_REVISION_VARIABLE,
+    PRONUNCIATION_VARIABLE,
+    TextCustomizationStore,
+    apply_substitutions,
+)
 from .storage import LocalJobStorage
 from .store import SqliteJobStore
 from .studio.engines import (
@@ -67,12 +73,16 @@ class SynthesisService:
         providers: TtsProviderRegistry,
         store: SqliteJobStore | None = None,
         storage: LocalJobStorage | None = None,
+        customizations: TextCustomizationStore | None = None,
         engine_adapter_factory: Callable[[TtsProvider], EngineAdapter] = engine_adapter_for_provider,
     ) -> None:
         self.settings = settings
         self.providers = providers
         self.store = store or SqliteJobStore(settings.database_path)
         self.storage = storage or LocalJobStorage(settings.jobs_dir)
+        self.customizations = customizations or TextCustomizationStore(
+            settings.data_dir / "studio" / "language"
+        )
         self._engine_adapter_factory = engine_adapter_factory
         self._queue: asyncio.Queue[str] = asyncio.Queue()
         self._worker: asyncio.Task[None] | None = None
@@ -117,8 +127,12 @@ class SynthesisService:
         ).text
         if not prepared_text.strip():
             raise ValueError("text contains no speakable content after preprocessing")
+        synthesis_text, _ = apply_substitutions(
+            prepared_text,
+            self.customizations.substitutions(),
+        )
         provider, options, policy = self._prepare_request(
-            text=prepared_text,
+            text=synthesis_text,
             provider_name=provider_name,
             model=model,
             voice=voice,
@@ -128,10 +142,20 @@ class SynthesisService:
             resource_revision=resource_revision,
         )
         info = provider.info
+        if info.name == "kokoro-local":
+            snapshot = self.customizations.pronunciation_snapshot()
+            variables_with_snapshot = dict(options.variables)
+            variables_with_snapshot[PRONUNCIATION_VARIABLE] = (
+                self.customizations.real_pronunciations(snapshot)
+            )
+            variables_with_snapshot[PRONUNCIATION_REVISION_VARIABLE] = (
+                self.customizations.pronunciation_revision(snapshot)
+            )
+            options = replace(options, variables=variables_with_snapshot)
         selected_controls = options.controls
         capabilities = info.capabilities
         synthesis_text = annotate_nonverbal_cues(
-            prepared_text,
+            synthesis_text,
             selected_controls.nonverbal_frequency,
             capabilities.nonverbal_cues,
         )
@@ -184,8 +208,12 @@ class SynthesisService:
         ).text
         if not prepared_text.strip():
             raise ValueError("text contains no speakable content after preprocessing")
+        synthesis_text, _ = apply_substitutions(
+            prepared_text,
+            self.customizations.substitutions(),
+        )
         _, _, policy = self._prepare_request(
-            text=prepared_text,
+            text=synthesis_text,
             provider_name=provider_name,
             model=model,
             voice=voice,
@@ -194,7 +222,7 @@ class SynthesisService:
             variables=variables,
             resource_revision=resource_revision,
         )
-        return plan_chunks(prepared_text, policy, split_strategy)
+        return plan_chunks(synthesis_text, policy, split_strategy)
 
     def _prepare_request(
         self,

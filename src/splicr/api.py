@@ -65,6 +65,7 @@ from .domain import (
 from .document_import import DocumentImportError, import_document
 from .errors import JobErrorCode, suggestion_for
 from .planning import ChunkPlan, PlannedChunk, SplitStrategy
+from .pronunciation import KokoroToolClient, KokoroToolError, PronunciationEntry
 from .profiles import ProfileNotFoundError, StudioProfile, StudioProfileStore
 from .service import SynthesisService
 from .secret_vault import SecretVaultUnavailableError
@@ -696,6 +697,36 @@ class StudioProjectResponse(StudioProjectSummaryResponse):
     source_text: str
 
 
+class PronunciationEntryResponse(BaseModel):
+    word: str
+    ipa: str
+    respelling: str | None = None
+
+    @classmethod
+    def from_domain(cls, entry: PronunciationEntry) -> "PronunciationEntryResponse":
+        return cls(word=entry.word, ipa=entry.ipa, respelling=entry.respelling)
+
+
+class RespellRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    word: str = Field(min_length=1, max_length=200)
+    respelling: str = Field(min_length=1, max_length=500)
+
+
+class RespellPreviewRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    respelling: str = Field(max_length=500)
+
+
+class SubstitutionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source: str = Field(min_length=1, max_length=500)
+    replacement: str = Field(min_length=1, max_length=2_000)
+
+
 def _payload_value(
     payload: ApiResourcePayload,
     field_name: str,
@@ -1175,6 +1206,18 @@ def create_app(
     profiles.initialize()
     studio = SqliteStudioStore(resolved_settings.database_path)
     studio.initialize()
+    customizations = synthesis.customizations
+    kokoro_tools = (
+        KokoroToolClient(
+            resolved_settings.kokoro_python,
+            timeout_seconds=min(
+                resolved_settings.local_engine_startup_timeout_seconds,
+                60.0,
+            ),
+        )
+        if resolved_settings.kokoro_python is not None
+        else None
+    )
     candidate_resource_store = getattr(synthesis.providers, "store", None)
     resource_store = (
         candidate_resource_store
@@ -1200,6 +1243,7 @@ def create_app(
     application.state.api_resource_store = resource_store
     application.state.error_event_store = synthesis.store
     application.state.studio_store = studio
+    application.state.text_customization_store = customizations
     auth_manager = AuthManager(
         resolved_settings.auth_credentials_path,
         session_seconds=resolved_settings.auth_session_seconds,
@@ -1371,9 +1415,155 @@ def create_app(
         revision = resolver(payload.resource_id)
         return int(revision) if revision is not None else None
 
+    def require_kokoro_tools() -> KokoroToolClient:
+        if kokoro_tools is None:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=(
+                    "Kokoro pronunciation tools are unavailable. Configure "
+                    "SPLICR_KOKORO_PYTHON with the isolated Kokoro environment."
+                ),
+            )
+        return kokoro_tools
+
+    def run_kokoro_tool(operation: str, payload: dict[str, Any]) -> dict[str, Any]:
+        try:
+            return require_kokoro_tools().execute(operation, payload)
+        except KokoroToolError as error:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=str(error),
+            ) from error
+
     @application.get("/health", tags=["service"])
     async def health() -> dict[str, str]:
         return {"status": "ok"}
+
+    @application.get(
+        "/v1/studio/pronunciations",
+        response_model=list[PronunciationEntryResponse],
+    )
+    def list_pronunciations() -> list[PronunciationEntryResponse]:
+        return [
+            PronunciationEntryResponse.from_domain(entry)
+            for entry in customizations.pronunciation_entries()
+        ]
+
+    @application.get("/v1/studio/pronunciation/status")
+    def pronunciation_status() -> dict[str, Any]:
+        available = (
+            kokoro_tools is not None and kokoro_tools.python_executable.is_file()
+        )
+        return {
+            "available": available,
+            "message": (
+                "Kokoro pronunciation tools are ready."
+                if available
+                else (
+                    "Configure SPLICR_KOKORO_PYTHON to search, inspect, and preview "
+                    "Kokoro pronunciations. Saved overrides remain visible."
+                )
+            ),
+        }
+
+    @application.get("/v1/studio/pronunciation/search")
+    def search_pronunciations(
+        query: str = Query(default="", max_length=200),
+        limit: int = Query(default=150, ge=1, le=500),
+    ) -> dict[str, Any]:
+        return run_kokoro_tool(
+            "lookup_words",
+            {
+                "query": query,
+                "limit": limit,
+                "overrides": customizations.pronunciation_snapshot(),
+            },
+        )
+
+    @application.get("/v1/studio/pronunciation/word")
+    def get_word_pronunciation(
+        word: str = Query(min_length=1, max_length=200),
+    ) -> dict[str, Any]:
+        return run_kokoro_tool(
+            "current_phonemes",
+            {
+                "word": word,
+                "overrides": customizations.pronunciation_snapshot(),
+            },
+        )
+
+    @application.post("/v1/studio/pronunciation/preview")
+    def preview_pronunciation(payload: RespellPreviewRequest) -> dict[str, Any]:
+        return run_kokoro_tool(
+            "respell_to_ipa",
+            {"respelling": payload.respelling},
+        )
+
+    @application.put(
+        "/v1/studio/pronunciations/{word}",
+        response_model=PronunciationEntryResponse,
+    )
+    def save_pronunciation(word: str, payload: RespellRequest) -> PronunciationEntryResponse:
+        if word.strip().lower() != payload.word.strip().lower():
+            raise HTTPException(status_code=422, detail="path word and payload word must match")
+        result = run_kokoro_tool(
+            "respell_to_ipa",
+            {"respelling": payload.respelling},
+        )
+        failed = result.get("failed")
+        ipa = result.get("ipa")
+        if failed or not isinstance(ipa, str) or not ipa:
+            detail = (
+                f"{failed!r} is not a word Kokoro recognizes; try a different real word"
+                if failed
+                else "respelling did not produce a pronunciation"
+            )
+            raise HTTPException(status_code=422, detail=detail)
+        try:
+            entry = customizations.save_pronunciation(
+                word=word,
+                ipa=ipa,
+                respelling=payload.respelling,
+            )
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        return PronunciationEntryResponse.from_domain(entry)
+
+    @application.delete("/v1/studio/pronunciations/{word}", status_code=204)
+    def delete_pronunciation(word: str) -> Response:
+        try:
+            removed = customizations.delete_pronunciation(word)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        if not removed:
+            raise HTTPException(status_code=404, detail="pronunciation override not found")
+        return Response(status_code=204)
+
+    @application.get("/v1/studio/substitutions")
+    def list_substitutions() -> dict[str, str]:
+        return customizations.substitutions()
+
+    @application.post("/v1/studio/substitutions")
+    def save_substitution(payload: SubstitutionRequest) -> dict[str, str]:
+        try:
+            return customizations.save_substitution(
+                source=payload.source,
+                replacement=payload.replacement,
+            )
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+
+    @application.delete("/v1/studio/substitutions", status_code=204)
+    def delete_substitution(
+        source: str = Query(min_length=1, max_length=500),
+    ) -> Response:
+        try:
+            removed = customizations.delete_substitution(source)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        if not removed:
+            raise HTTPException(status_code=404, detail="substitution not found")
+        return Response(status_code=204)
 
     @application.post(
         "/v1/documents/import",

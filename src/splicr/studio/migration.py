@@ -11,6 +11,7 @@ from typing import Any, Iterable, Mapping
 from uuid import NAMESPACE_URL, uuid5
 
 from splicr.domain import ChunkRecord, JobRecord, JobStatus, JsonValue
+from splicr.pronunciation import TextCustomizationStore
 from splicr.storage import LocalJobStorage
 from splicr.store import SqliteJobStore
 
@@ -75,6 +76,12 @@ class NarratorSnapshot:
 class ImportedNarratorProject:
     source_path: str
     project_id: str
+
+
+@dataclass(frozen=True, slots=True)
+class ImportedNarratorCustomizations:
+    pronunciations: int
+    substitutions: int
 
 
 def _stable_id(job_id: str, entity: str) -> str:
@@ -247,6 +254,26 @@ def import_narrator_projects(
         )
         imported.append(ImportedNarratorProject(item.source_path, project_id))
     return imported
+
+
+def import_narrator_customizations(
+    snapshot: NarratorSnapshot,
+    customizations: TextCustomizationStore,
+    *,
+    overwrite: bool = False,
+) -> ImportedNarratorCustomizations:
+    """Copy portable language rules while leaving all Narrator media external."""
+
+    return ImportedNarratorCustomizations(
+        pronunciations=customizations.import_pronunciations(
+            snapshot.pronunciations,
+            overwrite=overwrite,
+        ),
+        substitutions=customizations.import_substitutions(
+            snapshot.substitutions,
+            overwrite=overwrite,
+        ),
+    )
 
 
 def _controls(job: JobRecord) -> dict[str, JsonValue]:

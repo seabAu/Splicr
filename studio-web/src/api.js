@@ -87,6 +87,34 @@ export const api = {
   providers: () => request("/v1/providers"),
   projects: () => request("/v1/studio/projects"),
   project: (id) => request(`/v1/studio/projects/${encodeURIComponent(id)}`),
+  pronunciations: () => request("/v1/studio/pronunciations"),
+  pronunciationStatus: () => request("/v1/studio/pronunciation/status"),
+  pronunciationSearch: (query, limit = 150) =>
+    request(`/v1/studio/pronunciation/search?query=${encodeURIComponent(query)}&limit=${limit}`),
+  pronunciationWord: (word) =>
+    request(`/v1/studio/pronunciation/word?word=${encodeURIComponent(word)}`),
+  pronunciationPreview: (respelling) =>
+    request("/v1/studio/pronunciation/preview", {
+      method: "POST",
+      body: JSON.stringify({ respelling }),
+    }),
+  savePronunciation: (word, respelling) =>
+    request(`/v1/studio/pronunciations/${encodeURIComponent(word)}`, {
+      method: "PUT",
+      body: JSON.stringify({ word, respelling }),
+    }),
+  deletePronunciation: (word) =>
+    request(`/v1/studio/pronunciations/${encodeURIComponent(word)}`, { method: "DELETE" }),
+  substitutions: () => request("/v1/studio/substitutions"),
+  saveSubstitution: (source, replacement) =>
+    request("/v1/studio/substitutions", {
+      method: "POST",
+      body: JSON.stringify({ source, replacement }),
+    }),
+  deleteSubstitution: (source) =>
+    request(`/v1/studio/substitutions?source=${encodeURIComponent(source)}`, {
+      method: "DELETE",
+    }),
   jobs: () => request("/v1/speech/jobs"),
   job: (id) => request(`/v1/speech/jobs/${encodeURIComponent(id)}`),
   preview: (payload) =>

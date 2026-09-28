@@ -88,10 +88,11 @@ unaware of Studio UI persistence, and an indexing failure cannot turn an already
 into an apparent submission failure.
 
 The same command can scan a supplied Narrator `narrator_data` directory. Its library entries become
-Studio projects with stable identifiers and retained source/config/output paths. Settings, podcast,
-episode, job, pronunciation, substitution, Qwen voice, and Kokoro blend manifests are recognized
-without importing Narrator modules or touching their files. Voice/media adoption remains a later
-workspace migration; the scanner proves and preserves those external references now.
+Studio projects with stable identifiers and retained source/config/output paths. Pronunciations and
+whole-word substitutions are copied additively into Studio's language store, without overwriting a
+current Studio rule. Settings, podcast, episode, job, Qwen voice, and Kokoro blend manifests are
+recognized without importing Narrator modules or touching their files. Voice/media adoption
+remains a later workspace migration; the scanner proves and preserves those external references.
 
 Existing data is never modified in place:
 
@@ -101,13 +102,15 @@ Existing data is never modified in place:
 
 ## Frontend direction
 
-Narrator's workspace-oriented React layout is now the Studio frontend at `/studio/`. The first
-production-connected workspace, Narrate, covers document import/paste, provider/model/voice and
+Narrator's workspace-oriented React layout is now the Studio frontend at `/studio/`. Narrate covers
+document import/paste, provider/model/voice and
 delivery controls, numeric-citation cleanup, chunk preflight, job creation, live character/chunk
-progress, pause/resume/cancel, recent jobs, playback, and WAV download. Workspace navigation keeps
-mounted form state intact. Library, dialogue, timeline, audiogram, publishing, voice studio,
-pronunciation, component management, and conversion are explicit migration slots rather than
-silently exposing their legacy APIs.
+progress, pause/resume/cancel, recent jobs, playback, and WAV download. Pronunciation searches the
+Kokoro/Misaki dictionary inside Kokoro's isolated environment, previews ordinary-word respellings,
+and manages overrides alongside provider-neutral substitutions. New Kokoro jobs freeze an exact
+dictionary snapshot in their persisted variables, so an edit cannot change a resumed book midway.
+Workspace navigation keeps mounted form state intact. Dialogue, timeline, audiogram, publishing,
+voice studio, component management, and conversion remain explicit migration slots.
 
 The React shell now owns the essential SPLICR management workflows as well. Profiles save and load
 the full source/delivery state plus an optional resumable take. The connection editor creates,

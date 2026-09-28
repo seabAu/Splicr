@@ -48,6 +48,8 @@ Despite the source document's use of “transcription,” this service performs 
   and completed audio Artifact, with readable titles retained from imported documents
 - React-native profile management, versioned API-resource editing with arbitrary nested JSON and
   timed secret visibility, plus a durable error center with unread badges, toasts, and full details
+- A Kokoro pronunciation workspace with searchable phonemes, ordinary-word respelling and stress
+  preview, immutable per-job dictionary snapshots, plus provider-neutral whole-word substitutions
 
 Gemini remains available as a Preview provider. Deepgram Aura-2 and Inworld TTS-2 are also
 registered, and every provider's model and voice defaults can be changed through environment
@@ -72,7 +74,8 @@ uv run splicr serve --reload
 Open `http://127.0.0.1:8000/studio/` for the new React Studio shell. Its Narrate workspace uses the
 production SPLICR API for document import, chunk preflight, synthesis, live progress, checkpoint
 controls, playback, download, profiles, API-resource configuration, diagnostics, and automatic
-Library persistence. The established interface remains at `http://127.0.0.1:8000/` while the
+Library persistence. Its Pronunciation workspace edits Kokoro overrides and shared substitutions.
+The established interface remains at `http://127.0.0.1:8000/` while the
 remaining Narrator workspaces are migrated. The generated interactive API remains at
 `http://127.0.0.1:8000/docs`.
 
@@ -118,7 +121,8 @@ The command is repeatable. It adds Studio records to SPLICR's SQLite database, u
 take status as legacy jobs advance, and reads Narrator's project and voice manifests without
 moving or modifying Narrator documents, media, environments, models, or voice assets. Omit
 `--narrator-data` to import only SPLICR jobs; add `--skip-splicr-jobs` to scan/import only the
-Narrator library index.
+Narrator library index. Existing Narrator pronunciations and substitutions are copied additively
+into Studio's local language store; current Studio rules win on a naming conflict.
 
 The studio populates every control from `/v1/api-resources`. Use the adjacent **+** button to add a
 TTS-compatible JSON REST resource, or **Edit** to create a new immutable revision of an existing

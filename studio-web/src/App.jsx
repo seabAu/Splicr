@@ -37,6 +37,7 @@ import {
 import { api } from "./api.js";
 import { formatCount, percent, statusLabel, textStats } from "./format.js";
 import { ErrorCenter, ProfileManager, ResourceManager } from "./StudioTools.jsx";
+import { LanguageWorkspace } from "./LanguageWorkspace.jsx";
 
 const NAVIGATION = [
   {
@@ -59,7 +60,7 @@ const NAVIGATION = [
     label: "Studio",
     items: [
       { id: "voices", label: "Voice studio", icon: Mic2 },
-      { id: "pronunciation", label: "Pronunciation", icon: FileAudio },
+      { id: "pronunciation", label: "Pronunciation", icon: FileAudio, ready: true },
       { id: "components", label: "Components", icon: Boxes },
       { id: "convert", label: "Convert", icon: RefreshCw },
     ],
@@ -693,7 +694,8 @@ export default function App() {
         <NarrateWorkspace projectToLoad={projectToLoad} />
       </div>
       {active === "library" && <LibraryWorkspace onOpen={openProject} />}
-      {active !== "narrate" && active !== "library" && <WorkspacePlaceholder workspace={active} />}
+      {active === "pronunciation" && <LanguageWorkspace />}
+      {active !== "narrate" && active !== "library" && active !== "pronunciation" && <WorkspacePlaceholder workspace={active} />}
       <ErrorCenter open={errorsOpen} onClose={() => setErrorsOpen(false)} onOpen={() => setErrorsOpen(true)} onUnreadChange={setUnreadErrors} />
     </Shell>
   );

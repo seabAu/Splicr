@@ -21,10 +21,12 @@ from .engines import (
 from .local_subprocess import LocalSubprocessEngineAdapter, LocalSubprocessSpec
 from .migration import (
     ImportedJob,
+    ImportedNarratorCustomizations,
     ImportedNarratorProject,
     NarratorProjectManifest,
     NarratorSnapshot,
     NarratorVoiceManifest,
+    import_narrator_customizations,
     import_narrator_projects,
     import_splicr_job,
     import_splicr_jobs,
@@ -44,6 +46,7 @@ __all__ = [
     "LocalSubprocessSpec",
     "ImportRecord",
     "ImportedJob",
+    "ImportedNarratorCustomizations",
     "ImportedNarratorProject",
     "NarratorProjectManifest",
     "NarratorSnapshot",
@@ -56,6 +59,7 @@ __all__ = [
     "TakeStatus",
     "SqliteStudioStore",
     "engine_adapter_for_provider",
+    "import_narrator_customizations",
     "import_narrator_projects",
     "import_splicr_job",
     "import_splicr_jobs",

@@ -23,8 +23,10 @@ from .domain import (
 )
 from .storage import LocalJobStorage
 from .store import SqliteJobStore
+from .pronunciation import TextCustomizationStore
 from .studio import (
     SqliteStudioStore,
+    import_narrator_customizations,
     import_narrator_projects,
     import_splicr_jobs,
     scan_narrator_data,
@@ -193,16 +195,26 @@ def _migrate_studio(args: argparse.Namespace) -> int:
         )
 
     imported_projects = []
+    imported_pronunciations = 0
+    imported_substitutions = 0
     warnings: tuple[str, ...] = ()
     if args.narrator_data is not None:
         snapshot = scan_narrator_data(args.narrator_data)
         imported_projects = import_narrator_projects(snapshot, studio_store)
+        imported_customizations = import_narrator_customizations(
+            snapshot,
+            TextCustomizationStore(settings.data_dir / "studio" / "language"),
+        )
+        imported_pronunciations = imported_customizations.pronunciations
+        imported_substitutions = imported_customizations.substitutions
         warnings = snapshot.warnings
 
     print(
         "Studio migration complete: "
         f"{len(imported_jobs)} SPLICR job(s), "
-        f"{len(imported_projects)} Narrator project(s)."
+        f"{len(imported_projects)} Narrator project(s), "
+        f"{imported_pronunciations} pronunciation(s), "
+        f"{imported_substitutions} substitution(s)."
     )
     for warning in warnings:
         print(f"Warning: {warning}", file=sys.stderr)

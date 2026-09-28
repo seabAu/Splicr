@@ -3,8 +3,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from splicr.pronunciation import TextCustomizationStore
 from splicr.studio import (
     SqliteStudioStore,
+    import_narrator_customizations,
     import_narrator_projects,
     scan_narrator_data,
 )
@@ -91,6 +93,25 @@ def test_import_narrator_projects_is_idempotent_and_keeps_paths_external(tmp_pat
         "voice": "af_heart",
     }
     assert len(store.list_projects()) == 1
+
+
+def test_import_narrator_language_customizations_is_additive_and_idempotent(tmp_path) -> None:
+    snapshot = scan_narrator_data(_narrator_data(tmp_path))
+    customizations = TextCustomizationStore(tmp_path / "studio" / "language")
+    customizations.save_substitution(source="existing", replacement="keep me")
+
+    first = import_narrator_customizations(snapshot, customizations)
+    second = import_narrator_customizations(snapshot, customizations)
+
+    assert first.pronunciations == 1
+    assert first.substitutions == 1
+    assert second.pronunciations == 0
+    assert second.substitutions == 0
+    assert customizations.pronunciation_entries()[0].word == "sql"
+    assert customizations.substitutions() == {
+        "existing": "keep me",
+        "form": "expanded",
+    }
 
 
 def test_scan_reports_bad_records_without_stopping_other_imports(tmp_path) -> None:
