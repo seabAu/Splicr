@@ -63,8 +63,21 @@ uv sync --extra dev
 uv run splicr serve --reload
 ```
 
-Open `http://127.0.0.1:8000/` for the SPLICR studio. The generated interactive API remains at
+Open `http://127.0.0.1:8000/studio/` for the new React Studio shell. Its Narrate workspace uses the
+production SPLICR API for document import, chunk preflight, synthesis, live progress, checkpoint
+controls, playback, and download. The established interface remains at `http://127.0.0.1:8000/`
+until every Narrator workspace reaches parity. The generated interactive API remains at
 `http://127.0.0.1:8000/docs`.
+
+The React source is in `studio-web/`; production assets are committed with the Python package so a
+local install does not require Node.js. When changing the frontend, rebuild those assets with:
+
+```powershell
+Set-Location .\studio-web
+npm install
+npm test
+npm run build
+```
 
 To reuse an existing Narrator Kokoro environment on Windows, add its interpreter to `.env` before
 starting SPLICR:
@@ -211,7 +224,8 @@ uv run splicr synthesize .\input_document.md .\continuous_reading.wav `
 
 | Method | Route | Purpose |
 | --- | --- | --- |
-| `GET` | `/` | Local browser studio |
+| `GET` | `/studio/` | New React Studio shell and migrated Narrate workspace |
+| `GET` | `/` | Established browser studio retained during migration |
 | `GET` | `/health` | Liveness check |
 | `GET` | `/v1/providers` | Provider defaults and capabilities |
 | `GET`, `POST` | `/v1/api-resources` | List or create versioned TTS API resources |

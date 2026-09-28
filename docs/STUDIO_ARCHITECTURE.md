@@ -95,9 +95,18 @@ Existing data is never modified in place:
 
 ## Frontend direction
 
-Narrator's React application becomes the Studio frontend. Features move workspace by workspace;
-the current SPLICR UI remains available until the React replacement reaches functional parity for
-document import, chunk preview, progress, error diagnostics, resume/cancel, playback, and export.
+Narrator's workspace-oriented React layout is now the Studio frontend at `/studio/`. The first
+production-connected workspace, Narrate, covers document import/paste, provider/model/voice and
+delivery controls, numeric-citation cleanup, chunk preflight, job creation, live character/chunk
+progress, pause/resume/cancel, recent jobs, playback, and WAV download. Workspace navigation keeps
+mounted form state intact. Library, dialogue, timeline, audiogram, publishing, voice studio,
+pronunciation, component management, and conversion are explicit migration slots rather than
+silently exposing their legacy APIs.
+
+The established SPLICR UI remains at `/` until the React replacement also reaches parity for API
+resource/profile editing and the complete diagnostic center. Vite source lives in `studio-web/`;
+hashed production assets are packaged under `src/splicr/static/studio/` so Python/Docker runtime
+images do not need Node.js.
 
 ## Migration sequence
 

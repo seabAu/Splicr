@@ -83,6 +83,7 @@ def test_root_serves_accessible_studio_without_shadowing_api_routes(tmp_path) ->
     assert "not\n            purged automatically" in root.text
     assert "Local-first" not in root.text
     assert '<script src="/assets/app.js" defer></script>' in root.text
+    assert '<a class="quiet-link" href="/studio/">New Studio</a>' in root.text
     assert '<a class="quiet-link" href="/auth/settings">Account</a>' in root.text
     assert "onclick=" not in root.text
     assert health.json() == {"status": "ok"}
@@ -168,4 +169,25 @@ def test_static_assets_are_packaged_and_path_traversal_is_rejected(tmp_path) -> 
     assert len(html_ids) == len(set(html_ids))
     assert set(javascript_ids) <= set(html_ids)
     assert duplicate_entry.status_code == 404
+    assert traversal.status_code in {404, 405}
+
+
+def test_react_studio_is_available_beside_classic_ui(tmp_path) -> None:
+    with TestClient(_app(tmp_path)) as client:
+        studio = client.get("/studio/")
+        redirectless = client.get("/studio")
+        traversal = client.get("/studio/assets/%2e%2e/index.html")
+
+        asset_match = re.search(r'<script[^>]+src="/studio/assets/([^"]+)"', studio.text)
+        assert asset_match is not None
+        javascript = client.get(f"/studio/assets/{asset_match.group(1)}")
+
+    assert studio.status_code == 200
+    assert redirectless.status_code == 200
+    assert studio.headers["content-type"].startswith("text/html")
+    assert "default-src 'self'" in studio.headers["content-security-policy"]
+    assert "SPLICR Studio" in studio.text
+    assert javascript.status_code == 200
+    assert "javascript" in javascript.headers["content-type"]
+    assert javascript.headers["cache-control"] == "public, max-age=31536000, immutable"
     assert traversal.status_code in {404, 405}
