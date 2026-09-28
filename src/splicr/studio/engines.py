@@ -31,19 +31,27 @@ class EngineDescriptor:
 
 @dataclass(frozen=True, slots=True)
 class EngineSessionContext:
-    """Stable job identity and storage assigned to one engine session."""
+    """Stable job identity and storage assigned to one engine session.
+
+    Project and plan ids remain optional while legacy SPLICR jobs are migrated into
+    the Studio hierarchy. A legacy job is itself the initial take.
+    """
 
     job_id: str
-    project_id: str
-    render_plan_id: str
     take_id: str
     work_directory: Path
+    project_id: str | None = None
+    render_plan_id: str | None = None
     resume: bool = False
 
     def __post_init__(self) -> None:
-        for field_name in ("job_id", "project_id", "render_plan_id", "take_id"):
+        for field_name in ("job_id", "take_id"):
             if not getattr(self, field_name).strip():
                 raise ValueError(f"{field_name} must not be blank")
+        for field_name in ("project_id", "render_plan_id"):
+            value = getattr(self, field_name)
+            if value is not None and not value.strip():
+                raise ValueError(f"{field_name} must not be blank when provided")
         if not self.work_directory.is_absolute():
             raise ValueError("engine work directory must be absolute")
 

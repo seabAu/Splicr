@@ -52,6 +52,10 @@ behavior while orchestration migrates. Local adapters may keep a model or subpro
 entire take, then release it when the session closes. Every adapter must still return canonical
 mono PCM16 at 24 kHz before shared checkpointing and assembly.
 
+The current bridge opens a session lazily on the first chunk that actually needs synthesis, reuses
+it for every remaining uncached chunk and retry in that job, and closes it before final assembly.
+A fully checkpointed resume therefore does not start an engine merely to assemble its artifacts.
+
 ## Persistence and compatibility
 
 The SPLICR SQLite store remains the authoritative durable execution store during migration. New

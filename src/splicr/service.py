@@ -9,7 +9,7 @@ import random
 import uuid
 from dataclasses import asdict, replace
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Callable, Mapping
 
 from .chunking import ChunkPolicy, word_count
 from .config import Settings
@@ -43,6 +43,12 @@ from .providers import TtsProviderRegistry
 from .planning import ChunkPlan, SplitStrategy, plan_chunks
 from .storage import LocalJobStorage
 from .store import SqliteJobStore
+from .studio import (
+    EngineAdapter,
+    EngineSession,
+    EngineSessionContext,
+    ProviderEngineAdapter,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -61,11 +67,13 @@ class SynthesisService:
         providers: TtsProviderRegistry,
         store: SqliteJobStore | None = None,
         storage: LocalJobStorage | None = None,
+        engine_adapter_factory: Callable[[TtsProvider], EngineAdapter] = ProviderEngineAdapter,
     ) -> None:
         self.settings = settings
         self.providers = providers
         self.store = store or SqliteJobStore(settings.database_path)
         self.storage = storage or LocalJobStorage(settings.jobs_dir)
+        self._engine_adapter_factory = engine_adapter_factory
         self._queue: asyncio.Queue[str] = asyncio.Queue()
         self._worker: asyncio.Task[None] | None = None
         self._provider_ready_at: dict[str, float] = {}
@@ -422,6 +430,19 @@ class SynthesisService:
         try:
             job = self.store.get_job(job_id)
             provider = self._provider_for_job(job.provider, job.resource_revision)
+            engine = self._engine_adapter_factory(provider)
+            chunks = self.store.chunks_for_job(job_id)
+            session_context = EngineSessionContext(
+                job_id=job.id,
+                take_id=job.id,
+                work_directory=self.storage.job_dir(job.id).resolve(),
+                project_id=None,
+                render_plan_id=None,
+                resume=any(
+                    chunk.attempts > 0 or chunk.status is ChunkStatus.COMPLETED
+                    for chunk in chunks
+                ),
+            )
             retry_policy = self._retry_policy_for_job(job.provider, job.resource_revision)
             options = SynthesisOptions(
                 model=job.model,
@@ -430,57 +451,65 @@ class SynthesisService:
                 controls=job.controls,
                 variables=job.variables,
             )
-            chunks = self.store.chunks_for_job(job_id)
             admitted_pcm_bytes = 0
-            for chunk in chunks:
-                self._ensure_running(job_id)
-                active_chunk_index = chunk.index
-                prior_attempts = chunk.attempts
-                if chunk.status is ChunkStatus.COMPLETED:
-                    recorded_path = Path(chunk.pcm_path) if chunk.pcm_path else None
-                    try:
-                        if recorded_path is None:
-                            raise ValueError("checkpoint path is missing")
-                        candidate_pcm_bytes = self._admit_checkpoint(
-                            recorded_path, admitted_pcm_bytes
-                        )
-                    except (FileNotFoundError, ValueError):
-                        self.store.reset_chunk_for_resynthesis(
-                            job_id,
-                            chunk.index,
-                            "completed checkpoint was missing or invalid; synthesizing again",
-                        )
-                        prior_attempts = 0
-                    else:
-                        admitted_pcm_bytes = candidate_pcm_bytes
-                        continue
+            async with contextlib.AsyncExitStack() as session_stack:
+                session: EngineSession | None = None
+                for chunk in chunks:
+                    self._ensure_running(job_id)
+                    active_chunk_index = chunk.index
+                    prior_attempts = chunk.attempts
+                    if chunk.status is ChunkStatus.COMPLETED:
+                        recorded_path = Path(chunk.pcm_path) if chunk.pcm_path else None
+                        try:
+                            if recorded_path is None:
+                                raise ValueError("checkpoint path is missing")
+                            candidate_pcm_bytes = self._admit_checkpoint(
+                                recorded_path, admitted_pcm_bytes
+                            )
+                        except (FileNotFoundError, ValueError):
+                            self.store.reset_chunk_for_resynthesis(
+                                job_id,
+                                chunk.index,
+                                "completed checkpoint was missing or invalid; synthesizing again",
+                            )
+                            prior_attempts = 0
+                        else:
+                            admitted_pcm_bytes = candidate_pcm_bytes
+                            continue
 
-                checkpoint = self.storage.chunk_path(job_id, chunk.index)
-                if checkpoint.is_file():
-                    try:
-                        candidate_pcm_bytes = self._admit_checkpoint(checkpoint, admitted_pcm_bytes)
-                    except (FileNotFoundError, ValueError):
-                        pass
-                    else:
-                        self.store.mark_chunk_completed(
-                            job_id, chunk.index, str(checkpoint.resolve())
-                        )
-                        admitted_pcm_bytes = candidate_pcm_bytes
-                        continue
+                    checkpoint = self.storage.chunk_path(job_id, chunk.index)
+                    if checkpoint.is_file():
+                        try:
+                            candidate_pcm_bytes = self._admit_checkpoint(
+                                checkpoint, admitted_pcm_bytes
+                            )
+                        except (FileNotFoundError, ValueError):
+                            pass
+                        else:
+                            self.store.mark_chunk_completed(
+                                job_id, chunk.index, str(checkpoint.resolve())
+                            )
+                            admitted_pcm_bytes = candidate_pcm_bytes
+                            continue
 
-                await self._synthesize_chunk(
-                    job_id,
-                    chunk.index,
-                    chunk.text,
-                    provider,
-                    options,
-                    prior_attempts,
-                    retry_policy,
-                )
-                admitted_pcm_bytes = self._admit_checkpoint(
-                    self.storage.chunk_path(job_id, chunk.index), admitted_pcm_bytes
-                )
-                self._ensure_running(job_id)
+                    if session is None:
+                        session = await session_stack.enter_async_context(
+                            engine.open_session(session_context)
+                        )
+                    await self._synthesize_chunk(
+                        job_id,
+                        chunk.index,
+                        chunk.text,
+                        engine,
+                        session,
+                        options,
+                        prior_attempts,
+                        retry_policy,
+                    )
+                    admitted_pcm_bytes = self._admit_checkpoint(
+                        self.storage.chunk_path(job_id, chunk.index), admitted_pcm_bytes
+                    )
+                    self._ensure_running(job_id)
 
             active_chunk_index = None
             self._ensure_running(job_id)
@@ -691,7 +720,8 @@ class SynthesisService:
         job_id: str,
         index: int,
         text: str,
-        provider: TtsProvider,
+        engine: EngineAdapter,
+        session: EngineSession,
         options: SynthesisOptions,
         prior_attempts: int,
         retry_policy=None,
@@ -712,7 +742,7 @@ class SynthesisService:
             self._ensure_running(job_id)
             self.store.mark_chunk_running(job_id, index)
             try:
-                audio = await self._paced_provider_request(job_id, provider, text, options)
+                audio = await self._paced_engine_request(job_id, engine, session, text, options)
             except asyncio.CancelledError:
                 raise
             except _JobStopped:
@@ -779,24 +809,26 @@ class SynthesisService:
                 self.store.mark_chunk_failed(job_id, index, message[:2000])
                 raise RuntimeError(message) from error
 
-    async def _paced_provider_request(
+    async def _paced_engine_request(
         self,
         job_id: str,
-        provider: TtsProvider,
+        engine: EngineAdapter,
+        session: EngineSession,
         text: str,
         options: SynthesisOptions,
     ):
         loop = asyncio.get_running_loop()
-        provider_name = provider.info.name
+        provider_info = engine.descriptor.provider_info
+        provider_name = provider_info.name
         ready_at = self._provider_ready_at.get(provider_name, 0.0)
         delay = ready_at - loop.time()
         if delay > 0:
             await self._interruptible_wait(job_id, delay)
         self._ensure_running(job_id)
         try:
-            return await provider.synthesize(text, options)
+            return await session.synthesize(text, options)
         finally:
-            request_interval = provider.info.minimum_request_interval_seconds
+            request_interval = provider_info.minimum_request_interval_seconds
             if request_interval is None:
                 request_interval = self.settings.pacing_seconds
             self._provider_ready_at[provider_name] = loop.time() + request_interval
