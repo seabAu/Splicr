@@ -793,3 +793,54 @@ button:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important
   .conversion-job-heading { grid-template-columns: auto minmax(0, 1fr); }
   .conversion-job-heading > strong { grid-column: 2; }
 }
+
+/* Components workspace */
+.components-workspace { padding: 28px 32px 72px; max-width: 1680px; margin: 0 auto; }
+.components-header { align-items: end; }
+.components-header > div:first-child { flex: 1; }
+.components-header > div:first-child > p:last-child { color: var(--muted); margin: 6px 0 0; }
+.components-loading { min-height: 180px; display: grid; place-items: center; align-content: center; gap: 12px; color: var(--muted); }
+.components-section { margin-top: 28px; }
+.components-section > .section-heading { margin-bottom: 12px; }
+.components-section > .section-heading > span { color: var(--muted); font-size: 12px; }
+.components-intro { max-width: 850px; margin: -2px 0 15px; color: var(--muted); line-height: 1.55; font-size: 13px; }
+.component-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.component-card { min-width: 0; padding: 20px; display: flex; flex-direction: column; }
+.component-card-heading { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 11px; align-items: start; }
+.component-card-heading h3 { margin: 0 0 5px; font-family: Georgia, serif; font-size: 19px; font-weight: 500; }
+.component-card-icon { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 11px; color: var(--accent); background: var(--accent-soft); }
+.component-missing .component-card-icon { color: var(--warm); background: rgba(255,173,107,.09); }
+.component-planned .component-card-icon { color: var(--muted); background: rgba(255,255,255,.045); }
+.component-restart_required .component-card-icon { color: #9fd8ff; background: rgba(104,186,244,.1); }
+.component-state { display: inline-flex; align-items: center; border-radius: 99px; padding: 3px 7px; color: var(--muted); background: rgba(255,255,255,.05); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }
+.component-state.state-ready, .component-state.state-configured { color: var(--accent); background: var(--accent-soft); }
+.component-state.state-missing { color: #ffc293; background: rgba(255,173,107,.09); }
+.component-state.state-restart_required { color: #b8e1ff; background: rgba(104,186,244,.1); }
+.component-card > p { min-height: 42px; margin: 14px 0 10px; color: var(--muted); line-height: 1.5; font-size: 12px; }
+.component-card ul { margin: 0 0 14px; padding-left: 18px; color: #d2d4ca; font-size: 12px; line-height: 1.7; }
+.component-facts { margin: auto 0 14px; padding-top: 12px; border-top: 1px solid var(--line-soft); display: grid; grid-template-columns: 58px minmax(0, 1fr); gap: 5px 9px; font-size: 11px; }
+.component-facts dt { color: var(--subtle); text-transform: uppercase; letter-spacing: .05em; }
+.component-facts dd { margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+.component-actions { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-top: auto; }
+.component-lock { display: inline-flex; align-items: center; gap: 5px; min-width: 0; color: var(--muted); font-size: 10px; overflow-wrap: anywhere; }
+.component-restart-banner { margin: 0 0 20px; padding: 14px 16px; display: flex; align-items: center; gap: 11px; border: 1px solid rgba(104,186,244,.32); border-radius: 13px; color: #cceaff; background: rgba(104,186,244,.07); }
+.component-restart-banner div { display: grid; gap: 3px; }
+.component-restart-banner span { color: #91aab9; font-size: 11px; }
+.components-planned { opacity: .82; }
+.component-path-field { margin: 20px 0; max-width: none; }
+.component-path-field input { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+.component-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+@media (max-width: 1100px) {
+  .component-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 700px) {
+  .components-workspace { padding: 20px 16px 52px; }
+  .components-header { align-items: stretch; }
+  .components-header .secondary-button { width: 100%; justify-content: center; }
+  .component-grid { grid-template-columns: 1fr; }
+  .component-card > p { min-height: 0; }
+  .component-dialog-actions { align-items: stretch; flex-direction: column-reverse; }
+  .component-dialog-actions > * { width: 100%; justify-content: center; }
+}

@@ -114,6 +114,11 @@ from .studio.audiogram import (
     estimate_render_seconds,
 )
 from .studio.chat import ChatCompletionError, OpenAiChatCompleter
+from .studio.components import (
+    ComponentConfigurationError,
+    ComponentConfigurationLockedError,
+    ComponentManager,
+)
 from .studio.conversion import (
     AudioOutputFormat,
     ConversionError,
@@ -1315,6 +1320,19 @@ class ConversionJobResponse(BaseModel):
         )
 
 
+class EngineComponentPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    python_path: str = Field(min_length=1, max_length=4_096)
+
+    @field_validator("python_path")
+    @classmethod
+    def path_must_not_be_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("python_path must not be blank")
+        return value.strip()
+
+
 class PronunciationEntryResponse(BaseModel):
     word: str
     ipa: str
@@ -1863,7 +1881,9 @@ def create_app(
     audiogram_service: AudiogramJobService | None = None,
     conversion_service: ConversionJobService | None = None,
 ) -> FastAPI:
-    resolved_settings = settings or Settings.from_env()
+    base_settings = settings or Settings.from_env()
+    components = ComponentManager(base_settings)
+    resolved_settings = components.apply(base_settings)
     synthesis = service or create_service(resolved_settings)
     profiles = StudioProfileStore(resolved_settings.database_path)
     profiles.initialize()
@@ -1960,6 +1980,7 @@ def create_app(
     application.state.dialogue_script_service = dialogue_scripts
     application.state.audiogram_service = audiograms
     application.state.conversion_service = conversions
+    application.state.component_manager = components
     application.state.error_event_store = synthesis.store
     application.state.studio_store = studio
     application.state.text_customization_store = customizations
@@ -2566,6 +2587,34 @@ def create_app(
     @application.get("/v1/providers", response_model=list[ProviderResponse], tags=["providers"])
     async def list_providers() -> list[ProviderResponse]:
         return [ProviderResponse.from_info(info) for info in synthesis.providers.list()]
+
+    @application.get("/v1/studio/components", tags=["studio"])
+    async def list_components(response: Response) -> dict[str, Any]:
+        response.headers["Cache-Control"] = "no-store"
+        return await asyncio.to_thread(components.status, resolved_settings)
+
+    @application.put("/v1/studio/components/engines/{engine_id}", tags=["studio"])
+    async def configure_engine_component(
+        engine_id: str,
+        request: EngineComponentPayload,
+    ) -> dict[str, Any]:
+        try:
+            await asyncio.to_thread(components.save_engine, engine_id, request.python_path)
+        except ComponentConfigurationLockedError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        except ComponentConfigurationError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        return await asyncio.to_thread(components.status, resolved_settings)
+
+    @application.delete("/v1/studio/components/engines/{engine_id}", tags=["studio"])
+    async def clear_engine_component(engine_id: str) -> dict[str, Any]:
+        try:
+            await asyncio.to_thread(components.clear_engine, engine_id)
+        except ComponentConfigurationLockedError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        except ComponentConfigurationError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        return await asyncio.to_thread(components.status, resolved_settings)
 
     @application.get(
         "/v1/studio/projects",

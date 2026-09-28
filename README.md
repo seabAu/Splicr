@@ -89,6 +89,12 @@ The Convert workspace accepts completed takes or safely uploaded audio, produces
 FLAC with explicit sample-rate/channel/quality controls and optional loudness normalization, and
 can split delivery files by time or verified maximum size. Conversion progress, cancellation,
 retry, and restart recovery are durable; outputs derived from a Take join its artifact history.
+The Components workspace detects FFmpeg/FFprobe and the active SPLICR runtime, reports exactly what
+each component unlocks, and can save validated Python executable paths for existing Kokoro,
+Qwen3-TTS, and Audio8 environments. Saved engine changes activate after restart so an in-flight job
+never has its provider registry changed underneath it. Explicit `SPLICR_*_PYTHON` environment
+variables remain authoritative and appear read-only in the UI. SPLICR does not copy those
+environments or download their model weights.
 The established interface remains at `http://127.0.0.1:8000/` while the
 remaining Narrator workspaces are migrated. The generated interactive API remains at
 `http://127.0.0.1:8000/docs`.
@@ -264,6 +270,8 @@ uv run splicr synthesize .\input_document.md .\continuous_reading.wav `
 | `POST` | `/v1/studio/voices/presets` | Save a reproducible built-in voice and direction preset |
 | `PUT`, `DELETE` | `/v1/studio/voices/{id}` | Rename, describe, or remove a voice profile safely |
 | `GET` | `/v1/studio/voices/{id}/reference` | Play a registered reference without accepting raw paths |
+| `GET` | `/v1/studio/components` | Detect system tools and configured local-engine environments |
+| `PUT`, `DELETE` | `/v1/studio/components/engines/{id}` | Save or clear a validated engine interpreter for the next restart |
 | `GET` | `/v1/studio/conversions/capabilities` | Read FFmpeg availability and conversion options |
 | `GET` | `/v1/studio/conversions/sources` | List completed takes and managed uploaded audio |
 | `POST` | `/v1/studio/conversions/inputs` | Stream an audio file into managed local conversion storage |

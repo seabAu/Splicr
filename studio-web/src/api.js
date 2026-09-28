@@ -87,6 +87,16 @@ export const api = {
   providers: () => request("/v1/providers"),
   projects: () => request("/v1/studio/projects"),
   project: (id) => request(`/v1/studio/projects/${encodeURIComponent(id)}`),
+  components: () => request("/v1/studio/components"),
+  configureEngineComponent: (id, pythonPath) =>
+    request(`/v1/studio/components/engines/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      body: JSON.stringify({ python_path: pythonPath }),
+    }),
+  clearEngineComponent: (id) =>
+    request(`/v1/studio/components/engines/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    }),
   voices: (engineId = "") =>
     request(`/v1/studio/voices${engineId ? `?engine_id=${encodeURIComponent(engineId)}` : ""}`),
   createReferenceVoice: ({ file, label, engineId, referenceText, description, kind = "cloned" }) => {
