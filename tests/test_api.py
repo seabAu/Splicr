@@ -59,3 +59,87 @@ def test_unknown_provider_and_blank_text_are_validation_errors(tmp_path) -> None
 
     assert unknown.status_code == 422
     assert blank.status_code == 422
+
+
+def test_timeline_routes_preview_and_revise_a_completed_take(tmp_path) -> None:
+    settings = Settings(
+        data_dir=tmp_path,
+        chunk_max_bytes=10_000,
+        chunk_max_words=2,
+        pacing_seconds=0,
+        backoff_base_seconds=0,
+        backoff_max_seconds=0,
+        backoff_jitter_seconds=0,
+    )
+    provider = RecordingProvider()
+    service = SynthesisService(settings=settings, providers=ProviderRegistry([provider]))
+
+    with TestClient(create_app(settings=settings, service=service)) as client:
+        created = client.post(
+            "/v1/speech/jobs",
+            json={
+                "text": "one two\n\nthree four\n\nfive six",
+                "provider": "fake",
+            },
+        )
+        assert created.status_code == 202
+        job_id = created.json()["id"]
+
+        deadline = time.monotonic() + 3
+        while time.monotonic() < deadline:
+            current = client.get(f"/v1/speech/jobs/{job_id}").json()
+            if current["status"] == "completed":
+                break
+            time.sleep(0.01)
+        else:
+            raise AssertionError("job did not complete")
+
+        takes = client.get("/v1/studio/timeline/takes")
+        assert takes.status_code == 200
+        assert [take["id"] for take in takes.json()] == [job_id]
+
+        timeline = client.get(
+            f"/v1/studio/timeline/jobs/{job_id}?waveform_buckets=8"
+        )
+        assert timeline.status_code == 200
+        body = timeline.json()
+        assert [segment["text"] for segment in body["segments"]] == [
+            "one two",
+            "three four",
+            "five six",
+        ]
+        assert body["waveform"]
+        span = client.get(
+            f"/v1/studio/timeline/jobs/{job_id}/span",
+            params={
+                "start": body["segments"][0]["start"],
+                "end": body["segments"][1]["end"],
+            },
+        )
+        assert span.status_code == 200
+        assert span.headers["content-type"] == "audio/wav"
+        assert span.content.startswith(b"RIFF")
+
+        revised = client.post(
+            f"/v1/studio/timeline/jobs/{job_id}/segments/1/revise",
+            json={"text": "changed words"},
+        )
+        assert revised.status_code == 202
+        revised_id = revised.json()["id"]
+        deadline = time.monotonic() + 3
+        while time.monotonic() < deadline:
+            current = client.get(f"/v1/speech/jobs/{revised_id}").json()
+            if current["status"] == "completed":
+                break
+            time.sleep(0.01)
+        else:
+            raise AssertionError("revised job did not complete")
+
+        revised_timeline = client.get(f"/v1/studio/timeline/jobs/{revised_id}")
+        assert revised_timeline.status_code == 200
+        assert [segment["text"] for segment in revised_timeline.json()["segments"]] == [
+            "one two",
+            "changed words",
+            "five six",
+        ]
+        assert len(provider.calls) == 4

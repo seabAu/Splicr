@@ -11,7 +11,7 @@ import re
 import shutil
 import wave
 from contextlib import asynccontextmanager
-from dataclasses import replace
+from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Any, Literal
 from uuid import uuid4
@@ -65,6 +65,7 @@ from .dialogue_jobs import (
 )
 from .domain import (
     SEGMENT_OPTIONS_VARIABLE,
+    ChunkStatus,
     ControlMode,
     DeliveryControls,
     ErrorEventDraft,
@@ -106,6 +107,7 @@ from .studio.dialogue import (
     generate_script,
     refine_selection,
 )
+from .studio.timeline import JobTimeline, TimelineSegment, build_job_timeline, wav_span_bytes
 from .studio.voice_resolution import (
     VOICE_PROFILE_VARIABLE,
     model_for_voice_profile,
@@ -1027,6 +1029,80 @@ class StudioProjectSummaryResponse(BaseModel):
 
 class StudioProjectResponse(StudioProjectSummaryResponse):
     source_text: str
+
+
+class TimelineTakeResponse(BaseModel):
+    id: str
+    provider: str
+    voice: str
+    total_chunks: int
+    created_at: str
+    updated_at: str
+
+    @classmethod
+    def from_record(cls, job: JobRecord) -> "TimelineTakeResponse":
+        return cls(
+            id=job.id,
+            provider=job.provider,
+            voice=job.voice,
+            total_chunks=job.total_chunks,
+            created_at=job.created_at,
+            updated_at=job.updated_at,
+        )
+
+
+class TimelineSegmentResponse(BaseModel):
+    index: int
+    text: str
+    start: float
+    end: float
+    duration: float
+    byte_count: int
+    word_count: int
+    engine_id: str
+    voice_id: str
+    speaker: str | None
+
+    @classmethod
+    def from_domain(cls, segment: TimelineSegment) -> "TimelineSegmentResponse":
+        return cls(**asdict(segment))
+
+
+class TimelineResponse(BaseModel):
+    job_id: str
+    status: JobStatus
+    engine_id: str
+    voice_id: str
+    duration: float
+    waveform: list[float]
+    segments: list[TimelineSegmentResponse]
+    audio_url: str | None
+
+    @classmethod
+    def from_domain(cls, timeline: JobTimeline) -> "TimelineResponse":
+        return cls(
+            job_id=timeline.job_id,
+            status=timeline.status,
+            engine_id=timeline.engine_id,
+            voice_id=timeline.voice_id,
+            duration=timeline.duration,
+            waveform=list(timeline.waveform),
+            segments=[TimelineSegmentResponse.from_domain(item) for item in timeline.segments],
+            audio_url=timeline.audio_url,
+        )
+
+
+class TimelineRevisionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    text: str = Field(min_length=1)
+
+    @field_validator("text")
+    @classmethod
+    def text_must_not_be_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("text must not be blank")
+        return value
 
 
 class PronunciationEntryResponse(BaseModel):
@@ -2281,6 +2357,108 @@ def create_app(
             take_count=len(studio.list_takes(project.id)),
         )
         return StudioProjectResponse(**summary.model_dump(), source_text=project.source_text)
+
+    @application.get(
+        "/v1/studio/timeline/takes",
+        response_model=list[TimelineTakeResponse],
+        tags=["studio"],
+    )
+    async def list_timeline_takes(
+        response: Response,
+        limit: int = Query(default=100, ge=1, le=500),
+    ) -> list[TimelineTakeResponse]:
+        response.headers["Cache-Control"] = "no-store"
+        available: list[TimelineTakeResponse] = []
+        for job in synthesis.list_jobs(limit):
+            if job.status is not JobStatus.COMPLETED:
+                continue
+            chunks = synthesis.store.chunks_for_job(job.id)
+            if len(chunks) != job.total_chunks or any(
+                chunk.status is not ChunkStatus.COMPLETED
+                or not chunk.pcm_path
+                or not Path(chunk.pcm_path).is_file()
+                for chunk in chunks
+            ):
+                continue
+            try:
+                synthesis.output_path(job.id)
+            except (ValueError, FileNotFoundError):
+                continue
+            available.append(TimelineTakeResponse.from_record(job))
+        return available
+
+    @application.get(
+        "/v1/studio/timeline/jobs/{job_id}",
+        response_model=TimelineResponse,
+        tags=["studio"],
+    )
+    async def get_job_timeline(
+        job_id: str,
+        response: Response,
+        waveform_buckets: int = Query(default=940, ge=1, le=4_000),
+    ) -> TimelineResponse:
+        response.headers["Cache-Control"] = "no-store"
+        try:
+            timeline = build_job_timeline(
+                synthesis.store,
+                synthesis.storage,
+                job_id,
+                waveform_buckets=waveform_buckets,
+            )
+        except JobNotFoundError as error:
+            raise HTTPException(status_code=404, detail="job not found") from error
+        except ValueError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        return TimelineResponse.from_domain(timeline)
+
+    @application.get(
+        "/v1/studio/timeline/jobs/{job_id}/span",
+        tags=["studio"],
+    )
+    async def get_timeline_span(
+        job_id: str,
+        start: float = Query(ge=0),
+        end: float = Query(gt=0),
+    ) -> Response:
+        try:
+            path = synthesis.output_path(job_id)
+            payload = wav_span_bytes(path, start, end)
+        except JobNotFoundError as error:
+            raise HTTPException(status_code=404, detail="job not found") from error
+        except (ValueError, FileNotFoundError) as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        return Response(
+            payload,
+            media_type="audio/wav",
+            headers={"Content-Disposition": f'inline; filename="splicr-{job_id}-span.wav"'},
+        )
+
+    @application.post(
+        "/v1/studio/timeline/jobs/{job_id}/segments/{segment_index}/revise",
+        response_model=JobResponse,
+        status_code=status.HTTP_202_ACCEPTED,
+        tags=["studio"],
+    )
+    async def revise_timeline_segment(
+        job_id: str,
+        segment_index: int,
+        request: TimelineRevisionRequest,
+    ) -> JobResponse:
+        try:
+            revised = await synthesis.revise_chunk(
+                source_job_id=job_id,
+                chunk_index=segment_index,
+                text=request.text,
+            )
+        except JobNotFoundError as error:
+            raise HTTPException(status_code=404, detail="job not found") from error
+        except InvalidJobStateError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        except UnknownProviderError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        return job_response(revised, take_label="Timeline revision")
 
     @application.get(
         "/v1/studio/voices",

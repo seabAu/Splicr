@@ -39,6 +39,7 @@ import { DialogueWorkspace } from "./DialogueWorkspace.jsx";
 import { formatCount, percent, statusLabel, textStats } from "./format.js";
 import { ErrorCenter, ProfileManager, ResourceManager } from "./StudioTools.jsx";
 import { LanguageWorkspace } from "./LanguageWorkspace.jsx";
+import { TimelineWorkspace } from "./TimelineWorkspace.jsx";
 import { VoiceStudio } from "./VoiceStudio.jsx";
 
 const NAVIGATION = [
@@ -53,7 +54,7 @@ const NAVIGATION = [
   {
     label: "Edit",
     items: [
-      { id: "timeline", label: "Timeline", icon: Scissors },
+      { id: "timeline", label: "Timeline", icon: Scissors, ready: true },
       { id: "audiogram", label: "Audiogram", icon: Clapperboard },
       { id: "publish", label: "Publish", icon: Upload },
     ],
@@ -766,9 +767,10 @@ export default function App() {
       </div>
       {active === "library" && <LibraryWorkspace onOpen={openProject} />}
       {active === "dialogue" && <DialogueWorkspace active={active === "dialogue"} />}
+      {active === "timeline" && <TimelineWorkspace onNavigate={setActive} />}
       {active === "pronunciation" && <LanguageWorkspace />}
       {active === "voices" && <VoiceStudio />}
-      {active !== "narrate" && active !== "library" && active !== "dialogue" && active !== "pronunciation" && active !== "voices" && <WorkspacePlaceholder workspace={active} />}
+      {active !== "narrate" && active !== "library" && active !== "dialogue" && active !== "timeline" && active !== "pronunciation" && active !== "voices" && <WorkspacePlaceholder workspace={active} />}
       <ErrorCenter open={errorsOpen} onClose={() => setErrorsOpen(false)} onOpen={() => setErrorsOpen(true)} onUnreadChange={setUnreadErrors} />
     </Shell>
   );

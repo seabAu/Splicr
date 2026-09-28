@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import random
+import shutil
 import uuid
 from dataclasses import asdict, replace
 from pathlib import Path
@@ -30,6 +31,7 @@ from .domain import (
     DeliveryControls,
     ErrorEventDraft,
     JobErrorDetail,
+    InvalidJobStateError,
     JobRecord,
     JobStatus,
     JsonValue,
@@ -390,6 +392,126 @@ class SynthesisService:
             )
         except Exception:
             logger.exception("Failed to persist segmented job %s", job_id)
+            raise
+
+        await self._queue.put(job_id)
+        return self.store.get_job(job_id)
+
+    async def revise_chunk(
+        self,
+        *,
+        source_job_id: str,
+        chunk_index: int,
+        text: str,
+    ) -> JobRecord:
+        """Create a new take while reusing every unchanged PCM checkpoint."""
+
+        source_job = self.store.get_job(source_job_id)
+        if source_job.status is not JobStatus.COMPLETED:
+            raise InvalidJobStateError("only completed takes can be edited")
+        chunks = self.store.chunks_for_job(source_job_id)
+        if chunk_index < 0 or chunk_index >= len(chunks):
+            raise ValueError("timeline segment index is out of range")
+        replacement = preprocess_text(text).text
+        if not replacement.strip():
+            raise ValueError("replacement text must not be blank")
+        replacement, _ = apply_substitutions(
+            replacement,
+            self.customizations.substitutions(),
+        )
+
+        default_variables = dict(source_job.variables)
+        raw_segment_options = default_variables.pop(SEGMENT_OPTIONS_VARIABLE, None)
+        if raw_segment_options is None:
+            selected_options = SynthesisOptions(
+                model=source_job.model,
+                voice=source_job.voice,
+                instructions=source_job.instructions,
+                controls=source_job.controls,
+                variables=default_variables,
+            )
+        else:
+            if (
+                not isinstance(raw_segment_options, list)
+                or len(raw_segment_options) != len(chunks)
+            ):
+                raise ValueError(
+                    "persisted segment options do not match the job's chunk count"
+                )
+            selected_options, _ = _options_from_segment_payload(
+                raw_segment_options[chunk_index]
+            )
+
+        provider, selected_options, policy = self._prepare_request(
+            text=replacement,
+            provider_name=source_job.provider,
+            model=selected_options.model,
+            voice=selected_options.voice,
+            instructions=selected_options.instructions,
+            controls=selected_options.controls,
+            variables=selected_options.variables,
+            resource_revision=source_job.resource_revision,
+        )
+        replacement = annotate_nonverbal_cues(
+            replacement,
+            selected_options.controls.nonverbal_frequency,
+            provider.info.capabilities.nonverbal_cues,
+        )
+        replacement_plan = plan_chunks(replacement, policy, SplitStrategy.SEMANTIC)
+        if len(replacement_plan.chunks) != 1:
+            raise ValueError(
+                "replacement text exceeds one synthesis chunk; shorten this timeline edit"
+            )
+        replacement = replacement_plan.chunks[0].text
+
+        for chunk in chunks:
+            if chunk.index == chunk_index:
+                continue
+            if chunk.status is not ChunkStatus.COMPLETED or not chunk.pcm_path:
+                raise InvalidJobStateError(
+                    "the source take has an incomplete audio checkpoint"
+                )
+            self.storage.validate_chunk(Path(chunk.pcm_path), CANONICAL_AUDIO_FORMAT)
+
+        revised_texts = [
+            replacement if chunk.index == chunk_index else chunk.text for chunk in chunks
+        ]
+        revised_source = "\n\n".join(revised_texts)
+        if len(revised_source.encode("utf-8")) > self.settings.max_source_bytes:
+            raise ValueError("revised take exceeds the configured source byte limit")
+        if word_count(revised_source) > self.settings.max_source_words:
+            raise ValueError("revised take exceeds the configured source word limit")
+        job_id = uuid.uuid4().hex
+        self.storage.write_source(job_id, revised_source)
+        self.store.create_job_with_chunks(
+            job_id=job_id,
+            provider=source_job.provider,
+            model=source_job.model,
+            voice=source_job.voice,
+            instructions=source_job.instructions,
+            controls=source_job.controls,
+            resource_revision=source_job.resource_revision,
+            variables=source_job.variables,
+            chunks=revised_texts,
+        )
+        try:
+            for chunk in chunks:
+                if chunk.index == chunk_index:
+                    continue
+                source = Path(chunk.pcm_path or "")
+                destination = self.storage.chunk_path(job_id, chunk.index)
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                try:
+                    os.link(source, destination)
+                except OSError:
+                    shutil.copy2(source, destination)
+                self.store.mark_chunk_completed(
+                    job_id,
+                    chunk.index,
+                    str(destination.resolve()),
+                )
+        except Exception as error:
+            self.store.mark_job_failed(job_id, f"could not stage unchanged checkpoints: {error}")
             raise
 
         await self._queue.put(job_id)

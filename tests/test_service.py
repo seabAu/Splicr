@@ -4,6 +4,8 @@ import asyncio
 import struct
 import wave
 
+import pytest
+
 from splicr.api_resources import RetryPolicy
 from splicr.config import Settings
 from splicr.domain import JobStatus
@@ -73,6 +75,122 @@ def test_service_preserves_chunk_order_and_builds_wav(tmp_path) -> None:
                 assert wav_file.getnchannels() == 1
                 assert wav_file.getframerate() == 24_000
                 assert wav_file.getnframes() == 12
+        finally:
+            await service.stop()
+
+    asyncio.run(scenario())
+
+
+def test_revise_chunk_reuses_unchanged_checkpoints(tmp_path) -> None:
+    async def scenario() -> None:
+        provider = RecordingProvider()
+        service = SynthesisService(
+            settings=_settings(tmp_path), providers=ProviderRegistry([provider])
+        )
+        await service.start()
+        try:
+            original = await service.submit(
+                text="one two\n\nthree four\n\nfive six",
+                provider_name="fake",
+            )
+            finished = await _wait_for_terminal(service, original.id)
+            assert finished.status is JobStatus.COMPLETED
+            original_chunks = service.store.chunks_for_job(original.id)
+            original_payloads = [
+                service.storage.chunk_path(original.id, index).read_bytes()
+                for index in range(3)
+            ]
+
+            revised = await service.revise_chunk(
+                source_job_id=original.id,
+                chunk_index=1,
+                text="changed words",
+            )
+            revised_finished = await _wait_for_terminal(service, revised.id)
+
+            assert revised_finished.status is JobStatus.COMPLETED
+            assert provider.calls == [
+                "one two",
+                "three four",
+                "five six",
+                "changed words",
+            ]
+            revised_chunks = service.store.chunks_for_job(revised.id)
+            assert [chunk.text for chunk in revised_chunks] == [
+                "one two",
+                "changed words",
+                "five six",
+            ]
+            assert service.storage.chunk_path(revised.id, 0).read_bytes() == original_payloads[0]
+            assert service.storage.chunk_path(revised.id, 2).read_bytes() == original_payloads[2]
+            assert service.storage.chunk_path(revised.id, 1).read_bytes() != original_payloads[1]
+            assert service.store.get_job(original.id) == finished
+            assert service.store.chunks_for_job(original.id) == original_chunks
+        finally:
+            await service.stop()
+
+    asyncio.run(scenario())
+
+
+def test_revise_chunk_requires_a_single_synthesis_chunk(tmp_path) -> None:
+    async def scenario() -> None:
+        service = SynthesisService(
+            settings=_settings(tmp_path),
+            providers=ProviderRegistry([RecordingProvider()]),
+        )
+        await service.start()
+        try:
+            original = await service.submit(text="one two", provider_name="fake")
+            await _wait_for_terminal(service, original.id)
+
+            with pytest.raises(ValueError, match="exceeds one synthesis chunk"):
+                await service.revise_chunk(
+                    source_job_id=original.id,
+                    chunk_index=0,
+                    text="one two three four",
+                )
+        finally:
+            await service.stop()
+
+    asyncio.run(scenario())
+
+
+def test_revise_chunk_marks_take_failed_when_checkpoint_staging_fails(
+    tmp_path, monkeypatch
+) -> None:
+    async def scenario() -> None:
+        service = SynthesisService(
+            settings=_settings(tmp_path),
+            providers=ProviderRegistry([RecordingProvider()]),
+        )
+        await service.start()
+        try:
+            original = await service.submit(
+                text="one two\n\nthree four",
+                provider_name="fake",
+            )
+            await _wait_for_terminal(service, original.id)
+
+            def fail_link(*_args) -> None:
+                raise OSError("links unavailable")
+
+            def fail_copy(*_args) -> None:
+                raise PermissionError("copy denied")
+
+            monkeypatch.setattr("splicr.service.os.link", fail_link)
+            monkeypatch.setattr("splicr.service.shutil.copy2", fail_copy)
+
+            with pytest.raises(PermissionError, match="copy denied"):
+                await service.revise_chunk(
+                    source_job_id=original.id,
+                    chunk_index=1,
+                    text="changed words",
+                )
+
+            failed = next(job for job in service.list_jobs() if job.id != original.id)
+            assert failed.status is JobStatus.FAILED
+            assert failed.output_path is None
+            assert "could not stage unchanged checkpoints" in (failed.error or "")
         finally:
             await service.stop()
 

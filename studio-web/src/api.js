@@ -138,6 +138,18 @@ export const api = {
     }),
   jobs: () => request("/v1/speech/jobs"),
   job: (id) => request(`/v1/speech/jobs/${encodeURIComponent(id)}`),
+  timelineTakes: () => request("/v1/studio/timeline/takes"),
+  timeline: (id, waveformBuckets = 940) =>
+    request(
+      `/v1/studio/timeline/jobs/${encodeURIComponent(id)}?waveform_buckets=${waveformBuckets}`,
+    ),
+  timelineSpanUrl: (id, start, end) =>
+    `/v1/studio/timeline/jobs/${encodeURIComponent(id)}/span?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`,
+  reviseTimelineSegment: (id, segmentIndex, text) =>
+    request(
+      `/v1/studio/timeline/jobs/${encodeURIComponent(id)}/segments/${segmentIndex}/revise`,
+      { method: "POST", body: JSON.stringify({ text }) },
+    ),
   preview: (payload) =>
     request("/v1/speech/preview", { method: "POST", body: JSON.stringify(payload) }),
   createJob: (payload) =>
