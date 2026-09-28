@@ -68,8 +68,8 @@ same reference clip, transcript, speaker, and settings.
 ## Run locally
 
 Requirements: Python 3.11+, [uv](https://docs.astral.sh/uv/), and
-[FFmpeg](https://ffmpeg.org/) on `PATH` for audiogram preview and video export. The Docker image
-includes FFmpeg.
+[FFmpeg](https://ffmpeg.org/) plus FFprobe on `PATH` for audiogram rendering and audio conversion.
+The Docker image includes both.
 
 ```powershell
 Copy-Item .env.example .env
@@ -85,6 +85,10 @@ Library persistence. Its Pronunciation workspace edits Kokoro overrides and shar
 Voice Studio manages reusable local voice identities and reference recordings. Its Audiogram
 workspace turns completed takes into checkpointed MP4 or WebM render jobs with a live composition
 preview, cancellation, retry, restart recovery, and final video artifacts in the Studio library.
+The Convert workspace accepts completed takes or safely uploaded audio, produces MP3, M4A, WAV, or
+FLAC with explicit sample-rate/channel/quality controls and optional loudness normalization, and
+can split delivery files by time or verified maximum size. Conversion progress, cancellation,
+retry, and restart recovery are durable; outputs derived from a Take join its artifact history.
 The established interface remains at `http://127.0.0.1:8000/` while the
 remaining Narrator workspaces are migrated. The generated interactive API remains at
 `http://127.0.0.1:8000/docs`.
@@ -260,6 +264,14 @@ uv run splicr synthesize .\input_document.md .\continuous_reading.wav `
 | `POST` | `/v1/studio/voices/presets` | Save a reproducible built-in voice and direction preset |
 | `PUT`, `DELETE` | `/v1/studio/voices/{id}` | Rename, describe, or remove a voice profile safely |
 | `GET` | `/v1/studio/voices/{id}/reference` | Play a registered reference without accepting raw paths |
+| `GET` | `/v1/studio/conversions/capabilities` | Read FFmpeg availability and conversion options |
+| `GET` | `/v1/studio/conversions/sources` | List completed takes and managed uploaded audio |
+| `POST` | `/v1/studio/conversions/inputs` | Stream an audio file into managed local conversion storage |
+| `GET`, `POST` | `/v1/studio/conversions/jobs` | List or queue durable conversion jobs |
+| `GET` | `/v1/studio/conversions/jobs/{id}` | Read conversion progress and output links |
+| `POST` | `/v1/studio/conversions/jobs/{id}/{cancel,retry}` | Cancel or retry a conversion |
+| `GET` | `/v1/studio/conversions/jobs/{id}/file` | Download the complete converted file |
+| `GET` | `/v1/studio/conversions/jobs/{id}/parts/{index}` | Download one verified split part |
 | `GET`, `POST` | `/v1/api-resources` | List or create versioned TTS API resources |
 | `GET`, `PUT`, `DELETE` | `/v1/api-resources/{id}` | Inspect, revise, or soft-delete a resource |
 | `GET`, `POST` | `/v1/profiles` | List or save complete studio profiles |
@@ -328,8 +340,8 @@ Production provides a password-manager-compatible sign-in form, signed `HttpOnly
 The important tuning controls are:
 
 - `SPLICR_CHUNK_MAX_BYTES` and `SPLICR_CHUNK_MAX_WORDS`
-- `SPLICR_MAX_UPLOAD_BYTES`, `SPLICR_MAX_SOURCE_BYTES`, `SPLICR_MAX_SOURCE_WORDS`, and
-  `SPLICR_MAX_OUTPUT_PCM_BYTES`
+- `SPLICR_MAX_UPLOAD_BYTES`, `SPLICR_MAX_AUDIO_UPLOAD_BYTES`, `SPLICR_MAX_SOURCE_BYTES`,
+  `SPLICR_MAX_SOURCE_WORDS`, and `SPLICR_MAX_OUTPUT_PCM_BYTES`
 - `SPLICR_PACING_SECONDS`
 - `SPLICR_DEEPGRAM_PACING_SECONDS` and `SPLICR_INWORLD_PACING_SECONDS`
 - `SPLICR_KOKORO_PYTHON`, `SPLICR_QWEN3_PYTHON`, and `SPLICR_AUDIO8_PYTHON` to enable isolated

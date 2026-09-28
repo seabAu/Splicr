@@ -114,6 +114,22 @@ from .studio.audiogram import (
     estimate_render_seconds,
 )
 from .studio.chat import ChatCompletionError, OpenAiChatCompleter
+from .studio.conversion import (
+    AudioOutputFormat,
+    ConversionError,
+    ConversionInput,
+    ConversionInputNotFoundError,
+    ConversionJob,
+    ConversionJobNotFoundError,
+    ConversionJobService,
+    ConversionJobStatus,
+    ConversionJobStore,
+    ConversionSpec,
+    FfmpegAudioConverter,
+    InvalidConversionJobStateError,
+    SplitMode,
+    media_type_for,
+)
 from .studio.dialogue import (
     DialogueGenerationError,
     DialogueGenerationOptions,
@@ -1201,6 +1217,104 @@ class AudiogramJobResponse(BaseModel):
         )
 
 
+class ConversionSpecPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    output_format: AudioOutputFormat = AudioOutputFormat.MP3
+    quality_pct: int = Field(default=70, ge=0, le=100)
+    sample_rate: int = Field(default=48_000)
+    bit_depth: int = Field(default=16)
+    channels: int = Field(default=0, ge=0, le=2)
+    normalize_loudness: bool = False
+    split_mode: SplitMode = SplitMode.NONE
+    split_minutes: float = Field(default=20, ge=0.1, le=1_440)
+    split_megabytes: float = Field(default=25, ge=0.1, le=4_096)
+
+    def to_domain(self) -> ConversionSpec:
+        return ConversionSpec(**self.model_dump())
+
+
+class ConversionCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source_job_id: str | None = Field(default=None, min_length=1, max_length=64)
+    input_id: str | None = Field(default=None, min_length=1, max_length=64)
+    spec: ConversionSpecPayload = Field(default_factory=ConversionSpecPayload)
+
+    @model_validator(mode="after")
+    def source_must_be_unambiguous(self) -> "ConversionCreateRequest":
+        if bool(self.source_job_id) == bool(self.input_id):
+            raise ValueError("choose exactly one completed take or uploaded audio file")
+        return self
+
+
+class ConversionInputResponse(BaseModel):
+    id: str
+    original_name: str
+    media_type: str
+    size_bytes: int
+    created_at: str
+
+    @classmethod
+    def from_domain(cls, item: ConversionInput) -> "ConversionInputResponse":
+        return cls(
+            id=item.id,
+            original_name=item.original_name,
+            media_type=item.media_type,
+            size_bytes=item.size_bytes,
+            created_at=item.created_at,
+        )
+
+
+class ConversionJobResponse(BaseModel):
+    id: str
+    source_job_id: str | None
+    input_id: str | None
+    source_name: str
+    project_id: str | None
+    take_id: str | None
+    status: ConversionJobStatus
+    spec: ConversionSpecPayload
+    duration_seconds: float
+    progress: float
+    output_url: str | None
+    part_urls: list[str]
+    artifact_ids: list[str]
+    error_code: str | None
+    error_detail: str | None
+    cancel_requested: bool
+    created_at: str
+    updated_at: str
+
+    @classmethod
+    def from_domain(cls, job: ConversionJob) -> "ConversionJobResponse":
+        ready = job.status is ConversionJobStatus.COMPLETED and bool(job.output_path)
+        return cls(
+            id=job.id,
+            source_job_id=job.source_job_id,
+            input_id=job.input_id,
+            source_name=job.source_name,
+            project_id=job.project_id,
+            take_id=job.take_id,
+            status=job.status,
+            spec=ConversionSpecPayload(**job.spec.to_mapping()),
+            duration_seconds=job.duration_seconds,
+            progress=job.progress,
+            output_url=f"/v1/studio/conversions/jobs/{job.id}/file" if ready else None,
+            part_urls=(
+                [f"/v1/studio/conversions/jobs/{job.id}/parts/{index}" for index in range(len(job.part_paths))]
+                if ready
+                else []
+            ),
+            artifact_ids=list(job.artifact_ids),
+            error_code=job.error_code,
+            error_detail=job.error_detail,
+            cancel_requested=job.cancel_requested,
+            created_at=job.created_at,
+            updated_at=job.updated_at,
+        )
+
+
 class PronunciationEntryResponse(BaseModel):
     word: str
     ipa: str
@@ -1747,6 +1861,7 @@ def create_app(
     chat_resource_store: SqliteChatResourceStore | None = None,
     dialogue_script_service: DialogueScriptJobService | None = None,
     audiogram_service: AudiogramJobService | None = None,
+    conversion_service: ConversionJobService | None = None,
 ) -> FastAPI:
     resolved_settings = settings or Settings.from_env()
     synthesis = service or create_service(resolved_settings)
@@ -1763,6 +1878,16 @@ def create_app(
         renderer=FfmpegAudiogramRenderer(),
     )
     audiograms.store.initialize()
+    conversions = conversion_service or ConversionJobService(
+        store=ConversionJobStore(resolved_settings.database_path),
+        source_store=synthesis.store,
+        source_storage=synthesis.storage,
+        studio_store=studio,
+        output_root=resolved_settings.data_dir / "studio" / "conversions",
+        input_root=resolved_settings.data_dir / "studio" / "conversion-inputs",
+        converter=FfmpegAudioConverter(),
+    )
+    conversions.store.initialize()
     customizations = synthesis.customizations
     kokoro_tools = (
         KokoroToolClient(
@@ -1811,7 +1936,11 @@ def create_app(
             try:
                 await audiograms.start()
                 try:
-                    yield
+                    await conversions.start()
+                    try:
+                        yield
+                    finally:
+                        await conversions.stop()
                 finally:
                     await audiograms.stop()
             finally:
@@ -1830,6 +1959,7 @@ def create_app(
     application.state.chat_resource_store = chat_resources
     application.state.dialogue_script_service = dialogue_scripts
     application.state.audiogram_service = audiograms
+    application.state.conversion_service = conversions
     application.state.error_event_store = synthesis.store
     application.state.studio_store = studio
     application.state.text_customization_store = customizations
@@ -2697,6 +2827,176 @@ def create_app(
             path,
             media_type=media_type,
             filename=f"splicr-{job.kind.value}-{job.id}.{job.spec.output_format.value}",
+        )
+
+    @application.get("/v1/studio/conversions/capabilities", tags=["studio"])
+    async def get_conversion_capabilities() -> dict[str, Any]:
+        defaults = ConversionSpec()
+        return {
+            "ffmpeg_available": conversions.ffmpeg_available,
+            "output_formats": [item.value for item in AudioOutputFormat],
+            "sample_rates": [16_000, 22_050, 24_000, 44_100, 48_000],
+            "bit_depths": [16, 24],
+            "channels": [0, 1, 2],
+            "split_modes": [item.value for item in SplitMode],
+            "max_upload_bytes": resolved_settings.max_audio_upload_bytes,
+            "defaults": ConversionSpecPayload(**defaults.to_mapping()).model_dump(mode="json"),
+        }
+
+    @application.get("/v1/studio/conversions/sources", tags=["studio"])
+    async def list_conversion_sources(response: Response) -> list[dict[str, Any]]:
+        response.headers["Cache-Control"] = "no-store"
+        return conversions.list_sources()
+
+    @application.post(
+        "/v1/studio/conversions/inputs",
+        response_model=ConversionInputResponse,
+        status_code=status.HTTP_201_CREATED,
+        tags=["studio"],
+    )
+    async def upload_conversion_input(file: UploadFile = File(...)) -> ConversionInputResponse:
+        filename = Path(file.filename or "audio").name
+        upload_root = resolved_settings.data_dir / "studio" / "conversion-inputs"
+        upload_root.mkdir(parents=True, exist_ok=True)
+        temporary_path = upload_root / f".upload-{uuid4().hex}.part"
+        size = 0
+        try:
+            with temporary_path.open("wb") as stream:
+                while chunk := await file.read(1024 * 1024):
+                    size += len(chunk)
+                    if size > resolved_settings.max_audio_upload_bytes:
+                        raise HTTPException(
+                            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+                            detail={
+                                "code": "audio_file_too_large",
+                                "message": (
+                                    "Audio exceeds the configured "
+                                    f"{resolved_settings.max_audio_upload_bytes}-byte upload limit."
+                                ),
+                            },
+                        )
+                    stream.write(chunk)
+            if size == 0:
+                raise HTTPException(status_code=422, detail="The uploaded audio file is empty")
+            try:
+                item = conversions.register_upload(
+                    original_name=filename,
+                    temporary_path=temporary_path,
+                    media_type=file.content_type,
+                )
+            except ValueError as error:
+                raise HTTPException(status_code=422, detail=str(error)) from error
+            return ConversionInputResponse.from_domain(item)
+        finally:
+            temporary_path.unlink(missing_ok=True)
+
+    @application.get(
+        "/v1/studio/conversions/jobs",
+        response_model=list[ConversionJobResponse],
+        tags=["studio"],
+    )
+    async def list_conversion_jobs(
+        response: Response,
+        limit: int = Query(default=100, ge=1, le=500),
+    ) -> list[ConversionJobResponse]:
+        response.headers["Cache-Control"] = "no-store"
+        return [ConversionJobResponse.from_domain(job) for job in conversions.store.list(limit=limit)]
+
+    @application.post(
+        "/v1/studio/conversions/jobs",
+        response_model=ConversionJobResponse,
+        status_code=status.HTTP_202_ACCEPTED,
+        tags=["studio"],
+    )
+    async def create_conversion_job(request: ConversionCreateRequest) -> ConversionJobResponse:
+        try:
+            job = await conversions.submit(
+                request.spec.to_domain(),
+                source_job_id=request.source_job_id,
+                input_id=request.input_id,
+            )
+        except (JobNotFoundError, ConversionInputNotFoundError) as error:
+            raise HTTPException(status_code=404, detail="conversion source not found") from error
+        except ConversionError as error:
+            raise HTTPException(status_code=503, detail=str(error)) from error
+        except FileNotFoundError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        return ConversionJobResponse.from_domain(job)
+
+    @application.get(
+        "/v1/studio/conversions/jobs/{job_id}",
+        response_model=ConversionJobResponse,
+        tags=["studio"],
+    )
+    async def get_conversion_job(job_id: str, response: Response) -> ConversionJobResponse:
+        response.headers["Cache-Control"] = "no-store"
+        try:
+            return ConversionJobResponse.from_domain(conversions.store.get(job_id))
+        except ConversionJobNotFoundError as error:
+            raise HTTPException(status_code=404, detail="conversion job not found") from error
+
+    @application.post(
+        "/v1/studio/conversions/jobs/{job_id}/cancel",
+        response_model=ConversionJobResponse,
+        tags=["studio"],
+    )
+    async def cancel_conversion_job(job_id: str) -> ConversionJobResponse:
+        try:
+            return ConversionJobResponse.from_domain(await conversions.cancel(job_id))
+        except ConversionJobNotFoundError as error:
+            raise HTTPException(status_code=404, detail="conversion job not found") from error
+        except InvalidConversionJobStateError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+
+    @application.post(
+        "/v1/studio/conversions/jobs/{job_id}/retry",
+        response_model=ConversionJobResponse,
+        tags=["studio"],
+    )
+    async def retry_conversion_job(job_id: str) -> ConversionJobResponse:
+        try:
+            return ConversionJobResponse.from_domain(await conversions.retry(job_id))
+        except ConversionJobNotFoundError as error:
+            raise HTTPException(status_code=404, detail="conversion job not found") from error
+        except InvalidConversionJobStateError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+
+    @application.get("/v1/studio/conversions/jobs/{job_id}/file", tags=["studio"])
+    async def get_conversion_file(job_id: str) -> FileResponse:
+        try:
+            job = conversions.store.get(job_id)
+            path = conversions.output_for(job_id)
+        except ConversionJobNotFoundError as error:
+            raise HTTPException(status_code=404, detail="conversion job not found") from error
+        except InvalidConversionJobStateError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        except FileNotFoundError as error:
+            raise HTTPException(status_code=500, detail=str(error)) from error
+        return FileResponse(
+            path,
+            media_type=media_type_for(job.spec.output_format),
+            filename=f"{Path(job.source_name).stem}-converted.{job.spec.output_format.value}",
+        )
+
+    @application.get(
+        "/v1/studio/conversions/jobs/{job_id}/parts/{part_index}", tags=["studio"]
+    )
+    async def get_conversion_part(job_id: str, part_index: int) -> FileResponse:
+        try:
+            job = conversions.store.get(job_id)
+            path = conversions.output_for(job_id, part_index)
+        except ConversionJobNotFoundError as error:
+            raise HTTPException(status_code=404, detail="conversion job not found") from error
+        except InvalidConversionJobStateError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        except FileNotFoundError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        return FileResponse(
+            path,
+            media_type=media_type_for(job.spec.output_format),
+            filename=f"{Path(job.source_name).stem}-{part_index + 1:03d}.{job.spec.output_format.value}",
         )
 
     @application.get(

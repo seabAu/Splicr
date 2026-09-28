@@ -36,6 +36,7 @@ import {
 
 import { api } from "./api.js";
 import { AudiogramWorkspace } from "./AudiogramWorkspace.jsx";
+import { ConversionWorkspace } from "./ConversionWorkspace.jsx";
 import { DialogueWorkspace } from "./DialogueWorkspace.jsx";
 import { formatCount, percent, statusLabel, textStats } from "./format.js";
 import { ErrorCenter, ProfileManager, ResourceManager } from "./StudioTools.jsx";
@@ -66,7 +67,7 @@ const NAVIGATION = [
       { id: "voices", label: "Voice studio", icon: Mic2, ready: true },
       { id: "pronunciation", label: "Pronunciation", icon: FileAudio, ready: true },
       { id: "components", label: "Components", icon: Boxes },
-      { id: "convert", label: "Convert", icon: RefreshCw },
+      { id: "convert", label: "Convert", icon: RefreshCw, ready: true },
     ],
   },
 ];
@@ -770,9 +771,10 @@ export default function App() {
       {active === "dialogue" && <DialogueWorkspace active={active === "dialogue"} />}
       {active === "timeline" && <TimelineWorkspace onNavigate={setActive} />}
       {active === "audiogram" && <AudiogramWorkspace onNavigate={setActive} />}
+      {active === "convert" && <ConversionWorkspace />}
       {active === "pronunciation" && <LanguageWorkspace />}
       {active === "voices" && <VoiceStudio />}
-      {active !== "narrate" && active !== "library" && active !== "dialogue" && active !== "timeline" && active !== "audiogram" && active !== "pronunciation" && active !== "voices" && <WorkspacePlaceholder workspace={active} />}
+      {active !== "narrate" && active !== "library" && active !== "dialogue" && active !== "timeline" && active !== "audiogram" && active !== "convert" && active !== "pronunciation" && active !== "voices" && <WorkspacePlaceholder workspace={active} />}
       <ErrorCenter open={errorsOpen} onClose={() => setErrorsOpen(false)} onOpen={() => setErrorsOpen(true)} onUnreadChange={setUnreadErrors} />
     </Shell>
   );

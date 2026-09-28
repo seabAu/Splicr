@@ -169,6 +169,25 @@ export const api = {
     request(`/v1/studio/audiograms/jobs/${encodeURIComponent(id)}/${action}`, {
       method: "POST",
     }),
+  conversionCapabilities: () => request("/v1/studio/conversions/capabilities"),
+  conversionSources: () => request("/v1/studio/conversions/sources"),
+  conversionJobs: () => request("/v1/studio/conversions/jobs"),
+  conversionJob: (id) =>
+    request(`/v1/studio/conversions/jobs/${encodeURIComponent(id)}`),
+  uploadConversionInput: (file) => {
+    const body = new FormData();
+    body.append("file", file);
+    return request("/v1/studio/conversions/inputs", { method: "POST", body });
+  },
+  createConversion: (payload) =>
+    request("/v1/studio/conversions/jobs", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  conversionJobAction: (id, action) =>
+    request(`/v1/studio/conversions/jobs/${encodeURIComponent(id)}/${action}`, {
+      method: "POST",
+    }),
   preview: (payload) =>
     request("/v1/speech/preview", { method: "POST", body: JSON.stringify(payload) }),
   createJob: (payload) =>

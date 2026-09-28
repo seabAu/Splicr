@@ -43,6 +43,7 @@ class Settings:
     max_source_bytes: int = 1_000_000
     max_source_words: int = 100_000
     max_upload_bytes: int = 25_000_000
+    max_audio_upload_bytes: int = 2_000_000_000
     max_output_pcm_bytes: int = 4_000_000_000
     gemini_model: str = "gemini-3.1-flash-tts-preview"
     gemini_voice: str = "Kore"
@@ -127,6 +128,9 @@ class Settings:
             max_source_bytes=_int_env("SPLICR_MAX_SOURCE_BYTES", 1_000_000),
             max_source_words=_int_env("SPLICR_MAX_SOURCE_WORDS", 100_000),
             max_upload_bytes=_int_env("SPLICR_MAX_UPLOAD_BYTES", 25_000_000),
+            max_audio_upload_bytes=_int_env(
+                "SPLICR_MAX_AUDIO_UPLOAD_BYTES", 2_000_000_000
+            ),
             max_output_pcm_bytes=_int_env("SPLICR_MAX_OUTPUT_PCM_BYTES", 4_000_000_000),
             gemini_model=os.getenv("SPLICR_GEMINI_MODEL", "gemini-3.1-flash-tts-preview").strip(),
             gemini_voice=os.getenv("SPLICR_GEMINI_VOICE", "Kore").strip(),
