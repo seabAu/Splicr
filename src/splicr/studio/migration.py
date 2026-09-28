@@ -307,6 +307,10 @@ def import_splicr_job(
     job_store: SqliteJobStore,
     job_storage: LocalJobStorage,
     studio_store: SqliteStudioStore,
+    project_name: str | None = None,
+    source_name: str | None = None,
+    source_media_type: str | None = None,
+    take_label: str | None = None,
 ) -> ImportedJob:
     """Import or resynchronize one legacy SPLICR job without altering it."""
 
@@ -320,8 +324,17 @@ def import_splicr_job(
     source_text, spans, span_strategy, original_source = _source_and_spans(
         stored_source, chunks
     )
-    project_id = _stable_id(job.id, "project")
+    project_record = studio_store.get_import_record(_SOURCE_SYSTEM, job.id, "project")
+    project_id = (
+        project_record.entity_id
+        if project_record is not None
+        else _stable_id(job.id, "project")
+    )
+    existing_project = (
+        studio_store.get_project(project_id) if project_record is not None else None
+    )
     project_metadata: dict[str, JsonValue] = {
+        **(dict(existing_project.metadata) if existing_project is not None else {}),
         "legacy_source_system": _SOURCE_SYSTEM,
         "legacy_job_id": job.id,
         "legacy_job_status": job.status.value,
@@ -332,27 +345,48 @@ def import_splicr_job(
         project_metadata["legacy_original_source_text"] = original_source
     project = Project(
         id=project_id,
-        name=f"SPLICR job {job.id}",
+        name=(
+            project_name
+            or (existing_project.name if existing_project is not None else None)
+            or f"SPLICR job {job.id}"
+        ),
         source_text=source_text,
-        source_name=job_storage.source_path(job.id).name,
+        source_name=(
+            source_name
+            or (existing_project.source_name if existing_project is not None else None)
+            or job_storage.source_path(job.id).name
+        ),
+        source_media_type=(
+            source_media_type
+            or (
+                existing_project.source_media_type
+                if existing_project is not None
+                else "text/plain"
+            )
+        ),
         metadata=project_metadata,
         created_at=job.created_at,
         updated_at=job.updated_at,
     )
-    studio_store.save_project(project)
-    studio_store.record_import(
-        source_system=_SOURCE_SYSTEM,
-        source_key=job.id,
-        entity_type="project",
-        entity_id=project_id,
-        fingerprint=_fingerprint(
-            {
-                "source": source_text,
-                "metadata": project_metadata,
-                "updated_at": job.updated_at,
-            }
-        ),
+    project_fingerprint = _fingerprint(
+        {
+            "name": project.name,
+            "source": source_text,
+            "source_name": project.source_name,
+            "source_media_type": project.source_media_type,
+            "metadata": project_metadata,
+            "updated_at": job.updated_at,
+        }
     )
+    if project_record is None or project_record.fingerprint != project_fingerprint:
+        studio_store.save_project(project)
+        studio_store.record_import(
+            source_system=_SOURCE_SYSTEM,
+            source_key=job.id,
+            entity_type="project",
+            entity_id=project_id,
+            fingerprint=project_fingerprint,
+        )
 
     if not chunks:
         return ImportedJob(job.id, project_id, None, None, None)
@@ -411,13 +445,16 @@ def import_splicr_job(
 
     take_id = _stable_id(job.id, "take")
     take_record = studio_store.get_import_record(_SOURCE_SYSTEM, job.id, "take")
+    take_fingerprint = _fingerprint(
+        {"status": job.status.value, "updated_at": job.updated_at}
+    )
     if take_record is None:
         studio_store.create_take(
             Take(
                 id=take_id,
                 project_id=project_id,
                 render_plan_id=plan_id,
-                label="Legacy synthesis",
+                label=take_label or "Legacy synthesis",
                 status=_STATUS_MAP[job.status],
                 created_at=job.created_at,
                 updated_at=job.updated_at,
@@ -425,20 +462,20 @@ def import_splicr_job(
         )
     else:
         take_id = take_record.entity_id
-        studio_store.update_take_status(
-            take_id,
-            _STATUS_MAP[job.status],
-            updated_at=job.updated_at,
+        if take_record.fingerprint != take_fingerprint:
+            studio_store.update_take_status(
+                take_id,
+                _STATUS_MAP[job.status],
+                updated_at=job.updated_at,
+            )
+    if take_record is None or take_record.fingerprint != take_fingerprint:
+        studio_store.record_import(
+            source_system=_SOURCE_SYSTEM,
+            source_key=job.id,
+            entity_type="take",
+            entity_id=take_id,
+            fingerprint=take_fingerprint,
         )
-    studio_store.record_import(
-        source_system=_SOURCE_SYSTEM,
-        source_key=job.id,
-        entity_type="take",
-        entity_id=take_id,
-        fingerprint=_fingerprint(
-            {"status": job.status.value, "updated_at": job.updated_at}
-        ),
-    )
 
     artifact_id: str | None = None
     output_path = Path(job.output_path) if job.output_path else job_storage.output_path(job.id)

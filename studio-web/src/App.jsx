@@ -384,6 +384,7 @@ function NarrateWorkspace({ projectToLoad }) {
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [sourceName, setSourceName] = useState("");
+  const [projectName, setProjectName] = useState("");
   const [form, setForm] = useState({
     text: "",
     provider: "",
@@ -432,6 +433,7 @@ function NarrateWorkspace({ projectToLoad }) {
     if (!projectToLoad) return;
     setForm((current) => ({ ...current, text: projectToLoad.source_text || "" }));
     setSourceName(projectToLoad.source_name || projectToLoad.name);
+    setProjectName(projectToLoad.name);
     setPreview(null);
     setActiveChunk(0);
   }, [projectToLoad?.id]);
@@ -482,6 +484,8 @@ function NarrateWorkspace({ projectToLoad }) {
     model: form.model || null,
     voice: form.voice || null,
     instructions: form.instructions.trim() || null,
+    project_name: projectName.trim() || null,
+    source_name: sourceName.trim() || null,
   });
 
   const run = async (label, operation) => {
@@ -498,6 +502,7 @@ function NarrateWorkspace({ projectToLoad }) {
     if (imported) {
       patchForm({ text: imported.text });
       setSourceName(imported.filename);
+      setProjectName(imported.metadata.title || imported.filename.replace(/\.[^.]+$/, ""));
     }
   };
 

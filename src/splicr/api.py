@@ -4,6 +4,8 @@ import asyncio
 import hashlib
 import inspect
 import json
+import logging
+import mimetypes
 import os
 import re
 from contextlib import asynccontextmanager
@@ -66,8 +68,23 @@ from .planning import ChunkPlan, PlannedChunk, SplitStrategy
 from .profiles import ProfileNotFoundError, StudioProfile, StudioProfileStore
 from .service import SynthesisService
 from .secret_vault import SecretVaultUnavailableError
-from .studio import Project, SqliteStudioStore
+from .studio import Project, SqliteStudioStore, import_splicr_job
 from .ui import register_ui
+
+
+logger = logging.getLogger(__name__)
+
+
+def _suggest_project_name(text: str, source_name: str | None) -> str:
+    if source_name:
+        candidate = Path(source_name).stem.strip()
+        if candidate:
+            return candidate[:240]
+    first_line = next((line.strip() for line in text.splitlines() if line.strip()), "")
+    first_line = re.sub(r"^#{1,6}[ \t]+", "", first_line).strip()
+    if not first_line:
+        return "Untitled narration"
+    return first_line[:237] + "..." if len(first_line) > 240 else first_line
 
 
 class DeliveryControlsPayload(BaseModel):
@@ -119,6 +136,8 @@ class CreateJobRequest(BaseModel):
             r"Remove standalone numeric citations such as [123] or \[123\] before chunking"
         ),
     )
+    project_name: str | None = Field(default=None, min_length=1, max_length=240)
+    source_name: str | None = Field(default=None, min_length=1, max_length=500)
 
     @field_validator("text")
     @classmethod
@@ -1200,7 +1219,39 @@ def create_app(
             cookie_secure=resolved_settings.auth_cookie_secure,
         )
 
-    def job_response(job: JobRecord) -> JobResponse:
+    def sync_studio_job(
+        job: JobRecord,
+        *,
+        project_name: str | None = None,
+        source_name: str | None = None,
+    ) -> None:
+        try:
+            import_splicr_job(
+                job_id=job.id,
+                job_store=synthesis.store,
+                job_storage=synthesis.storage,
+                studio_store=studio,
+                project_name=project_name,
+                source_name=source_name,
+                source_media_type=(
+                    mimetypes.guess_type(source_name)[0]
+                    if source_name is not None
+                    else None
+                ),
+                take_label="Narration take",
+            )
+        except Exception:
+            # A queued synthesis must not be reported as failed merely because the
+            # secondary Studio index could not be refreshed. Later reads retry it.
+            logger.exception("Failed to synchronize job %s into Studio", job.id)
+
+    def job_response(
+        job: JobRecord,
+        *,
+        project_name: str | None = None,
+        source_name: str | None = None,
+    ) -> JobResponse:
+        sync_studio_job(job, project_name=project_name, source_name=source_name)
         response = JobResponse.from_record(job, synthesis.progress_detail(job.id))
         if (
             response.error_event_id
@@ -1790,7 +1841,14 @@ def create_app(
             raise HTTPException(status_code=422, detail=str(error)) from error
         except (ValueError, ProviderError) as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
-        return job_response(job)
+        return job_response(
+            job,
+            project_name=(
+                request.project_name
+                or _suggest_project_name(request.text, request.source_name)
+            ),
+            source_name=request.source_name,
+        )
 
     @application.get("/v1/speech/jobs", response_model=list[JobResponse], tags=["speech jobs"])
     async def list_jobs(

@@ -81,6 +81,12 @@ Render Plan, and Take, then links a completed WAV as an Artifact when it exists.
 and fingerprints make reruns idempotent while still allowing take status to catch up with a legacy
 job. A changed chunk/configuration is rejected instead of silently rewriting an imported plan.
 
+The speech-job API also invokes this adapter as a live synchronization boundary. Creating or
+reading a job now upserts its Project metadata and Take state, while the immutable plan is written
+once and a completed WAV is linked once. Identical polls are no-ops. The synthesis service remains
+unaware of Studio UI persistence, and an indexing failure cannot turn an already-queued synthesis
+into an apparent submission failure.
+
 The same command can scan a supplied Narrator `narrator_data` directory. Its library entries become
 Studio projects with stable identifiers and retained source/config/output paths. Settings, podcast,
 episode, job, pronunciation, substitution, Qwen voice, and Kokoro blend manifests are recognized
@@ -112,7 +118,8 @@ The Library workspace now reads the additive Studio tables through `/v1/studio/p
 search source names/previews, distinguish imported origins and statuses, display plan/take counts,
 and reopen persisted source text in the still-mounted Narrate workspace. Narrator library entries
 whose documents remain external are shown but deliberately cannot pretend their source was copied;
-the UI points back to the compatibility migration boundary instead.
+the UI points back to the compatibility migration boundary instead. New jobs appear without a
+manual `migrate-studio` pass and retain the imported document title or filename when available.
 
 ## Migration sequence
 
