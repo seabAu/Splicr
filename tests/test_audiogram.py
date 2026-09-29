@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
 import math
 import shutil
 import struct
 import time
 import wave
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -18,6 +20,8 @@ from splicr.domain import JobStatus
 from splicr.providers import ProviderRegistry
 from splicr.service import SynthesisService
 from splicr.studio.audiogram import (
+    AudiogramBackgroundFit,
+    AudiogramBackgroundMode,
     AudiogramJob,
     AudiogramJobKind,
     AudiogramJobService,
@@ -28,8 +32,11 @@ from splicr.studio.audiogram import (
     AudiogramSource,
     AudiogramSpec,
     FfmpegAudiogramRenderer,
+    audiogram_media_type,
+    audiogram_output_extension,
     build_ffmpeg_command,
     build_filter_graph,
+    resolve_layout,
 )
 from splicr.studio.domain import ArtifactKind
 from splicr.studio.store import SqliteStudioStore
@@ -52,6 +59,7 @@ class FakeRenderer:
         *,
         render_seconds: float,
         subtitle_path: Path | None,
+        background_path: Path | None = None,
         on_progress,
         is_cancelled,
     ) -> None:
@@ -59,6 +67,8 @@ class FakeRenderer:
         assert render_seconds > 0
         assert not is_cancelled()
         self.subtitle_path = subtitle_path
+        if spec.background_mode is AudiogramBackgroundMode.IMAGE:
+            assert background_path is not None and background_path.is_file()
         on_progress(0.25)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_bytes(b"fake-video")
@@ -79,6 +89,7 @@ class CancelThenCompleteRenderer:
         *,
         render_seconds: float,
         subtitle_path: Path | None,
+        background_path: Path | None = None,
         on_progress,
         is_cancelled,
     ) -> None:
@@ -148,6 +159,120 @@ def test_ffmpeg_command_is_structured_and_keeps_audio(tmp_path: Path) -> None:
         AudiogramSpec(source=AudiogramSource.VECTORSCOPE, foreground_color="#FFAA33")
     )
     assert "rc=255:gc=170:bc=51" in vector_graph
+
+
+def test_image_background_uses_shared_layout_and_managed_ffmpeg_input(tmp_path: Path) -> None:
+    background = tmp_path / "background.png"
+    background.write_bytes(b"\x89PNG\r\n\x1a\nfixture")
+    spec = AudiogramSpec(
+        width=1080,
+        height=1920,
+        visualizer_height=480,
+        vertical_position=0.25,
+        background_mode=AudiogramBackgroundMode.IMAGE,
+        background_asset_id="asset-1",
+        background_fit=AudiogramBackgroundFit.COVER,
+        background_position_x=0.2,
+        background_position_y=0.8,
+    )
+
+    layout = resolve_layout(spec)
+    graph = build_filter_graph(spec)
+    command = build_ffmpeg_command(
+        "ffmpeg",
+        tmp_path / "source.wav",
+        tmp_path / "output.mp4",
+        spec,
+        render_seconds=4,
+        background_path=background,
+    )
+
+    assert layout.visualizer_y == 360
+    assert layout.to_mapping()["background_fit"] == "cover"
+    assert "[1:v]scale=1080x1920:force_original_aspect_ratio=increase" in graph
+    assert "crop=1080x1920:x='(iw-ow)*0.200000':y='(ih-oh)*0.800000'" in graph
+    assert "overlay=x=0:y=360" in graph
+    start = command.index("-loop")
+    assert command[start : start + 7] == [
+        "-loop",
+        "1",
+        "-framerate",
+        "24",
+        "-i",
+        str(background),
+        "-filter_complex",
+    ]
+
+
+def test_image_background_requires_a_managed_asset() -> None:
+    with pytest.raises(ValueError, match="background_asset_id"):
+        AudiogramSpec(background_mode=AudiogramBackgroundMode.IMAGE)
+
+
+@pytest.mark.parametrize(
+    ("output_format", "codec", "pixel_format", "extension", "media_type"),
+    [
+        (AudiogramOutputFormat.WEBM_ALPHA, "libvpx-vp9", "yuva420p", "webm", "video/webm"),
+        (
+            AudiogramOutputFormat.PRORES_4444,
+            "prores_ks",
+            "yuva444p10le",
+            "mov",
+            "video/quicktime",
+        ),
+        (
+            AudiogramOutputFormat.PNG_SEQUENCE,
+            "png",
+            "rgba",
+            "zip",
+            "application/zip",
+        ),
+    ],
+)
+def test_transparent_output_commands_preserve_alpha(
+    tmp_path: Path,
+    output_format: AudiogramOutputFormat,
+    codec: str,
+    pixel_format: str,
+    extension: str,
+    media_type: str,
+) -> None:
+    spec = AudiogramSpec(
+        width=640,
+        height=360,
+        visualizer_height=180,
+        background_mode=AudiogramBackgroundMode.TRANSPARENT,
+        output_format=output_format,
+    )
+    target = tmp_path / (
+        "frame-%08d.png" if output_format is AudiogramOutputFormat.PNG_SEQUENCE else f"out.{extension}"
+    )
+    graph = build_filter_graph(spec)
+    command = build_ffmpeg_command(
+        "ffmpeg",
+        tmp_path / "source.wav",
+        target,
+        spec,
+        render_seconds=2,
+    )
+
+    assert "black@0.0" in graph
+    assert "format=auto,format=rgba" in graph
+    assert codec in command
+    assert pixel_format in command
+    assert audiogram_output_extension(output_format) == extension
+    assert audiogram_media_type(output_format) == media_type
+    if output_format is AudiogramOutputFormat.PNG_SEQUENCE:
+        assert command.count("-map") == 1
+        assert "0:a:0" not in command
+        assert "-shortest" not in command
+
+
+def test_transparent_and_opaque_formats_cannot_be_mixed() -> None:
+    with pytest.raises(ValueError, match="alpha-capable"):
+        AudiogramSpec(background_mode=AudiogramBackgroundMode.TRANSPARENT)
+    with pytest.raises(ValueError, match="transparent background"):
+        AudiogramSpec(output_format=AudiogramOutputFormat.PRORES_4444)
 
 
 @pytest.mark.parametrize(
@@ -441,6 +566,46 @@ def test_real_ffmpeg_renderer_smoke(tmp_path: Path, visualizer: AudiogramSource)
     assert progress[-1] == 1
 
 
+@pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="FFmpeg is not installed")
+def test_real_ffmpeg_renderer_builds_atomic_png_sequence_archive(tmp_path: Path) -> None:
+    renderer = FfmpegAudiogramRenderer()
+    if AudiogramOutputFormat.PNG_SEQUENCE not in renderer.supported_output_formats:
+        pytest.skip("FFmpeg PNG encoder is unavailable")
+    source = tmp_path / "tone.wav"
+    with wave.open(str(source), "wb") as audio:
+        audio.setnchannels(1)
+        audio.setsampwidth(2)
+        audio.setframerate(24_000)
+        audio.writeframes(b"\0\0" * 6_000)
+    output = tmp_path / "frames.zip"
+
+    asyncio.run(
+        renderer.render(
+            source,
+            output,
+            AudiogramSpec(
+                width=640,
+                height=360,
+                visualizer_height=180,
+                fps=24,
+                background_mode=AudiogramBackgroundMode.TRANSPARENT,
+                output_format=AudiogramOutputFormat.PNG_SEQUENCE,
+            ),
+            render_seconds=0.25,
+            on_progress=lambda _progress: None,
+            is_cancelled=lambda: False,
+        )
+    )
+
+    with zipfile.ZipFile(output) as archive:
+        names = archive.namelist()
+        manifest = json.loads(archive.read("manifest.json"))
+    assert names[0] == "manifest.json"
+    assert any(name.startswith("frames/frame-") for name in names)
+    assert manifest["frame_count"] == len(names) - 1
+    assert manifest["fps"] == 24
+
+
 def test_audiogram_api_lists_sources_and_serves_completed_preview(tmp_path: Path) -> None:
     settings = _settings(tmp_path)
     synthesis = SynthesisService(
@@ -477,6 +642,45 @@ def test_audiogram_api_lists_sources_and_serves_completed_preview(tmp_path: Path
         sources = client.get("/v1/studio/audiograms/sources")
         assert sources.status_code == 200
         assert [item["job_id"] for item in sources.json()] == [source_id]
+        uploaded = client.post(
+            "/v1/studio/audiograms/backgrounds",
+            files={"file": ("cover.png", b"\x89PNG\r\n\x1a\nfixture", "image/png")},
+        )
+        assert uploaded.status_code == 201
+        background = uploaded.json()
+        assert client.get(background["url"]).content == b"\x89PNG\r\n\x1a\nfixture"
+        assert client.get("/v1/studio/audiograms/backgrounds").json()[0]["id"] == background["id"]
+
+        estimate = client.post(
+            "/v1/studio/audiograms/estimate",
+            json={
+                "source_job_id": source_id,
+                "kind": "preview",
+                "spec": {
+                    "width": 640,
+                    "height": 360,
+                    "visualizer_height": 180,
+                    "background_mode": "image",
+                    "background_asset_id": background["id"],
+                    "background_fit": "contain",
+                    "background_position_x": 0.25,
+                    "background_position_y": 0.75,
+                },
+            },
+        )
+        assert estimate.status_code == 200
+        assert estimate.json()["layout"] == {
+            "canvas_width": 640,
+            "canvas_height": 360,
+            "visualizer_x": 0,
+            "visualizer_y": 90,
+            "visualizer_width": 640,
+            "visualizer_height": 180,
+            "background_mode": "image",
+            "background_fit": "contain",
+            "background_position_x": 0.25,
+            "background_position_y": 0.75,
+        }
         response = client.post(
             "/v1/studio/audiograms/jobs",
             json={
@@ -486,6 +690,9 @@ def test_audiogram_api_lists_sources_and_serves_completed_preview(tmp_path: Path
                     "width": 640,
                     "height": 360,
                     "visualizer_height": 180,
+                    "background_mode": "image",
+                    "background_asset_id": background["id"],
+                    "background_fit": "contain",
                 },
             },
         )

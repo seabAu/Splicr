@@ -112,6 +112,14 @@ structured failures; they never rewrite or invalidate the narration checkpoints.
 heading chapters, Timeline segment coordinates, the rendered waveform, and selection playback all
 consume the persisted finished-audio offset rather than maintaining separate timing guesses.
 
+Audiogram rendering is another durable derived-artifact pipeline. Managed PNG/JPEG/WebP
+backgrounds are immutable, hash-addressed records under the Studio data root; each render freezes
+the asset id plus cover/contain/stretch and focal-position settings. A server-owned
+`AudiogramLayout` drives the API estimate, React composition preview, and FFmpeg graph. The fast
+opaque path remains H.264 or VP9, while encoder discovery conditionally exposes alpha VP9, ProRes
+4444, and deterministic PNG-sequence ZIP output. Every path renders to a temporary destination,
+supports cancellation/retry/restart recovery, and becomes visible only after atomic completion.
+
 `splicr migrate-studio` converts every existing SPLICR job into a deterministic Project, immutable
 Render Plan, and Take, then links a completed WAV as an Artifact when it exists. Import mappings
 and fingerprints make reruns idempotent while still allowing take status to catch up with a legacy
@@ -169,8 +177,9 @@ Voice Studio exposes Designed voice and Generate another take while keeping prof
 separate from per-render seed. Workspace navigation keeps mounted form state intact. Audition will
 arrive with its isolated engine adapter. Publish now exposes finishing through a compact optional
 disclosure, and Timeline can switch between original narration and any completed derived master
-without mutating either. Dialogue, advanced timeline editing, audiogram, publishing, component
-management, and conversion remain explicit migration surfaces.
+without mutating either. Audiogram now owns managed still backgrounds and alpha exports; polar
+geometry and formula animation remain its explicit migration surface alongside advanced timeline
+editing and Audition.
 
 The React shell now owns the essential SPLICR management workflows as well. Profiles save and load
 the full source/delivery state plus an optional resumable take. The connection editor creates,

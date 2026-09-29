@@ -65,6 +65,44 @@ test("every Studio workspace renders without browser errors", async ({ page }) =
   expect(runtimeErrors).toEqual([]);
 });
 
+test("Audiogram manages still backgrounds and previews alpha output", async ({ page }) => {
+  const runtimeErrors = captureRuntimeErrors(page);
+  const created = await page.request.post("/v1/speech/jobs", {
+    data: {
+      text: "A short browser audiogram source.",
+      provider: "fake",
+      project_name: "Audiogram browser proof",
+    },
+  });
+  expect(created.ok()).toBeTruthy();
+  const sourceId = (await created.json()).id;
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const job = await (await page.request.get(`/v1/speech/jobs/${sourceId}`)).json();
+    if (job.status === "completed") break;
+    await page.waitForTimeout(20);
+  }
+
+  await page.getByRole("navigation", { name: "Studio workspaces" })
+    .getByRole("button", { name: "Audiogram", exact: true }).click();
+  await expect(page.getByRole("heading", { name: /Turn a finished take into a living waveform/ })).toBeVisible();
+  await page.getByLabel("Managed still image").setInputFiles({
+    name: "cover.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nWQAAAAASUVORK5CYII=",
+      "base64",
+    ),
+  });
+  await expect(page.getByLabel("Background mode")).toHaveValue("image");
+  await expect(page.locator(".audiogram-background-preview")).toBeVisible();
+
+  await page.getByLabel("Output").selectOption("png_sequence");
+  await expect(page.getByLabel("Background mode")).toHaveValue("transparent");
+  await expect(page.locator(".audiogram-canvas-shell.is-transparent")).toBeVisible();
+  await expect(page.getByRole("button", { name: /8-second proof/ })).toBeDisabled();
+  expect(runtimeErrors).toEqual([]);
+});
+
 test("Library batch queues persist frozen work and surface skipped items", async ({ page }) => {
   const runtimeErrors = captureRuntimeErrors(page);
   const createProject = async (name, text) => {

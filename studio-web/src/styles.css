@@ -764,7 +764,10 @@ button:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important
 .audiogram-stage-stack { min-width: 0; display: grid; gap: 18px; }
 .audiogram-stage, .audiogram-controls, .audiogram-job-card { box-shadow: none; }
 .audiogram-canvas-shell { position: relative; width: 100%; overflow: hidden; border: 1px solid #353931; border-radius: 15px; background: #080908; box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.35); }
-.audiogram-canvas-shell svg { display: block; width: 100%; height: 100%; }
+.audiogram-canvas-shell svg { position: relative; z-index: 1; display: block; width: 100%; height: 100%; }
+.audiogram-background-preview { position: absolute; inset: 0; width: 100%; height: 100%; }
+.audiogram-canvas-shell.is-transparent { background-color: #1a1b18; background-image: linear-gradient(45deg, #2c2e29 25%, transparent 25%), linear-gradient(-45deg, #2c2e29 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #2c2e29 75%), linear-gradient(-45deg, transparent 75%, #2c2e29 75%); background-position: 0 0, 0 10px, 10px -10px, -10px 0; background-size: 20px 20px; }
+.audiogram-canvas-loading { aspect-ratio: 16 / 9; }
 .audiogram-canvas-shell > span { position: absolute; left: 12px; bottom: 11px; display: flex; align-items: center; gap: 6px; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 20px; background: rgba(8, 9, 8, 0.7); color: rgba(255, 255, 255, 0.66); padding: 5px 9px; backdrop-filter: blur(10px); font-size: 0.58rem; }
 .audiogram-render-bar { display: grid; grid-template-columns: minmax(190px, 1fr) auto auto; gap: 9px; align-items: center; margin-top: 15px; }
 .audiogram-render-bar > div { min-width: 0; display: flex; align-items: center; gap: 9px; color: var(--accent); }
@@ -779,6 +782,9 @@ button:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important
 .audiogram-control-grid select, .audiogram-control-grid input:not([type="range"]):not([type="checkbox"]) { width: 100%; min-height: 39px; border: 1px solid var(--line); border-radius: 9px; outline: 0; background: #10110f; color: #ecece7; padding: 7px 9px; }
 .audiogram-control-grid input[type="color"] { padding: 4px 6px; cursor: pointer; }
 .audiogram-control-grid input[type="range"] { width: 100%; accent-color: var(--accent); }
+.audiogram-background-upload { position: relative; }
+.audiogram-background-upload input[type="file"] { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.audiogram-background-upload .secondary-button { justify-content: center; cursor: pointer; }
 .audiogram-control-grid label.check { grid-template-columns: auto minmax(0, 1fr); align-items: center; border: 1px solid var(--line-soft); border-radius: 9px; background: #121310; padding: 10px; cursor: pointer; }
 .audiogram-control-grid label.check span { justify-content: flex-start; color: var(--muted); font-weight: 500; }
 .audiogram-control-grid label.check input { accent-color: var(--accent); }

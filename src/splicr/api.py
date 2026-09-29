@@ -106,6 +106,10 @@ from .studio import (
     import_splicr_job,
 )
 from .studio.audiogram import (
+    AudiogramBackgroundAsset,
+    AudiogramBackgroundError,
+    AudiogramBackgroundFit,
+    AudiogramBackgroundMode,
     AudiogramJob,
     AudiogramJobKind,
     AudiogramJobNotFoundError,
@@ -118,7 +122,10 @@ from .studio.audiogram import (
     AudiogramSpec,
     FfmpegAudiogramRenderer,
     InvalidAudiogramJobStateError,
+    audiogram_media_type,
+    audiogram_output_extension,
     estimate_render_seconds,
+    resolve_layout,
 )
 from .studio.batch import (
     BatchItem,
@@ -1683,6 +1690,11 @@ class AudiogramSpecPayload(BaseModel):
     vertical_position: float = Field(default=0.5, ge=0, le=1)
     foreground_color: str = Field(default="#F4A259", pattern=r"^#[0-9a-fA-F]{6}$")
     background_color: str = Field(default="#0B0D10", pattern=r"^#[0-9a-fA-F]{6}$")
+    background_mode: AudiogramBackgroundMode = AudiogramBackgroundMode.SOLID
+    background_asset_id: str | None = None
+    background_fit: AudiogramBackgroundFit = AudiogramBackgroundFit.COVER
+    background_position_x: float = Field(default=0.5, ge=0, le=1)
+    background_position_y: float = Field(default=0.5, ge=0, le=1)
     waveform_mode: Literal["cline", "line", "p2p", "point"] = "cline"
     amplitude_scale: Literal["lin", "sqrt", "cbrt", "log"] = "sqrt"
     blur: float = Field(default=0, ge=0, le=20)
@@ -1698,6 +1710,28 @@ class AudiogramSpecPayload(BaseModel):
             return AudiogramSpec(**self.model_dump())
         except ValueError as error:
             raise ValueError(str(error)) from error
+
+
+class AudiogramBackgroundResponse(BaseModel):
+    id: str
+    name: str
+    media_type: str
+    size_bytes: int
+    sha256: str
+    created_at: str
+    url: str
+
+    @classmethod
+    def from_domain(cls, asset: AudiogramBackgroundAsset) -> "AudiogramBackgroundResponse":
+        return cls(
+            id=asset.id,
+            name=asset.name,
+            media_type=asset.media_type,
+            size_bytes=asset.size_bytes,
+            sha256=asset.sha256,
+            created_at=asset.created_at,
+            url=f"/v1/studio/audiograms/backgrounds/{asset.id}/file",
+        )
 
 
 class AudiogramCreateRequest(BaseModel):
@@ -1736,7 +1770,7 @@ class AudiogramJobResponse(BaseModel):
             take_id=job.take_id,
             kind=job.kind,
             status=job.status,
-            spec=AudiogramSpecPayload(**job.spec.to_mapping()),
+            spec=AudiogramSpecPayload.model_validate(job.spec.to_mapping()),
             duration_seconds=job.duration_seconds,
             render_seconds=job.render_seconds,
             progress=job.progress,
@@ -2706,8 +2740,10 @@ def create_app(
         source_storage=synthesis.storage,
         studio_store=studio,
         output_root=resolved_settings.data_dir / "studio" / "audiograms",
+        background_root=resolved_settings.data_dir / "studio" / "audiogram-backgrounds",
         subtitle_service=subtitles,
         renderer=FfmpegAudiogramRenderer(),
+        max_background_bytes=resolved_settings.max_audio_upload_bytes,
     )
     audiograms.store.initialize()
     conversions = conversion_service or ConversionJobService(
@@ -4350,12 +4386,75 @@ def create_app(
             "ffmpeg_available": audiograms.ffmpeg_available,
             "preview_seconds": 8,
             "sources": [item.value for item in AudiogramSource],
-            "output_formats": [item.value for item in AudiogramOutputFormat],
+            "output_formats": [item.value for item in audiograms.supported_output_formats],
+            "alpha_output_formats": [
+                AudiogramOutputFormat.WEBM_ALPHA.value,
+                AudiogramOutputFormat.PRORES_4444.value,
+                AudiogramOutputFormat.PNG_SEQUENCE.value,
+            ],
+            "background_modes": [item.value for item in AudiogramBackgroundMode],
+            "background_fits": [item.value for item in AudiogramBackgroundFit],
+            "max_background_bytes": audiograms.max_background_bytes,
             "presets": ["ultrafast", "veryfast", "fast", "medium"],
             "waveform_modes": ["cline", "line", "p2p", "point"],
             "amplitude_scales": ["lin", "sqrt", "cbrt", "log"],
-            "defaults": AudiogramSpecPayload(**defaults.to_mapping()).model_dump(mode="json"),
+            "defaults": AudiogramSpecPayload.model_validate(defaults.to_mapping()).model_dump(
+                mode="json"
+            ),
+            "default_layout": resolve_layout(defaults).to_mapping(),
         }
+
+    @application.get(
+        "/v1/studio/audiograms/backgrounds",
+        response_model=list[AudiogramBackgroundResponse],
+        tags=["studio"],
+    )
+    async def list_audiogram_backgrounds(
+        response: Response,
+    ) -> list[AudiogramBackgroundResponse]:
+        response.headers["Cache-Control"] = "no-store"
+        return [
+            AudiogramBackgroundResponse.from_domain(asset)
+            for asset in audiograms.background_store.list()
+        ]
+
+    @application.post(
+        "/v1/studio/audiograms/backgrounds",
+        response_model=AudiogramBackgroundResponse,
+        status_code=status.HTTP_201_CREATED,
+        tags=["studio"],
+    )
+    async def upload_audiogram_background(
+        file: UploadFile = File(...),
+    ) -> AudiogramBackgroundResponse:
+        payload = await file.read(audiograms.max_background_bytes + 1)
+        try:
+            asset = audiograms.register_background(
+                Path(file.filename or "background").name,
+                payload,
+            )
+        except AudiogramBackgroundError as error:
+            raise HTTPException(
+                status_code=(
+                    status.HTTP_413_CONTENT_TOO_LARGE
+                    if error.code == "background_too_large"
+                    else status.HTTP_422_UNPROCESSABLE_CONTENT
+                ),
+                detail={"code": error.code, "message": str(error)},
+            ) from error
+        return AudiogramBackgroundResponse.from_domain(asset)
+
+    @application.get(
+        "/v1/studio/audiograms/backgrounds/{asset_id}/file",
+        tags=["studio"],
+    )
+    async def get_audiogram_background_file(asset_id: str) -> FileResponse:
+        try:
+            asset = audiograms.background_store.get(asset_id)
+            path = audiograms.background_path(asset_id)
+        except AudiogramBackgroundError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        return FileResponse(path, media_type=asset.media_type, filename=asset.name)
 
     @application.get("/v1/studio/audiograms/sources", tags=["studio"])
     async def list_audiogram_sources(response: Response) -> list[dict[str, Any]]:
@@ -4363,13 +4462,15 @@ def create_app(
         return audiograms.list_sources()
 
     @application.post("/v1/studio/audiograms/estimate", tags=["studio"])
-    async def estimate_audiogram(request: AudiogramCreateRequest) -> dict[str, float]:
+    async def estimate_audiogram(request: AudiogramCreateRequest) -> dict[str, Any]:
         try:
             source = synthesis.get_job(request.source_job_id)
             source_path = synthesis.output_path(source.id)
             with wave.open(str(source_path), "rb") as wav_file:
                 duration = wav_file.getnframes() / wav_file.getframerate()
             spec = request.spec.to_domain()
+            if spec.background_mode is AudiogramBackgroundMode.IMAGE:
+                audiograms.background_path(spec.background_asset_id or "")
         except JobNotFoundError as error:
             raise HTTPException(status_code=404, detail="source take not found") from error
         except (ValueError, FileNotFoundError, wave.Error) as error:
@@ -4378,6 +4479,7 @@ def create_app(
         return {
             "audio_seconds": render_duration,
             "estimated_render_seconds": estimate_render_seconds(spec, render_duration),
+            "layout": resolve_layout(spec).to_mapping(),
         }
 
     @application.get(
@@ -4464,11 +4566,13 @@ def create_app(
             raise HTTPException(status_code=409, detail=str(error)) from error
         except FileNotFoundError as error:
             raise HTTPException(status_code=500, detail=str(error)) from error
-        media_type = "video/mp4" if path.suffix.casefold() == ".mp4" else "video/webm"
         return FileResponse(
             path,
-            media_type=media_type,
-            filename=f"splicr-{job.kind.value}-{job.id}.{job.spec.output_format.value}",
+            media_type=audiogram_media_type(job.spec.output_format),
+            filename=(
+                f"splicr-{job.kind.value}-{job.id}."
+                f"{audiogram_output_extension(job.spec.output_format)}"
+            ),
         )
 
     @application.get("/v1/studio/conversions/capabilities", tags=["studio"])

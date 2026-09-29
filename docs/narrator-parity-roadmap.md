@@ -142,8 +142,8 @@ human-readable work queue, including broader capabilities that were not render-s
 | Sentence-level regeneration and splice | Covered; audible live-engine seam check pending | Timeline | 5 |
 | Multi-document durable queue | Covered | Narrate / Library | 6 |
 | Audio transcription and guessed chapters | Covered; live-model acceptance pending | Convert / Publish | 7 |
-| Still-image audiogram background | Gap | Audiogram | 8 |
-| Polar/transparent/formula audiograms | Gap | Audiogram | 8 |
+| Still-image audiogram background | Covered | Audiogram | 8 |
+| Polar/transparent/formula audiograms | Partial: transparency covered | Audiogram | 8 |
 | Real provider/model/installer/crash acceptance | Partial | Test/release infrastructure | 9 |
 
 ## Milestone 1 — typed advanced-engine control foundation
@@ -352,10 +352,19 @@ Edge TTS was Narrator's zero-setup online fallback. It is not currently a merged
 
 ### Still image and transparent export
 
-- [ ] Add managed still-image background upload, crop/fit/position, and preview compositing.
-- [ ] Preserve the existing solid/chroma background path.
-- [ ] Add transparent overlay outputs for VP9/WebM, ProRes 4444, and PNG sequences where supported.
-- [ ] Share one layout resolver between preview, estimate, and final render.
+- [x] Add managed still-image background upload, crop/fit/position, and preview compositing.
+- [x] Preserve the existing solid/chroma background path.
+- [x] Add transparent overlay outputs for VP9/WebM, ProRes 4444, and PNG sequences where supported.
+- [x] Share one layout resolver between preview, estimate, and final render.
+
+Evidence: immutable PNG/JPEG/WebP assets are stored under the Studio data root with SQLite
+metadata and content hashes; jobs freeze the selected asset id, fit mode, and focal position.
+The server-owned `AudiogramLayout` is returned by estimate and consumed by the React preview,
+while the same resolver drives the FFmpeg graph and estimate cost. Focused API/render coverage
+also proves the original solid/chroma graph remains available. Encoder discovery only exposes alpha
+formats supported by the local FFmpeg build. VP9 uses `yuva420p`, ProRes uses profile 4444 with
+`yuva444p10le`, and PNG frames are atomically packaged with a deterministic manifest; a real FFmpeg
+test opens that archive and verifies its frames.
 
 ### Geometry, animation, and expressions
 
@@ -509,8 +518,9 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
 
 - **Active milestone:** Milestones 2/3/5/7 live acceptance closeout plus Milestone 8 — advanced
   audiogram parity.
-- **Next implementation slice:** add managed still-image backgrounds and a shared preview/render
-  layout resolver before exposing polar, alpha-overlay, placement, and animation controls. Real
+- **Next implementation slice:** expose linear/polar geometry, placement, rotation, smoothing,
+  mirror, and styling controls through an advanced panel backed by the shared layout resolver,
+  then add safe parsed animation expressions. Real
   Qwen, Edge, faster-whisper, and audible sentence-seam acceptance remains ready when configured
   environments are available.
 - **Known unrelated worktree item:** `LICENSE.txt` is untracked and not part of this roadmap unless

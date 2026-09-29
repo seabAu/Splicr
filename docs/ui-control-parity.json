@@ -1,6 +1,6 @@
 {
   "source": "legacy/narrator/narrator/render_config.py",
-  "statuses": ["covered", "intentional_replacement", "gap"],
+  "statuses": ["covered", "partial", "intentional_replacement", "gap"],
   "legacy_render_fields": [
     {"key": "path", "status": "covered", "workspace": "Narrate", "control": "Document import/source editor"},
     {"key": "root", "status": "intentional_replacement", "workspace": "Library", "control": "Managed per-user artifact store", "rationale": "Studio owns durable project artifacts and exposes downloads instead of writing beside source files."},
@@ -24,7 +24,7 @@
     {"key": "editing_wav", "status": "covered", "workspace": "Convert", "control": "WAV output"},
     {"key": "editing_wav_rate", "status": "covered", "workspace": "Convert", "control": "Sample-rate selector"},
     {"key": "editing_wav_channels", "status": "covered", "workspace": "Convert", "control": "Mono/stereo selector"},
-    {"key": "video_image", "status": "gap", "workspace": "Audiogram", "control": "Solid background color", "next_step": "Support a still-image background and composited overlay preview."},
+    {"key": "video_image", "status": "covered", "workspace": "Audiogram", "control": "Managed still-image upload with cover/contain/stretch, focal positioning, shared composited preview, and preserved solid/chroma mode"},
     {"key": "intro_audio", "status": "covered", "workspace": "Publish / Timeline", "control": "Durable intro asset library and finished-audio timing selection"},
     {"key": "outro_audio", "status": "covered", "workspace": "Publish / Timeline", "control": "Durable outro asset library and derived finished master"},
     {"key": "intro_crossfade", "status": "covered", "workspace": "Publish", "control": "Stepped crossfade slider with persisted safe effective fades and intro offset"}
@@ -36,7 +36,7 @@
     {"capability": "Engine model parameters", "status": "covered", "workspace": "Narrate", "control": "Schema-generated Advanced engine controls with typed defaults, bounds, conditions, profile persistence, and resume-safe RenderPlan values"},
     {"capability": "Edge TTS zero-setup engine", "status": "covered", "workspace": "Narrate / Components", "control": "Supervised external Python environment, cached voice discovery, typed rate/pitch/volume/timing controls, canonical PCM normalization, and durable timing metadata", "evidence": "Faithful stream/voice/error fakes and an opt-in live Edge contract test exist; the live service run remains tracked in the roadmap."},
     {"capability": "Audio transcription with subtitles and guessed chapters", "status": "covered", "workspace": "Convert / Publish", "control": "Convert Transcribe mode with managed audio, typed ASR settings, durable progress/restart/cancel, readable transcripts, timing JSON, SRT/VTT, and explicitly guessed pause-derived chapters", "evidence": "Faithful faster-whisper worker fakes, service restart/cancel/error tests, API downloads, and a real Chromium import/transcribe/reload journey pass; the opt-in real-model run remains tracked in the roadmap."},
-    {"capability": "Advanced polar/transparent/formula audiograms", "status": "gap", "workspace": "Audiogram", "next_step": "Port only the useful polar, alpha-overlay, placement, and animation controls behind progressive disclosure."},
+    {"capability": "Advanced polar/transparent/formula audiograms", "status": "partial", "workspace": "Audiogram", "control": "Capability-detected alpha WebM/ProRes 4444/PNG sequence outputs with checkerboard preview", "next_step": "Port the useful polar, placement, and safe animation controls behind progressive disclosure."},
     {"capability": "Voice cloning and reusable presets", "status": "covered", "workspace": "Voice studio", "control": "Clone and preset Voice Profiles"},
     {"capability": "Multi-speaker dialogue", "status": "covered", "workspace": "Dialogue", "control": "Cast, writer, editable turns, render"},
     {"capability": "Podcast feed, transcript, and chapters", "status": "covered", "workspace": "Publish", "control": "Local feed and immutable exports"}

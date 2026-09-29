@@ -228,6 +228,12 @@ export const api = {
     }),
   audiogramCapabilities: () => request("/v1/studio/audiograms/capabilities"),
   audiogramSources: () => request("/v1/studio/audiograms/sources"),
+  audiogramBackgrounds: () => request("/v1/studio/audiograms/backgrounds"),
+  uploadAudiogramBackground: (file) => {
+    const body = new FormData();
+    body.append("file", file);
+    return request("/v1/studio/audiograms/backgrounds", { method: "POST", body });
+  },
   audiogramJobs: () => request("/v1/studio/audiograms/jobs"),
   audiogramJob: (id) =>
     request(`/v1/studio/audiograms/jobs/${encodeURIComponent(id)}`),
