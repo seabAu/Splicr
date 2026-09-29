@@ -127,6 +127,7 @@ snapshot before the first install.
 | Date | Commit/version | Environment | Gate | Result/evidence |
 | --- | --- | --- | --- | --- |
 | 2026-09-29 | `20cc182` | Windows development workstation | Deterministic Milestone 8 gate | 530 Python passed, 4 intentional live skips; 8 frontend unit and 6 Chromium journeys passed; Vite build and real FFmpeg formula/polar/alpha proof passed. |
+| 2026-09-29 | `0.1.0-dev.2` working tree | Windows development workstation | Deterministic failure and frozen portable-package gate | 536 Python tests passed with 4 intentional live-environment skips. PyInstaller portable build passed its packaged executable smoke, including bundled FFmpeg/FFprobe discovery and an actual lazy-loaded NumPy/Pillow polar/formula/transparent audiogram frame. Portable ZIP SHA-256: `4023d860395f10ff47c2324f592f2e017833227708f8ca7ebb10595b5284fc41`. This is not a substitute for the clean-VM matrix below. |
 | Pending | Pending | Clean Windows x64 VM | Fresh install / upgrade / uninstall / portable | Record artifact hashes, Windows version, install paths, and observations here. |
 | Pending | Pending | GitHub Actions `windows-2025` | Browser/package workflows | Link successful workflow runs and retained failure artifacts when applicable. |
 

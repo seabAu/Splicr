@@ -73,8 +73,7 @@ def available_port(host: str, preferred: int, *, attempts: int = 20) -> int:
                 continue
             return port
     raise RuntimeError(
-        f"SPLICR could not find an available local port from {preferred} "
-        f"through {final_port}."
+        f"SPLICR could not find an available local port from {preferred} through {final_port}."
     )
 
 
@@ -256,6 +255,41 @@ def package_smoke_test() -> int:
         raise RuntimeError(f"packaged app is missing files: {missing_files}")
     if shutil.which("ffmpeg") is None or shutil.which("ffprobe") is None:
         raise RuntimeError("packaged FFmpeg and FFprobe were not detected")
+    # Advanced audiograms import Pillow/NumPy lazily. Exercise the actual drawing path so a
+    # frozen build cannot pass while silently omitting those runtime-only modules.
+    import numpy as np
+    from PIL import Image
+
+    from .studio.audiogram import (
+        AudiogramBackgroundMode,
+        AudiogramGeometry,
+        AudiogramOutputFormat,
+        AudiogramSpec,
+    )
+    from .studio.audiogram_frames import draw_frame, frame_context
+
+    spec = AudiogramSpec(
+        width=320,
+        height=180,
+        visualizer_height=90,
+        fps=12,
+        geometry=AudiogramGeometry.POLAR,
+        show_line=True,
+        bar_count=12,
+        rotation="8 * sin(t)",
+        background_mode=AudiogramBackgroundMode.TRANSPARENT,
+        output_format=AudiogramOutputFormat.PNG_SEQUENCE,
+    )
+    values = np.linspace(0.1, 1.0, spec.bar_count, dtype=np.float32)
+    context = frame_context(1, 3, spec.fps, 0.25, values)
+    frame, _overlay = draw_frame(
+        values,
+        spec,
+        context=context,
+        background=Image.new("RGBA", (spec.width, spec.height), (0, 0, 0, 0)),
+    )
+    if frame.size != (spec.width, spec.height) or frame.getbbox() is None:
+        raise RuntimeError("packaged advanced audiogram renderer did not produce a frame")
     return 0
 
 

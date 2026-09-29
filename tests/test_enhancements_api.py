@@ -199,6 +199,27 @@ def test_error_pauses_job_and_exposes_resumable_partial_audio(tmp_path) -> None:
         assert provider.call_counts["good words"] == 1
 
 
+def test_paused_provider_failure_can_export_then_cancel(tmp_path) -> None:
+    provider = RecordingProvider(fail_text="bad")
+    settings = _settings(tmp_path)
+    service = SynthesisService(settings=settings, providers=ProviderRegistry([provider]))
+
+    with TestClient(create_app(settings=settings, service=service)) as client:
+        submitted = client.post(
+            "/v1/speech/jobs",
+            json={"text": "good words\n\nbad words", "provider": "fake"},
+        ).json()
+        paused = _wait_for_status(client, submitted["id"], "paused")
+
+        exported = client.get(paused["checkpoint_export_url"])
+        assert exported.status_code == 200
+        assert exported.headers["x-splicr-exported-chunks"] == "1"
+        cancelled = client.post(f"/v1/speech/jobs/{submitted['id']}/cancel")
+        assert cancelled.status_code == 200
+        assert cancelled.json()["status"] == "cancelled"
+        assert client.get(f"/v1/speech/jobs/{submitted['id']}/audio").status_code == 409
+
+
 def test_running_job_exposes_checkpoint_progress_without_http_caching(tmp_path) -> None:
     class GatedProvider(RecordingProvider):
         def __init__(self) -> None:

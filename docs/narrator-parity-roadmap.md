@@ -400,14 +400,16 @@ sequence, cancellation cleanup, deterministic archives, API validation, and the 
 - [ ] Run real Qwen voice design/clone with non-default advanced parameters and forced resume.
 - [ ] Run real Audio8 clone narration with forced resume.
 - [ ] Confirm local engine processes/models are reused only within their intended job/session scope
-  and released after completion/cancel/failure.
+  and released after completion/cancel/failure. Deterministic adapter/subprocess coverage now proves
+  one-session-per-job reuse plus closure after success, cancellation, engine failure, and timeout
+  restart; the configured real-model runs remain the final evidence.
 
 ### Crash, scale, and packaging
 
 - [x] Run a long-document forced-termination soak at several chunk boundaries and verify exact resume
   ordering with no duplicate synthesis.
 - [x] Force termination during final assembly and verify no partial artifact is marked complete.
-- [ ] Exercise pause/export/cancel after provider and local-engine failures.
+- [x] Exercise pause/export/cancel after provider and local-engine failures.
 - [ ] Test very large imports and outputs near configured limits without loading full media into
   browser or server memory. Automated coverage now crosses the chunked-upload boundary, rejects and
   cleans an over-limit upload, and range-reads the converted output; a multi-gigabyte manual soak
@@ -538,6 +540,12 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   forces final-assembly replacement failure without publishing a partial output, crosses the
   chunked audio-upload boundary, cleans an over-limit upload, and range-reads the converted output.
   The browser workflow now also runs for release tags and retains Playwright failure diagnostics.
+- [x] 2026-09-29 — Milestone 9 deterministic failure/package gate passed: 536 Python tests passed
+  with four explicit live-environment skips. Provider and local-engine failures prove pause,
+  partial/checkpoint export, cancellation, unpublished final audio, and one-session-per-job cleanup.
+  The `0.1.0-dev.2` portable build passed its frozen-executable smoke, including bundled
+  FFmpeg/FFprobe discovery and a real lazy-loaded NumPy/Pillow advanced audiogram frame; the
+  clean-VM install/upgrade/uninstall matrix remains open.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
@@ -546,8 +554,7 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
 - **Active milestone:** Milestone 9 — real-world acceptance and release hardening, including the
   remaining Milestones 2/3/5/7 live-environment evidence.
 - **Next implementation slice:** execute and record the credential/model/clean-VM checks in
-  `docs/RELEASE_CHECKLIST.md`; continue automated pause/export/cancel failure-path coverage where it
-  can run without provider quota. Real
+  `docs/RELEASE_CHECKLIST.md`. Real
   Qwen, Edge, faster-whisper, and audible sentence-seam acceptance remains ready when configured
   environments are available.
 - **Known unrelated worktree item:** `LICENSE.txt` is untracked and not part of this roadmap unless
