@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from splicr.chunking import ChunkPolicy
-from splicr.planning import SplitStrategy, plan_chunks
+from splicr.planning import ChunkTargetMode, SplitStrategy, plan_chunks
 
 
 def test_heading_strategy_keeps_sections_separate_and_tracks_offsets() -> None:
@@ -57,3 +57,66 @@ def test_long_single_newline_section_maps_normalized_chunks_to_source() -> None:
         assert " ".join(source_segment.split()) == " ".join(chunk.text.split())
         cursor = chunk.end_char
     assert not plan.text[cursor:].strip()
+
+
+def test_character_target_is_additional_to_provider_hard_limits() -> None:
+    text = "Alpha beta gamma delta epsilon zeta eta theta."
+    policy = ChunkPolicy(max_bytes=18, max_words=100)
+
+    plan = plan_chunks(
+        text,
+        policy,
+        target_mode=ChunkTargetMode.CHARACTERS,
+        target_value=30,
+    )
+
+    assert len(plan.chunks) > 1
+    assert all(chunk.character_count <= 30 for chunk in plan.chunks)
+    assert all(chunk.byte_count <= 18 for chunk in plan.chunks)
+    assert all(chunk.limit_headroom["bytes"] >= 0 for chunk in plan.chunks)
+
+
+def test_token_target_uses_provider_estimator_and_reports_metrics() -> None:
+    policy = ChunkPolicy(
+        max_bytes=500,
+        max_words=100,
+        max_tokens=20,
+        token_estimator=lambda value: len(value.split()),
+    )
+
+    plan = plan_chunks(
+        "one two three four five six",
+        policy,
+        target_mode=ChunkTargetMode.TOKENS,
+        target_value=2,
+    )
+
+    assert [chunk.token_count for chunk in plan.chunks] == [2, 2, 2]
+    assert all(chunk.limit_headroom["tokens"] == 18 for chunk in plan.chunks)
+
+
+def test_requested_parts_warns_when_preferred_boundaries_require_more_chunks() -> None:
+    plan = plan_chunks(
+        "First line.\nSecond line.",
+        ChunkPolicy(max_bytes=500, max_words=100),
+        SplitStrategy.NEWLINE,
+        ChunkTargetMode.PARTS,
+        1,
+    )
+
+    assert len(plan.chunks) == 2
+    assert plan.warnings == (
+        "Requested 1 parts, but provider limits and preferred boundaries produced 2 chunks.",
+    )
+
+
+def test_all_markdown_heading_levels_are_available() -> None:
+    for level in range(1, 7):
+        strategy = SplitStrategy(f"h{level}")
+        plan = plan_chunks(
+            f"Intro.\n\n{'#' * level} Heading\nBody.",
+            ChunkPolicy(max_bytes=500, max_words=100),
+            strategy,
+        )
+        assert len(plan.chunks) == 2
+        assert all(chunk.boundary == strategy.value for chunk in plan.chunks)

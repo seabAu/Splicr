@@ -109,7 +109,7 @@ human-readable work queue, including broader capabilities that were not render-s
 | Typed engine/model parameters | Gap | Narrate advanced controls | 1 |
 | Qwen voice-design take and deterministic seed | Gap | Narrate / Voice Studio | 2 |
 | Optional precise speed | Covered for Kokoro | Narrate advanced controls | 2 |
-| Parts/token/character chunk planning | Gap | Narrate advanced controls | 2 |
+| Parts/token/character chunk planning | Covered | Narrate advanced controls | 2 |
 | Edge TTS engine | Gap | Narrate / Components | 3 |
 | Export filename | Gap | Narrate / Library | 4 |
 | Checkpoint/chunk export | Gap | Timeline / Library | 4 |
@@ -203,17 +203,17 @@ Providers without a declared numeric rate continue to expose only the provider-n
 
 ### Advanced chunk planning
 
-- [ ] Preserve Semantic, Heading 1–6, newline, and double-newline preferred boundaries.
-- [ ] Add advanced target modes: automatic/provider-safe, desired part count, token target, and
+- [x] Preserve Semantic, Heading 1–6, newline, and double-newline preferred boundaries.
+- [x] Add advanced target modes: automatic/provider-safe, desired part count, token target, and
   character target.
-- [ ] Treat provider hard limits as absolute even when a user target is larger.
-- [ ] Retain paragraph/sentence/word fallback ordering and correct UTF-8 byte accounting.
-- [ ] Keep citation cleanup and blank-fragment elimination ahead of chunk validation.
-- [ ] Preview boundary reason, source span, bytes/words/tokens, and provider-limit headroom for every
+- [x] Treat provider hard limits as absolute even when a user target is larger.
+- [x] Retain paragraph/sentence/word fallback ordering and correct UTF-8 byte accounting.
+- [x] Keep citation cleanup and blank-fragment elimination ahead of chunk validation.
+- [x] Preview boundary reason, source span, bytes/words/tokens, and provider-limit headroom for every
   proposed chunk.
-- [ ] Warn when a requested part count cannot be achieved without violating a hard limit.
-- [ ] Persist the selected strategy and exact planned chunks so resume never replans differently.
-- [ ] Test headings, empty sections, long unbroken text, multibyte text, citations, minimum/maximum
+- [x] Warn when a requested part count cannot be achieved without violating a hard limit.
+- [x] Persist the selected strategy and exact planned chunks so resume never replans differently.
+- [x] Test headings, empty sections, long unbroken text, multibyte text, citations, minimum/maximum
   targets, and plan stability after restart.
 
 ## Milestone 3 — Edge TTS and engine onboarding breadth

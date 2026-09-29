@@ -35,6 +35,8 @@ class ChunkPolicy:
     character_estimator: Callable[[str], int] | None = None
     max_tokens: int | None = None
     token_estimator: Callable[[str], int] | None = None
+    target_characters: int | None = None
+    target_tokens: int | None = None
 
     def __post_init__(self) -> None:
         if self.max_bytes < 4:
@@ -49,6 +51,12 @@ class ChunkPolicy:
             raise ValueError("max_tokens must be positive")
         if self.max_tokens is not None and self.token_estimator is None:
             raise ValueError("token_estimator is required when max_tokens is set")
+        if self.target_characters is not None and self.target_characters < 1:
+            raise ValueError("target_characters must be positive")
+        if self.target_tokens is not None and self.target_tokens < 1:
+            raise ValueError("target_tokens must be positive")
+        if self.target_tokens is not None and self.token_estimator is None:
+            raise ValueError("token_estimator is required when target_tokens is set")
 
     def accepts(self, text: str) -> bool:
         if utf8_size(text) > self.max_bytes or word_count(text) > self.max_words:
@@ -57,10 +65,17 @@ class ChunkPolicy:
             assert self.character_estimator is not None
             if self.character_estimator(text) > self.max_characters:
                 return False
-        if self.max_tokens is None:
-            return True
-        assert self.token_estimator is not None
-        return self.token_estimator(text) <= self.max_tokens
+        if self.target_characters is not None and len(text) > self.target_characters:
+            return False
+        if self.max_tokens is not None:
+            assert self.token_estimator is not None
+            if self.token_estimator(text) > self.max_tokens:
+                return False
+        if self.target_tokens is not None:
+            assert self.token_estimator is not None
+            if self.token_estimator(text) > self.target_tokens:
+                return False
+        return True
 
 
 @dataclass(frozen=True, slots=True)

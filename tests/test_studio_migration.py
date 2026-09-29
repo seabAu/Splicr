@@ -5,7 +5,9 @@ from pathlib import Path
 
 import pytest
 
+from splicr.chunking import ChunkPolicy
 from splicr.domain import SEGMENT_OPTIONS_VARIABLE, DeliveryControls, JobStatus
+from splicr.planning import ChunkTargetMode, SplitStrategy, plan_chunks
 from splicr.storage import LocalJobStorage
 from splicr.store import SqliteJobStore
 from splicr.studio import SqliteStudioStore, TakeStatus, import_splicr_job
@@ -31,6 +33,16 @@ def _legacy_job(tmp_path: Path) -> tuple[SqliteJobStore, LocalJobStorage, Sqlite
         chunks=["First sentence.", "Second sentence."],
     )
     storage.write_source("legacy-job", "First sentence.\n\nSecond sentence.")
+    storage.write_plan(
+        "legacy-job",
+        plan_chunks(
+            "First sentence.\n\nSecond sentence.",
+            ChunkPolicy(max_bytes=500, max_words=100),
+            SplitStrategy.DOUBLE_NEWLINE,
+            ChunkTargetMode.CHARACTERS,
+            30,
+        ),
+    )
     return job_store, storage, studio_store
 
 
@@ -57,6 +69,8 @@ def test_import_splicr_job_builds_studio_hierarchy_idempotently(tmp_path) -> Non
     assert project.source_text == "First sentence.\n\nSecond sentence."
     assert plan.segments[1].source_start == 17
     assert plan.segments[0].settings["resource_revision"] == 3
+    assert plan.metadata["chunk_planning"]["strategy"] == "double_newline"
+    assert plan.metadata["chunk_planning"]["target_value"] == 30
     assert take.status is TakeStatus.QUEUED
     with sqlite3.connect(studio_store.database_path) as connection:
         assert connection.execute("SELECT COUNT(*) FROM studio_projects").fetchone()[0] == 1

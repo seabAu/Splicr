@@ -14,10 +14,12 @@ Current conclusion:
 
 - Core engine, voice, delivery, profile, conversion, video, publishing, and project controls are
   represented in Studio.
-- The largest remaining control gaps are precise speed, Qwen take/seed, manual chunk sizing,
-  subtitles, export naming, checkpoint export, still-image video backgrounds, intro/outro assets,
-  model-specific generation parameters, Edge TTS, transcription, batch queues, and the advanced
-  polar/formula audiogram.
+- The largest remaining control gaps are durable Qwen voice-design creation, subtitles, export
+  naming, checkpoint export, still-image video backgrounds, intro/outro assets, Edge TTS,
+  transcription, batch queues, and the advanced polar/formula audiogram.
+- Narrate now keeps everyday boundaries compact while its advanced disclosure covers approximate
+  parts, character targets, and provider-estimated token targets. Preflight exposes exact spans,
+  metrics, headroom, warnings, and the durable plan used by resume.
 - The merged UI should not recreate the original wall of widgets. Use a compact default workflow,
   an **Advanced engine controls** drawer generated from typed provider metadata, and dedicated
   post-production workspaces.

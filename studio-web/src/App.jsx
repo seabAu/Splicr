@@ -209,10 +209,21 @@ function ChunkPreview({ preview, activeChunk, setActiveChunk }) {
         <span>{formatCount(preview.total_words)} words · {formatCount(preview.total_bytes)} bytes</span>
       </div>
       <div className="chunk-stage">
+        {preview.warnings?.length > 0 && (
+          <div className="planner-warnings" role="status">
+            {preview.warnings.map((warning) => <span key={warning}>{warning}</span>)}
+          </div>
+        )}
         <div className="chunk-inspector">
           <span>Chunk {selected.index + 1} · {selected.boundary}</span>
           <p>{selected.text}</p>
-          <small>Characters {formatCount(selected.start_char)}–{formatCount(selected.end_char)}</small>
+          <small>
+            Source {formatCount(selected.start_char)}–{formatCount(selected.end_char)} · {formatCount(selected.character_count)} characters
+            {selected.token_count !== null ? ` · ${formatCount(selected.token_count)} tokens` : ""}
+          </small>
+          <small>
+            Provider headroom: {Object.entries(selected.limit_headroom || {}).map(([name, value]) => `${formatCount(value)} ${name}`).join(" · ")}
+          </small>
         </div>
         <div className="chunk-strip" aria-label="Planned document chunks">
           {preview.chunks.map((chunk) => (
@@ -417,6 +428,8 @@ function NarrateWorkspace({ active, projectToLoad }) {
     voice_profile_id: "",
     instructions: "",
     split_strategy: "semantic",
+    chunk_target_mode: "automatic",
+    chunk_target_value: null,
     remove_numeric_citations: false,
     controls: { tone: "neutral", pace: "normal", vocal_style: "natural", nonverbal_frequency: "never" },
     variables: {},
@@ -445,7 +458,14 @@ function NarrateWorkspace({ active, projectToLoad }) {
 
   const patchForm = (values) => {
     setForm((current) => ({ ...current, ...values }));
-    if ("text" in values || "provider" in values || "split_strategy" in values || "remove_numeric_citations" in values) setPreview(null);
+    if (
+      "text" in values
+      || "provider" in values
+      || "split_strategy" in values
+      || "chunk_target_mode" in values
+      || "chunk_target_value" in values
+      || "remove_numeric_citations" in values
+    ) setPreview(null);
   };
   const patchControls = (values) => setForm((current) => ({ ...current, controls: { ...current.controls, ...values } }));
 
@@ -613,6 +633,8 @@ function NarrateWorkspace({ active, projectToLoad }) {
     instructions: form.instructions.trim() || null,
     controls: form.controls,
     split_strategy: form.split_strategy,
+    chunk_target_mode: form.chunk_target_mode,
+    chunk_target_value: form.chunk_target_mode === "automatic" ? null : form.chunk_target_value,
     remove_numeric_citations: form.remove_numeric_citations,
     variables: form.variables,
     job_id: includeJob ? job?.id || null : null,
@@ -630,6 +652,8 @@ function NarrateWorkspace({ active, projectToLoad }) {
       instructions: profile.instructions || "",
       controls: profile.controls,
       split_strategy: profile.split_strategy,
+      chunk_target_mode: profile.chunk_target_mode || "automatic",
+      chunk_target_value: profile.chunk_target_value ?? null,
       remove_numeric_citations: profile.remove_numeric_citations,
       variables: profile.variables || {},
     }));
@@ -720,13 +744,44 @@ function NarrateWorkspace({ active, projectToLoad }) {
             <div className="planner-row">
               <Control label="Preferred boundary">
                 <select value={form.split_strategy} onChange={(event) => patchForm({ split_strategy: event.target.value })}>
-                  <option value="semantic">Semantic</option><option value="h1">Heading 1</option><option value="h2">Heading 2</option><option value="h3">Heading 3</option>
+                  <option value="semantic">Semantic</option><option value="h1">Heading 1</option><option value="h2">Heading 2</option><option value="h3">Heading 3</option><option value="h4">Heading 4</option><option value="h5">Heading 5</option><option value="h6">Heading 6</option>
                   <option value="double_newline">Double newline</option><option value="newline">Every newline</option>
                 </select>
               </Control>
               <label className="check-control"><input type="checkbox" checked={form.remove_numeric_citations} onChange={(event) => patchForm({ remove_numeric_citations: event.target.checked })} /><span><strong>Remove numeric citations</strong><small>[123] and \[123\]</small></span></label>
               <button className="secondary-button" disabled={!form.text.trim() || (requiresVoiceProfile && !form.voice_profile_id) || !advancedControlsValid || !!busy} onClick={previewChunks}><WandSparkles size={16} />{busy === "preview" ? "Planning…" : "Preview chunks"}</button>
             </div>
+            <details className="chunk-advanced">
+              <summary>Advanced chunk planning</summary>
+              <div className="control-grid two">
+                <Control label="Target mode" help="Provider safety limits always win.">
+                  <select
+                    value={form.chunk_target_mode}
+                    onChange={(event) => patchForm({
+                      chunk_target_mode: event.target.value,
+                      chunk_target_value: event.target.value === "automatic" ? null : form.chunk_target_value || 1,
+                    })}
+                  >
+                    <option value="automatic">Automatic</option>
+                    <option value="parts">Approximate number of parts</option>
+                    <option value="characters">Characters per chunk</option>
+                    <option value="tokens">Tokens per chunk</option>
+                  </select>
+                </Control>
+                {form.chunk_target_mode !== "automatic" && (
+                  <Control label={form.chunk_target_mode === "parts" ? "Requested parts" : `Target ${form.chunk_target_mode}`}>
+                    <input
+                      type="number"
+                      min="1"
+                      max={form.chunk_target_mode === "parts" ? 10000 : 10000000}
+                      step="1"
+                      value={form.chunk_target_value || 1}
+                      onChange={(event) => patchForm({ chunk_target_value: Number(event.target.value) })}
+                    />
+                  </Control>
+                )}
+              </div>
+            </details>
           </section>
 
           <ChunkPreview preview={preview} activeChunk={activeChunk} setActiveChunk={setActiveChunk} />

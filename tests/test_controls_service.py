@@ -131,6 +131,13 @@ def test_nonverbal_cue_plan_is_persisted_in_synthesis_chunks(tmp_path) -> None:
         service = SynthesisService(settings=settings, providers=ProviderRegistry([provider]))
         await service.start()
         try:
+            preview = service.preview(
+                text="First sentence. Second sentence. Third sentence.",
+                provider_name="fake",
+                controls=DeliveryControls(
+                    nonverbal_frequency=NonverbalFrequency.VERY_FREQUENT
+                ),
+            )
             submitted = await service.submit(
                 text="First sentence. Second sentence. Third sentence.",
                 provider_name="fake",
@@ -142,6 +149,7 @@ def test_nonverbal_cue_plan_is_persisted_in_synthesis_chunks(tmp_path) -> None:
                 chunk.text for chunk in service.store.chunks_for_job(submitted.id)
             )
             assert "[" in stored_text and "]" in stored_text
+            assert [chunk.text for chunk in preview.chunks] == [stored_text]
             assert provider.calls == [stored_text]
         finally:
             await service.stop()

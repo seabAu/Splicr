@@ -5,6 +5,8 @@ import wave
 
 import pytest
 
+from splicr.chunking import ChunkPolicy
+from splicr.planning import ChunkTargetMode, SplitStrategy, plan_chunks
 from splicr.storage import LocalJobStorage
 
 
@@ -42,3 +44,24 @@ def test_partial_wav_uses_a_distinct_snapshot_path(tmp_path) -> None:
     assert partial == storage.partial_output_path("job")
     assert partial.is_file()
     assert not storage.output_path("job").exists()
+
+
+def test_exact_chunk_plan_manifest_round_trips(tmp_path) -> None:
+    storage = LocalJobStorage(tmp_path / "jobs")
+    plan = plan_chunks(
+        "One sentence. Two sentences. Three sentences.",
+        ChunkPolicy(max_bytes=500, max_words=100),
+        SplitStrategy.SEMANTIC,
+        ChunkTargetMode.CHARACTERS,
+        18,
+    )
+
+    storage.write_plan("job", plan)
+    payload = storage.read_plan("job")
+
+    assert payload["strategy"] == "semantic"
+    assert payload["target_mode"] == "characters"
+    assert payload["target_value"] == 18
+    assert [chunk["text"] for chunk in payload["chunks"]] == [
+        chunk.text for chunk in plan.chunks
+    ]

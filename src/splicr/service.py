@@ -49,7 +49,7 @@ from .domain import (
 from .errors import classify_job_error
 from .preprocessing import preprocess_text
 from .providers import TtsProviderRegistry
-from .planning import ChunkPlan, SplitStrategy, plan_chunks
+from .planning import ChunkPlan, ChunkTargetMode, SplitStrategy, plan_chunks
 from .pronunciation import (
     PRONUNCIATION_REVISION_VARIABLE,
     PRONUNCIATION_VARIABLE,
@@ -216,6 +216,8 @@ class SynthesisService:
         variables: Mapping[str, Any] | None = None,
         resource_revision: int | None = None,
         split_strategy: SplitStrategy = SplitStrategy.SEMANTIC,
+        chunk_target_mode: ChunkTargetMode = ChunkTargetMode.AUTOMATIC,
+        chunk_target_value: int | None = None,
         remove_numeric_citations: bool = False,
     ) -> JobRecord:
         prepared_text = preprocess_text(
@@ -256,10 +258,17 @@ class SynthesisService:
             selected_controls.nonverbal_frequency,
             capabilities.nonverbal_cues,
         )
-        plan = plan_chunks(synthesis_text, policy, split_strategy)
+        plan = plan_chunks(
+            synthesis_text,
+            policy,
+            split_strategy,
+            chunk_target_mode,
+            chunk_target_value,
+        )
         job_id = uuid.uuid4().hex
 
         self.storage.write_source(job_id, prepared_text)
+        self.storage.write_plan(job_id, plan)
         try:
             self.store.create_job_with_chunks(
                 job_id=job_id,
@@ -530,6 +539,8 @@ class SynthesisService:
         variables: Mapping[str, Any] | None = None,
         resource_revision: int | None = None,
         split_strategy: SplitStrategy = SplitStrategy.SEMANTIC,
+        chunk_target_mode: ChunkTargetMode = ChunkTargetMode.AUTOMATIC,
+        chunk_target_value: int | None = None,
         remove_numeric_citations: bool = False,
     ) -> ChunkPlan:
         """Return the exact normalized chunk plan without creating or queuing a job."""
@@ -544,7 +555,7 @@ class SynthesisService:
             prepared_text,
             self.customizations.substitutions(),
         )
-        _, _, policy = self._prepare_request(
+        provider, options, policy = self._prepare_request(
             text=synthesis_text,
             provider_name=provider_name,
             model=model,
@@ -554,7 +565,18 @@ class SynthesisService:
             variables=variables,
             resource_revision=resource_revision,
         )
-        return plan_chunks(synthesis_text, policy, split_strategy)
+        synthesis_text = annotate_nonverbal_cues(
+            synthesis_text,
+            options.controls.nonverbal_frequency,
+            provider.info.capabilities.nonverbal_cues,
+        )
+        return plan_chunks(
+            synthesis_text,
+            policy,
+            split_strategy,
+            chunk_target_mode,
+            chunk_target_value,
+        )
 
     def _prepare_request(
         self,

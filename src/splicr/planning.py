@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import StrEnum
+from math import ceil
 
 from .chunking import ChunkPolicy, SemanticChunker, normalize_text, utf8_size, word_count
 
@@ -19,6 +20,13 @@ class SplitStrategy(StrEnum):
     DOUBLE_NEWLINE = "double_newline"
 
 
+class ChunkTargetMode(StrEnum):
+    AUTOMATIC = "automatic"
+    PARTS = "parts"
+    CHARACTERS = "characters"
+    TOKENS = "tokens"
+
+
 @dataclass(frozen=True, slots=True)
 class PlannedChunk:
     index: int
@@ -27,6 +35,9 @@ class PlannedChunk:
     end_char: int
     byte_count: int
     word_count: int
+    character_count: int
+    token_count: int | None
+    limit_headroom: dict[str, int]
     boundary: str
 
 
@@ -35,6 +46,9 @@ class ChunkPlan:
     text: str
     chunks: tuple[PlannedChunk, ...]
     strategy: SplitStrategy
+    target_mode: ChunkTargetMode = ChunkTargetMode.AUTOMATIC
+    target_value: int | None = None
+    warnings: tuple[str, ...] = ()
 
     @property
     def total_chars(self) -> int:
@@ -60,6 +74,8 @@ def plan_chunks(
     text: str,
     policy: ChunkPolicy,
     strategy: SplitStrategy = SplitStrategy.SEMANTIC,
+    target_mode: ChunkTargetMode = ChunkTargetMode.AUTOMATIC,
+    target_value: int | None = None,
 ) -> ChunkPlan:
     """Plan bounded chunks, honoring requested boundaries before safe semantic fallback."""
 
@@ -67,7 +83,10 @@ def plan_chunks(
     if not normalized:
         raise ValueError("text must contain at least one non-whitespace character")
 
-    chunker = SemanticChunker(policy)
+    target_mode, target_value = _validate_target(target_mode, target_value)
+    effective_policy = _target_policy(normalized, policy, target_mode, target_value)
+
+    chunker = SemanticChunker(effective_policy)
     sections = _sections(normalized, strategy)
     planned: list[PlannedChunk] = []
     for section in sections:
@@ -85,6 +104,17 @@ def plan_chunks(
                     end_char=end,
                     byte_count=utf8_size(piece),
                     word_count=word_count(piece),
+                    character_count=(
+                        policy.character_estimator(piece)
+                        if policy.character_estimator is not None
+                        else len(piece)
+                    ),
+                    token_count=(
+                        policy.token_estimator(piece)
+                        if policy.token_estimator is not None
+                        else None
+                    ),
+                    limit_headroom=_limit_headroom(piece, policy),
                     boundary=(
                         section.boundary if len(pieces) == 1 else f"{section.boundary}+semantic"
                     ),
@@ -94,7 +124,67 @@ def plan_chunks(
 
     if not planned:
         raise AssertionError("chunk planner produced no chunks")
-    return ChunkPlan(text=normalized, chunks=tuple(planned), strategy=strategy)
+    warnings: list[str] = []
+    if target_mode is ChunkTargetMode.PARTS and len(planned) != target_value:
+        warnings.append(
+            f"Requested {target_value} parts, but provider limits and preferred boundaries "
+            f"produced {len(planned)} chunks."
+        )
+    return ChunkPlan(
+        text=normalized,
+        chunks=tuple(planned),
+        strategy=strategy,
+        target_mode=target_mode,
+        target_value=target_value,
+        warnings=tuple(warnings),
+    )
+
+
+def _validate_target(
+    mode: ChunkTargetMode,
+    value: int | None,
+) -> tuple[ChunkTargetMode, int | None]:
+    if mode is ChunkTargetMode.AUTOMATIC:
+        if value is not None:
+            raise ValueError("automatic chunk targeting does not accept a target value")
+        return mode, None
+    if value is None or value < 1:
+        raise ValueError(f"{mode.value} chunk targeting requires a positive target value")
+    return mode, value
+
+
+def _target_policy(
+    text: str,
+    policy: ChunkPolicy,
+    mode: ChunkTargetMode,
+    value: int | None,
+) -> ChunkPolicy:
+    if mode is ChunkTargetMode.AUTOMATIC:
+        return policy
+    assert value is not None
+    if mode is ChunkTargetMode.PARTS:
+        return replace(policy, target_characters=max(1, ceil(len(text) / value)))
+    if mode is ChunkTargetMode.CHARACTERS:
+        return replace(policy, target_characters=value)
+    if mode is ChunkTargetMode.TOKENS:
+        if policy.token_estimator is None:
+            raise ValueError("the selected provider does not expose a token estimator")
+        return replace(policy, target_tokens=value)
+    raise AssertionError(f"unsupported chunk target mode: {mode}")
+
+
+def _limit_headroom(text: str, policy: ChunkPolicy) -> dict[str, int]:
+    headroom = {
+        "bytes": policy.max_bytes - utf8_size(text),
+        "words": policy.max_words - word_count(text),
+    }
+    if policy.max_characters is not None:
+        assert policy.character_estimator is not None
+        headroom["characters"] = policy.max_characters - policy.character_estimator(text)
+    if policy.max_tokens is not None:
+        assert policy.token_estimator is not None
+        headroom["tokens"] = policy.max_tokens - policy.token_estimator(text)
+    return headroom
 
 
 def _equivalent_span(source: str, piece: str, cursor: int) -> tuple[int, int]:

@@ -422,8 +422,12 @@ def _controls(job: JobRecord) -> dict[str, JsonValue]:
     return {key: value.value for key, value in asdict(job.controls).items()}
 
 
-def _plan_payload(job: JobRecord, chunks: Iterable[ChunkRecord]) -> dict[str, Any]:
-    return {
+def _plan_payload(
+    job: JobRecord,
+    chunks: Iterable[ChunkRecord],
+    planning_manifest: Mapping[str, object] | None = None,
+) -> dict[str, Any]:
+    payload = {
         "provider": job.provider,
         "model": job.model,
         "voice": job.voice,
@@ -441,6 +445,12 @@ def _plan_payload(job: JobRecord, chunks: Iterable[ChunkRecord]) -> dict[str, An
             for chunk in chunks
         ],
     }
+    if planning_manifest is not None:
+        payload["chunk_planning"] = {
+            key: planning_manifest.get(key)
+            for key in ("schema_version", "strategy", "target_mode", "target_value")
+        }
+    return payload
 
 
 def _render_segment_options(
@@ -609,7 +619,11 @@ def import_splicr_job(
     if not chunks:
         return ImportedJob(job.id, project_id, None, None, None)
 
-    plan_payload = _plan_payload(job, chunks)
+    try:
+        planning_manifest = job_storage.read_plan(job.id)
+    except (OSError, ValueError, json.JSONDecodeError):
+        planning_manifest = None
+    plan_payload = _plan_payload(job, chunks, planning_manifest)
     plan_fingerprint = _fingerprint(plan_payload)
     plan_record = studio_store.get_import_record(_SOURCE_SYSTEM, job.id, "render_plan")
     if plan_record is None:
@@ -635,15 +649,27 @@ def import_splicr_job(
                 )
             )
         segments = tuple(segment_rows)
+        plan_metadata: dict[str, JsonValue] = {
+            "legacy_job_id": job.id,
+            "legacy_plan_fingerprint": plan_fingerprint,
+        }
+        if planning_manifest is not None:
+            plan_metadata["chunk_planning"] = {
+                key: planning_manifest.get(key)
+                for key in (
+                    "schema_version",
+                    "strategy",
+                    "target_mode",
+                    "target_value",
+                    "warnings",
+                )
+            }
         plan = RenderPlan(
             id=plan_id,
             project_id=project_id,
             revision=1,
             segments=segments,
-            metadata={
-                "legacy_job_id": job.id,
-                "legacy_plan_fingerprint": plan_fingerprint,
-            },
+            metadata=plan_metadata,
             created_at=job.created_at,
         )
         studio_store.create_render_plan(plan)

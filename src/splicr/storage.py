@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import json
 import os
 import uuid
 import wave
+from dataclasses import asdict
 from pathlib import Path
 from typing import Iterable
 
 from .domain import AudioFormat, CANONICAL_AUDIO_FORMAT
+from .planning import ChunkPlan
 
 
 class LocalJobStorage:
@@ -23,6 +26,9 @@ class LocalJobStorage:
 
     def source_path(self, job_id: str) -> Path:
         return self.job_dir(job_id) / "source.txt"
+
+    def plan_path(self, job_id: str) -> Path:
+        return self.job_dir(job_id) / "chunk-plan.json"
 
     def chunk_path(self, job_id: str, index: int) -> Path:
         return self.job_dir(job_id) / "chunks" / f"{index:06d}.pcm"
@@ -46,6 +52,35 @@ class LocalJobStorage:
 
     def read_source(self, job_id: str) -> str:
         return self.source_path(job_id).read_text(encoding="utf-8")
+
+    def write_plan(self, job_id: str, plan: ChunkPlan) -> Path:
+        """Persist the exact preflight plan used to create a resumable job."""
+
+        path = self.plan_path(job_id)
+        payload = {
+            "schema_version": 1,
+            "strategy": plan.strategy.value,
+            "target_mode": plan.target_mode.value,
+            "target_value": plan.target_value,
+            "warnings": list(plan.warnings),
+            "totals": {
+                "characters": plan.total_chars,
+                "bytes": plan.total_bytes,
+                "words": plan.total_words,
+            },
+            "chunks": [asdict(chunk) for chunk in plan.chunks],
+        }
+        self._atomic_write(
+            path,
+            json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True).encode("utf-8"),
+        )
+        return path
+
+    def read_plan(self, job_id: str) -> dict[str, object]:
+        payload = json.loads(self.plan_path(job_id).read_text(encoding="utf-8"))
+        if not isinstance(payload, dict) or payload.get("schema_version") != 1:
+            raise ValueError("unsupported or malformed chunk-plan manifest")
+        return payload
 
     def write_chunk(
         self,

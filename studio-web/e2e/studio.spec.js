@@ -51,6 +51,7 @@ test("a document can be planned, directed, rendered, played, and reopened", asyn
   );
 
   await page.getByLabel("Preferred boundary").selectOption("semantic");
+  await expect(page.getByLabel("Preferred boundary").locator('option[value="h6"]')).toHaveCount(1);
   await page.getByLabel(/Remove numeric citations/).check();
   await page.getByLabel("Emotion & tone").selectOption("warm");
   await page.getByLabel("Vocal style").selectOption("conversational");
@@ -90,6 +91,11 @@ test("a document can be planned, directed, rendered, played, and reopened", asyn
   await navigation.getByRole("button", { name: "Narrate", exact: true }).click();
   await expect(page.getByLabel("Repeatable seed")).toHaveValue("42");
 
+  const chunkDisclosure = page.locator("details.chunk-advanced");
+  await chunkDisclosure.locator("summary").click();
+  await page.getByLabel("Target mode").selectOption("characters");
+  await page.getByLabel("Target characters").fill("80");
+
   await page.getByRole("button", { name: "Profiles" }).click();
   const profiles = page.getByRole("dialog", { name: "Profiles" });
   await profiles.getByLabel("Profile name").fill("Acceptance advanced controls");
@@ -98,12 +104,15 @@ test("a document can be planned, directed, rendered, played, and reopened", asyn
   await profiles.getByRole("button", { name: "Close" }).click();
 
   await page.getByRole("button", { name: "Reset defaults" }).click();
+  await page.getByLabel("Target mode").selectOption("automatic");
   await expect(page.getByText("Using recommended defaults")).toBeVisible();
   await page.getByRole("button", { name: "Profiles" }).click();
   const savedProfile = profiles.locator("article").filter({ hasText: "Acceptance advanced controls" });
   await savedProfile.getByRole("button", { name: "Load" }).click();
   await expect(page.getByLabel("Performance variation")).toHaveValue("0.4");
   await expect(page.getByLabel("Repeatable seed")).toHaveValue("42");
+  await expect(page.getByLabel("Target mode")).toHaveValue("characters");
+  await expect(page.getByLabel("Target characters")).toHaveValue("80");
   await expect(page.getByText("4 customized")).toBeVisible();
 
   await page.getByRole("button", { name: "Preview chunks" }).click();

@@ -63,6 +63,49 @@ def test_import_and_heading_preview_preserve_document_structure(tmp_path) -> Non
         assert all(chunk["end_char"] > chunk["start_char"] for chunk in chunks)
 
 
+def test_preview_exposes_target_metrics_warnings_and_exact_job_manifest(tmp_path) -> None:
+    settings = _settings(tmp_path, chunk_max_words=100)
+    service = SynthesisService(settings=settings, providers=ProviderRegistry([RecordingProvider()]))
+    payload = {
+        "text": "First line.\nSecond line.",
+        "provider": "fake",
+        "split_strategy": "newline",
+        "chunk_target_mode": "parts",
+        "chunk_target_value": 1,
+    }
+
+    with TestClient(create_app(settings=settings, service=service)) as client:
+        preview_response = client.post("/v1/speech/preview", json=payload)
+        assert preview_response.status_code == 200
+        preview = preview_response.json()
+        assert preview["target_mode"] == "parts"
+        assert preview["target_value"] == 1
+        assert preview["warnings"]
+        assert preview["chunks"][0]["character_count"] > 0
+        assert preview["chunks"][0]["limit_headroom"]["bytes"] >= 0
+
+        submitted_response = client.post("/v1/speech/jobs", json=payload)
+        assert submitted_response.status_code == 202
+        job = submitted_response.json()
+        manifest = service.storage.read_plan(job["id"])
+        assert manifest["target_mode"] == "parts"
+        assert [chunk["text"] for chunk in manifest["chunks"]] == [
+            chunk["text"] for chunk in preview["chunks"]
+        ]
+
+        invalid = client.post(
+            "/v1/speech/preview",
+            json={
+                "text": "Too many tiny pieces.",
+                "provider": "fake",
+                "chunk_target_mode": "parts",
+                "chunk_target_value": 10_001,
+            },
+        )
+        assert invalid.status_code == 422
+        assert "at most 10000" in invalid.text
+
+
 def test_numeric_citation_cleanup_matches_preview_and_submitted_chunks(tmp_path) -> None:
     provider = RecordingProvider()
     settings = _settings(tmp_path, chunk_max_words=100)

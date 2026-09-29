@@ -16,7 +16,7 @@ from .domain import (
     VocalStyle,
     utc_now,
 )
-from .planning import SplitStrategy
+from .planning import ChunkTargetMode, SplitStrategy
 
 
 JsonValue = None | bool | int | float | str | list["JsonValue"] | dict[str, "JsonValue"]
@@ -38,6 +38,8 @@ class StudioProfile:
     instructions: str | None
     controls: DeliveryControls
     split_strategy: SplitStrategy
+    chunk_target_mode: ChunkTargetMode
+    chunk_target_value: int | None
     remove_numeric_citations: bool
     variables: dict[str, JsonValue]
     job_id: str | None
@@ -119,6 +121,8 @@ class StudioProfileStore:
                     instructions TEXT,
                     controls_json TEXT NOT NULL,
                     split_strategy TEXT NOT NULL,
+                    chunk_target_mode TEXT NOT NULL DEFAULT 'automatic',
+                    chunk_target_value INTEGER,
                     remove_numeric_citations INTEGER NOT NULL DEFAULT 0,
                     variables_json TEXT NOT NULL DEFAULT '{}',
                     job_id TEXT,
@@ -136,6 +140,15 @@ class StudioProfileStore:
                 connection.execute(
                     "ALTER TABLE studio_profiles ADD COLUMN voice_profile_id TEXT"
                 )
+            if "chunk_target_mode" not in columns:
+                connection.execute(
+                    "ALTER TABLE studio_profiles ADD COLUMN chunk_target_mode TEXT "
+                    "NOT NULL DEFAULT 'automatic'"
+                )
+            if "chunk_target_value" not in columns:
+                connection.execute(
+                    "ALTER TABLE studio_profiles ADD COLUMN chunk_target_value INTEGER"
+                )
 
     def create(
         self,
@@ -150,6 +163,8 @@ class StudioProfileStore:
         instructions: str | None,
         controls: DeliveryControls,
         split_strategy: SplitStrategy,
+        chunk_target_mode: ChunkTargetMode = ChunkTargetMode.AUTOMATIC,
+        chunk_target_value: int | None = None,
         remove_numeric_citations: bool,
         variables: Mapping[str, Any],
         job_id: str | None,
@@ -164,8 +179,9 @@ class StudioProfileStore:
                     id, name, resource_id, resource_revision, text, model, voice,
                     voice_profile_id,
                     instructions, controls_json, split_strategy,
+                    chunk_target_mode, chunk_target_value,
                     remove_numeric_citations, variables_json, job_id, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     profile_id,
@@ -179,6 +195,8 @@ class StudioProfileStore:
                     instructions,
                     _encode_controls(controls),
                     split_strategy.value,
+                    chunk_target_mode.value,
+                    chunk_target_value,
                     int(remove_numeric_citations),
                     json.dumps(
                         normalized_variables,
@@ -207,6 +225,8 @@ class StudioProfileStore:
         instructions: str | None,
         controls: DeliveryControls,
         split_strategy: SplitStrategy,
+        chunk_target_mode: ChunkTargetMode = ChunkTargetMode.AUTOMATIC,
+        chunk_target_value: int | None = None,
         remove_numeric_citations: bool,
         variables: Mapping[str, Any],
         job_id: str | None,
@@ -219,7 +239,8 @@ class StudioProfileStore:
                 UPDATE studio_profiles
                 SET name = ?, resource_id = ?, resource_revision = ?, text = ?,
                     model = ?, voice = ?, voice_profile_id = ?, instructions = ?, controls_json = ?,
-                    split_strategy = ?, remove_numeric_citations = ?, variables_json = ?,
+                    split_strategy = ?, chunk_target_mode = ?, chunk_target_value = ?,
+                    remove_numeric_citations = ?, variables_json = ?,
                     job_id = ?, updated_at = ?
                 WHERE id = ?
                 """,
@@ -234,6 +255,8 @@ class StudioProfileStore:
                     instructions,
                     _encode_controls(controls),
                     split_strategy.value,
+                    chunk_target_mode.value,
+                    chunk_target_value,
                     int(remove_numeric_citations),
                     json.dumps(
                         normalized_variables,
@@ -296,6 +319,10 @@ class StudioProfileStore:
             split_strategy = SplitStrategy(row["split_strategy"])
         except ValueError:
             split_strategy = SplitStrategy.SEMANTIC
+        try:
+            chunk_target_mode = ChunkTargetMode(row["chunk_target_mode"])
+        except (ValueError, IndexError):
+            chunk_target_mode = ChunkTargetMode.AUTOMATIC
         return StudioProfile(
             id=row["id"],
             name=row["name"],
@@ -308,6 +335,8 @@ class StudioProfileStore:
             instructions=row["instructions"],
             controls=_decode_controls(row["controls_json"]),
             split_strategy=split_strategy,
+            chunk_target_mode=chunk_target_mode,
+            chunk_target_value=row["chunk_target_value"],
             remove_numeric_citations=bool(row["remove_numeric_citations"]),
             variables=decoded_variables,
             job_id=row["job_id"],

@@ -5,7 +5,7 @@ import sqlite3
 import pytest
 
 from splicr.domain import DeliveryControls, SpeechPace, TonePreset
-from splicr.planning import SplitStrategy
+from splicr.planning import ChunkTargetMode, SplitStrategy
 from splicr.profiles import ProfileNotFoundError, StudioProfileStore
 
 
@@ -21,6 +21,8 @@ def _values() -> dict:
         "instructions": "Keep headings distinct.",
         "controls": DeliveryControls(tone=TonePreset.WARM, pace=SpeechPace.SLOW),
         "split_strategy": SplitStrategy.HEADING_1,
+        "chunk_target_mode": ChunkTargetMode.CHARACTERS,
+        "chunk_target_value": 1200,
         "remove_numeric_citations": True,
         "variables": {"seed": 42, "metadata": {"language": "en"}},
         "job_id": "job-123",
@@ -37,6 +39,8 @@ def test_profile_round_trip_update_and_delete(tmp_path) -> None:
     assert created.voice_profile_id == "voice-profile-123"
     assert created.text.startswith("# Chapter")
     assert created.controls.tone is TonePreset.WARM
+    assert created.chunk_target_mode is ChunkTargetMode.CHARACTERS
+    assert created.chunk_target_value == 1200
     assert created.variables["metadata"] == {"language": "en"}
     assert store.list() == [created]
 
@@ -113,3 +117,4 @@ def test_profile_store_adds_voice_profile_column_to_existing_database(tmp_path) 
     created = store.create(**_values())
 
     assert created.voice_profile_id == "voice-profile-123"
+    assert created.chunk_target_mode is ChunkTargetMode.CHARACTERS

@@ -89,7 +89,7 @@ from .domain import (
 )
 from .document_import import DocumentImportError, import_document
 from .errors import JobErrorCode, suggestion_for
-from .planning import ChunkPlan, PlannedChunk, SplitStrategy
+from .planning import ChunkPlan, ChunkTargetMode, PlannedChunk, SplitStrategy
 from .pronunciation import KokoroToolClient, KokoroToolError, PronunciationEntry
 from .profiles import ProfileNotFoundError, StudioProfile, StudioProfileStore
 from .service import SynthesisService
@@ -229,6 +229,8 @@ class CreateJobRequest(BaseModel):
     controls: DeliveryControlsPayload = Field(default_factory=DeliveryControlsPayload)
     variables: dict[str, Any] = Field(default_factory=dict)
     split_strategy: SplitStrategy = SplitStrategy.SEMANTIC
+    chunk_target_mode: ChunkTargetMode = ChunkTargetMode.AUTOMATIC
+    chunk_target_value: int | None = Field(default=None, ge=1, le=10_000_000)
     remove_numeric_citations: bool = Field(
         default=False,
         description=(
@@ -249,6 +251,15 @@ class CreateJobRequest(BaseModel):
     def resource_identity_must_agree(self) -> "CreateJobRequest":
         if self.provider and self.resource_id and self.provider != self.resource_id:
             raise ValueError("provider and resource_id must identify the same API resource")
+        if self.chunk_target_mode is ChunkTargetMode.AUTOMATIC:
+            if self.chunk_target_value is not None:
+                raise ValueError("automatic chunk targeting does not accept a target value")
+        elif self.chunk_target_value is None:
+            raise ValueError(
+                f"{self.chunk_target_mode.value} chunk targeting requires a target value"
+            )
+        elif self.chunk_target_mode is ChunkTargetMode.PARTS and self.chunk_target_value > 10_000:
+            raise ValueError("parts chunk targeting accepts at most 10000 requested parts")
         return self
 
     @property
@@ -780,6 +791,9 @@ class ChunkPreviewResponse(BaseModel):
     end_char: int
     byte_count: int
     word_count: int
+    character_count: int
+    token_count: int | None
+    limit_headroom: dict[str, int]
     boundary: str
 
     @classmethod
@@ -790,6 +804,9 @@ class ChunkPreviewResponse(BaseModel):
 class PreviewResponse(BaseModel):
     text: str
     strategy: SplitStrategy
+    target_mode: ChunkTargetMode
+    target_value: int | None
+    warnings: list[str]
     total_chars: int
     total_bytes: int
     total_words: int
@@ -800,6 +817,9 @@ class PreviewResponse(BaseModel):
         return cls(
             text=plan.text,
             strategy=plan.strategy,
+            target_mode=plan.target_mode,
+            target_value=plan.target_value,
+            warnings=list(plan.warnings),
             total_chars=plan.total_chars,
             total_bytes=plan.total_bytes,
             total_words=plan.total_words,
@@ -1083,6 +1103,8 @@ class StudioProfilePayload(BaseModel):
     instructions: str | None = Field(default=None, max_length=2_000)
     controls: DeliveryControlsPayload = Field(default_factory=DeliveryControlsPayload)
     split_strategy: SplitStrategy = SplitStrategy.SEMANTIC
+    chunk_target_mode: ChunkTargetMode = ChunkTargetMode.AUTOMATIC
+    chunk_target_value: int | None = Field(default=None, ge=1, le=10_000_000)
     remove_numeric_citations: bool = False
     variables: dict[str, Any] = Field(default_factory=dict)
     job_id: str | None = Field(default=None, max_length=64)
@@ -1094,6 +1116,19 @@ class StudioProfilePayload(BaseModel):
         if not normalized:
             raise ValueError("value cannot be blank")
         return normalized
+
+    @model_validator(mode="after")
+    def chunk_target_must_be_complete(self) -> "StudioProfilePayload":
+        if self.chunk_target_mode is ChunkTargetMode.AUTOMATIC:
+            if self.chunk_target_value is not None:
+                raise ValueError("automatic chunk targeting does not accept a target value")
+        elif self.chunk_target_value is None:
+            raise ValueError(
+                f"{self.chunk_target_mode.value} chunk targeting requires a target value"
+            )
+        elif self.chunk_target_mode is ChunkTargetMode.PARTS and self.chunk_target_value > 10_000:
+            raise ValueError("parts chunk targeting accepts at most 10000 requested parts")
+        return self
 
 
 class StudioProfileResponse(StudioProfilePayload):
@@ -2425,6 +2460,8 @@ def create_app(
             instructions=profile.instructions,
             controls=DeliveryControlsPayload.from_domain(profile.controls),
             split_strategy=profile.split_strategy,
+            chunk_target_mode=profile.chunk_target_mode,
+            chunk_target_value=profile.chunk_target_value,
             remove_numeric_citations=profile.remove_numeric_citations,
             variables=dict(profile.variables),
             job_id=profile.job_id,
@@ -4137,6 +4174,8 @@ def create_app(
             instructions=payload.instructions,
             controls=payload.controls.to_domain(),
             split_strategy=payload.split_strategy,
+            chunk_target_mode=payload.chunk_target_mode,
+            chunk_target_value=payload.chunk_target_value,
             remove_numeric_citations=payload.remove_numeric_citations,
             variables=normalized_variables,
             job_id=payload.job_id,
@@ -4177,6 +4216,8 @@ def create_app(
                 instructions=payload.instructions,
                 controls=payload.controls.to_domain(),
                 split_strategy=payload.split_strategy,
+                chunk_target_mode=payload.chunk_target_mode,
+                chunk_target_value=payload.chunk_target_value,
                 remove_numeric_citations=payload.remove_numeric_citations,
                 variables=normalized_variables,
                 job_id=payload.job_id,
@@ -4215,6 +4256,8 @@ def create_app(
                 variables=variables,
                 resource_revision=request.resource_revision,
                 split_strategy=request.split_strategy,
+                chunk_target_mode=request.chunk_target_mode,
+                chunk_target_value=request.chunk_target_value,
                 remove_numeric_citations=request.remove_numeric_citations,
             )
         except UnknownProviderError as error:
@@ -4326,6 +4369,8 @@ def create_app(
                 variables=variables,
                 resource_revision=request.resource_revision,
                 split_strategy=request.split_strategy,
+                chunk_target_mode=request.chunk_target_mode,
+                chunk_target_value=request.chunk_target_value,
                 remove_numeric_citations=request.remove_numeric_citations,
             )
         except UnknownProviderError as error:

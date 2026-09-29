@@ -52,6 +52,8 @@ def test_profile_api_restores_editor_state_and_linked_job(tmp_path) -> None:
                     "nonverbal_frequency": "rare",
                 },
                 "split_strategy": "h1",
+                "chunk_target_mode": "characters",
+                "chunk_target_value": 1200,
                 "remove_numeric_citations": True,
                 "variables": {"seed": 7, "locale": "en-US"},
                 "job_id": job["id"],
@@ -62,6 +64,8 @@ def test_profile_api_restores_editor_state_and_linked_job(tmp_path) -> None:
         created = created_response.json()
         assert created["text"].startswith("# Source")
         assert created["variables"] == {"locale": "en-US", "seed": 7}
+        assert created["chunk_target_mode"] == "characters"
+        assert created["chunk_target_value"] == 1200
         assert created["job"]["id"] == job["id"]
 
         listed = client.get("/v1/profiles").json()
