@@ -404,16 +404,22 @@ sequence, cancellation cleanup, deterministic archives, API validation, and the 
 
 ### Crash, scale, and packaging
 
-- [ ] Run a long-document forced-termination soak at several chunk boundaries and verify exact resume
+- [x] Run a long-document forced-termination soak at several chunk boundaries and verify exact resume
   ordering with no duplicate synthesis.
-- [ ] Force termination during final assembly and verify no partial artifact is marked complete.
+- [x] Force termination during final assembly and verify no partial artifact is marked complete.
 - [ ] Exercise pause/export/cancel after provider and local-engine failures.
 - [ ] Test very large imports and outputs near configured limits without loading full media into
-  browser or server memory.
+  browser or server memory. Automated coverage now crosses the chunked-upload boundary, rejects and
+  cleans an over-limit upload, and range-reads the converted output; a multi-gigabyte manual soak
+  remains part of the clean-machine matrix.
 - [ ] Test clean Windows installer install, upgrade with existing data/jobs/profiles, uninstall with
   intentional user-data policy, and portable ZIP execution in a clean VM.
-- [ ] Verify Chromium acceptance in GitHub Actions and retain failure traces/screenshots/video.
-- [ ] Update user documentation, migration notes, third-party notices, and release checklist.
+- [ ] Verify Chromium acceptance in GitHub Actions and retain failure traces/screenshots/video. The
+  workflow runs for pull requests, `main`, and release tags and retains Playwright diagnostics on
+  failure; link a green release-commit run in the evidence record.
+- [ ] Update user documentation, migration notes, third-party notices, and release checklist. The
+  executable clean-VM matrix now lives in `docs/RELEASE_CHECKLIST.md`; final release notes and
+  third-party review remain per-release gates.
 
 ## Deferred ideas from the Narrator handover
 
@@ -526,6 +532,12 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   time/progress/frame/audio expressions, fast-path isolation, real formula-driven RGBA frame
   rendering, alpha archive metadata, invalid-formula rejection, cancellation cleanup, restart, and
   atomic finalization.
+- [x] 2026-09-29 — Milestone 9 deterministic crash/scale gate passed: 533 Python tests with four
+  explicit live-environment skips. Release-acceptance coverage repeatedly terminates one long job at
+  three checkpoint boundaries, verifies exact ordered resume without duplicate completed calls,
+  forces final-assembly replacement failure without publishing a partial output, crosses the
+  chunked audio-upload boundary, cleans an over-limit upload, and range-reads the converted output.
+  The browser workflow now also runs for release tags and retains Playwright failure diagnostics.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
@@ -533,8 +545,9 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
 
 - **Active milestone:** Milestone 9 — real-world acceptance and release hardening, including the
   remaining Milestones 2/3/5/7 live-environment evidence.
-- **Next implementation slice:** harden repeatable crash/scale and CI acceptance that can run without
-  provider credentials, then document the clean-machine installer/upgrade matrix. Real
+- **Next implementation slice:** execute and record the credential/model/clean-VM checks in
+  `docs/RELEASE_CHECKLIST.md`; continue automated pause/export/cancel failure-path coverage where it
+  can run without provider quota. Real
   Qwen, Edge, faster-whisper, and audible sentence-seam acceptance remains ready when configured
   environments are available.
 - **Known unrelated worktree item:** `LICENSE.txt` is untracked and not part of this roadmap unless

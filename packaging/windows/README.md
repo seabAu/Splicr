@@ -37,3 +37,6 @@ The small native lifecycle window owns the local FastAPI process. It opens `/stu
 the browser or data folder, writes startup diagnostics to `desktop.log`, and shuts the server down
 cleanly when closed. Launching a second copy detects the existing local instance and opens it rather
 than starting a competing service.
+
+The complete fresh-install, upgrade, uninstall, portable, live-engine, evidence, and rollback matrix
+is maintained in [`../../docs/RELEASE_CHECKLIST.md`](../../docs/RELEASE_CHECKLIST.md).

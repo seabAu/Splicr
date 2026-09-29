@@ -14,8 +14,10 @@ Current conclusion:
 
 - Core engine, voice, delivery, profile, conversion, video, publishing, and project controls are
   represented in Studio.
-- The largest remaining control gap is the advanced polar/formula audiogram. Managed still-image
-  backgrounds, shared preview/render layout, and alpha WebM/ProRes/PNG output are covered. Durable
+- Advanced audiogram parity is covered behind progressive disclosure: managed still-image and
+  transparent backgrounds, shared preview/render layout, linear/polar geometry, bars and line
+  layers, placement, mirror, smoothing, pivots, and safe time/audio-reactive expressions feed an
+  exact RGBA frame renderer while ordinary layouts retain the fast FFmpeg path. Durable
   transcription, multi-document queues, intro/outro assets, safely clamped
   crossfades, derived finished masters, shifted Timeline/chapters/captions, subtitle timelines,
   complete/partial SRT and WebVTT exports, and optional Audiogram burn-in are now covered.

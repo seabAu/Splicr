@@ -15,5 +15,15 @@ available from:
 
 The release publisher must review the recorded configuration and provide all notices, license text,
 and corresponding source or source offer required by that particular build before distributing the
-package publicly. Other Python and JavaScript dependency licenses remain available from their
-respective installed packages and lockfiles in the SPLICR Studio source distribution.
+package publicly.
+
+Advanced audiogram rendering also includes these Python libraries in the frozen desktop package:
+
+- NumPy, distributed under the BSD 3-Clause license: https://numpy.org/doc/stable/license.html
+- Pillow, distributed under the HPND historical permission notice and disclaimer:
+  https://github.com/python-pillow/Pillow/blob/main/LICENSE
+
+Other Python and JavaScript dependency licenses remain available from their respective installed
+packages and lockfiles in the SPLICR Studio source distribution. Before a public release, preserve
+the license/notice files emitted by the frozen package and review this list against the resolved
+`uv.lock` and `studio-web/package-lock.json` dependency graphs.

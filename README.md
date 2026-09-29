@@ -98,7 +98,10 @@ Library persistence. Its Pronunciation workspace edits Kokoro overrides and shar
 Voice Studio manages reusable local voice identities and reference recordings. Its Audiogram
 workspace turns completed takes into checkpointed MP4/WebM video, alpha WebM/ProRes 4444, or
 atomic PNG-sequence jobs with managed still-image backgrounds, one shared preview/render layout,
-cancellation, retry, restart recovery, optional caption burn-in, and final Studio artifacts.
+linear/polar geometry, bars/line/mirror/smoothing/pivot controls, safe time/audio-reactive animation
+expressions, cancellation, retry, restart recovery, optional caption burn-in, and final Studio
+artifacts. Ordinary layouts keep the fast FFmpeg path; exact advanced layouts use full-frame RGBA
+rendering.
 Narrate, Dialogue, Timeline, and Publish can export speaker-aware UTF-8 SRT
 or WebVTT from completed checkpoints, including recoverable partial takes; provider timings are
 used when available and checkpoint estimates remain explicitly labelled in artifact provenance.
@@ -157,7 +160,9 @@ npm --prefix studio-web run test:e2e
 See [`docs/ui-control-parity.md`](docs/ui-control-parity.md) for the machine-checked mapping from
 Narrator's native controls to the merged Studio UI and its explicit remaining gaps. The active
 implementation program and living checklist are in
-[`docs/narrator-parity-roadmap.md`](docs/narrator-parity-roadmap.md).
+[`docs/narrator-parity-roadmap.md`](docs/narrator-parity-roadmap.md). Release candidates use the
+clean-machine and live-environment evidence matrix in
+[`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md).
 
 To reuse existing Narrator engine environments on Windows, add their interpreters to `.env` before
 starting SPLICR:
