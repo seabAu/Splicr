@@ -108,7 +108,7 @@ human-readable work queue, including broader capabilities that were not render-s
 | --- | --- | --- | --- |
 | Typed engine/model parameters | Gap | Narrate advanced controls | 1 |
 | Qwen voice-design take and deterministic seed | Gap | Narrate / Voice Studio | 2 |
-| Optional precise speed | Gap | Narrate advanced controls | 2 |
+| Optional precise speed | Covered for Kokoro | Narrate advanced controls | 2 |
 | Parts/token/character chunk planning | Gap | Narrate advanced controls | 2 |
 | Edge TTS engine | Gap | Narrate / Components | 3 |
 | Export filename | Gap | Narrate / Library | 4 |
@@ -180,12 +180,16 @@ This is the enabling layer. Do not add one-off Qwen-only form state before this 
 
 ### Precise speed
 
-- [ ] Keep the five-step provider-neutral pace slider as the default interface.
-- [ ] Add an optional numeric speed/rate override only when the selected engine supports it.
-- [ ] Display the engine's true units and supported range; do not pretend all providers share one
+Precedence is explicit: a segment's validated `speed` value overrides the job/profile value; the
+job/profile value overrides the five-step pace preset; omitting `speed` falls back to that preset.
+Providers without a declared numeric rate continue to expose only the provider-neutral pace.
+
+- [x] Keep the five-step provider-neutral pace slider as the default interface.
+- [x] Add an optional numeric speed/rate override only when the selected engine supports it.
+- [x] Display the engine's true units and supported range; do not pretend all providers share one
   multiplier.
-- [ ] Define precedence between pace preset, numeric override, profile value, and segment override.
-- [ ] Test clamping/rejection, provider request mapping, persistence, and resume reproducibility.
+- [x] Define precedence between pace preset, numeric override, profile value, and segment override.
+- [x] Test clamping/rejection, provider request mapping, persistence, and resume reproducibility.
 
 ### Advanced chunk planning
 

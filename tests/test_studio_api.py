@@ -152,10 +152,11 @@ def test_advanced_values_survive_api_plan_chunks_and_resume(tmp_path) -> None:
         fail_text="Fail here.",
         control_definitions=(
             ControlDefinition(
-                key="seed",
-                value_type=ControlValueType.INTEGER,
-                default=17,
-                minimum=0,
+                key="speed",
+                value_type=ControlValueType.NUMBER,
+                default=1.0,
+                minimum=0.5,
+                maximum=2.0,
             ),
         ),
         allows_undeclared_variables=False,
@@ -181,7 +182,7 @@ def test_advanced_values_survive_api_plan_chunks_and_resume(tmp_path) -> None:
             json={
                 "text": "First bit. Fail here.",
                 "provider": "fake",
-                "variables": {"seed": 23},
+                "variables": {"speed": 1.37},
             },
         )
         assert response.status_code == 202
@@ -198,7 +199,10 @@ def test_advanced_values_survive_api_plan_chunks_and_resume(tmp_path) -> None:
 
         project = client.get("/v1/studio/projects").json()[0]
         plan = app.state.studio_store.list_render_plans(project["id"])[0]
-        assert all(segment.settings["variables"] == {"seed": 23} for segment in plan.segments)
+        assert all(
+            segment.settings["variables"] == {"speed": 1.37}
+            for segment in plan.segments
+        )
         chunks = service.store.chunks_for_job(job_id)
         assert chunks[0].status.value == "completed"
         assert chunks[1].status.value == "failed"
@@ -216,8 +220,8 @@ def test_advanced_values_survive_api_plan_chunks_and_resume(tmp_path) -> None:
             raise AssertionError("resumed job did not complete")
 
     assert provider.calls == ["First bit.", "Fail here.", "Fail here."]
-    assert all(options.variables == {"seed": 23} for options in provider.options)
-    assert service.get_job(job_id).variables == {"seed": 23}
+    assert all(options.variables == {"speed": 1.37} for options in provider.options)
+    assert service.get_job(job_id).variables == {"speed": 1.37}
 
 
 def test_repeated_job_reads_do_not_rewrite_unchanged_studio_imports(tmp_path) -> None:

@@ -179,6 +179,15 @@ def test_profile_accepts_non_resource_local_engine(tmp_path) -> None:
                 "text": "Saved local narration.",
                 "model": "kokoro-82m",
                 "voice": "af_heart",
+                "variables": {"speed": 1.37},
+            },
+        )
+        rejected = client.post(
+            "/v1/profiles",
+            json={
+                "name": "Invalid Kokoro speed",
+                "resource_id": "kokoro-local",
+                "variables": {"speed": 3.0},
             },
         )
 
@@ -187,3 +196,6 @@ def test_profile_accepts_non_resource_local_engine(tmp_path) -> None:
     assert response.status_code == 201
     assert response.json()["resource_id"] == "kokoro-local"
     assert response.json()["resource_revision"] is None
+    assert response.json()["variables"] == {"speed": 1.37}
+    assert rejected.status_code == 422
+    assert "at most 2.0" in rejected.json()["detail"]

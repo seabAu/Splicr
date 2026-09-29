@@ -7,7 +7,7 @@
     {"key": "engine", "status": "covered", "workspace": "Narrate", "control": "Engine selector"},
     {"key": "voice", "status": "covered", "workspace": "Narrate / Voice studio", "control": "Voice selector or Voice Profile"},
     {"key": "take", "status": "gap", "workspace": "Voice studio", "control": null, "next_step": "Expose reproducible Qwen voice-design take/seed controls in an engine-specific advanced panel."},
-    {"key": "speed", "status": "gap", "workspace": "Narrate", "control": "Five-step pace control", "next_step": "Add an optional provider-aware numeric speed override without replacing the simple pace control."},
+    {"key": "speed", "status": "covered", "workspace": "Narrate", "control": "Five-step pace plus an optional schema-driven Kokoro precise-speed override (0.5x-2.0x)"},
     {"key": "chunk_mode", "status": "gap", "workspace": "Narrate", "control": "Semantic/heading/newline boundary selector", "next_step": "Add an advanced chunk-planning mode that exposes parts, token targets, and character targets."},
     {"key": "chunk_count", "status": "gap", "workspace": "Narrate", "control": null, "next_step": "Expose desired part count when advanced chunk mode is parts."},
     {"key": "chunk_target", "status": "gap", "workspace": "Narrate", "control": null, "next_step": "Expose token/character target when the corresponding advanced chunk mode is selected."},

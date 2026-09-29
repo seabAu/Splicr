@@ -59,7 +59,12 @@ def test_kokoro_worker_maps_studio_pacing(pace: str, expected: float) -> None:
 
 
 def test_kokoro_worker_accepts_bounded_numeric_speed_override() -> None:
-    assert _kokoro_speed({"variables": {"speed": 1.37}}) == 1.37
+    assert _kokoro_speed(
+        {
+            "variables": {"speed": 1.37},
+            "controls": {"pace": "very_slow"},
+        }
+    ) == 1.37
     with pytest.raises(ValueError, match="between 0.5 and 2.0"):
         _kokoro_speed({"variables": {"speed": 3.0}})
 
