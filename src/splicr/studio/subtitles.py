@@ -103,13 +103,17 @@ class SubtitleService:
         self.studio_store = studio_store
         self.output_root = Path(output_root)
 
-    def timeline(self, job_id: str) -> SubtitleTimeline:
+    def timeline(
+        self, job_id: str, *, offset_seconds: float = 0.0
+    ) -> SubtitleTimeline:
+        if not math.isfinite(offset_seconds) or offset_seconds < 0:
+            raise ValueError("subtitle offset must be a finite non-negative number")
         job = self.job_store.get_job(job_id)
         chunks = self.job_store.chunks_for_job(job_id)
         if not chunks:
             raise ValueError("the selected take has no synthesis segments")
         speakers = _segment_speakers(job.variables, len(chunks))
-        cursor = 0.0
+        cursor = offset_seconds
         cues: list[SubtitleCue] = []
         completed_chunks = 0
         for chunk, speaker in zip(chunks, speakers, strict=True):
@@ -151,8 +155,15 @@ class SubtitleService:
             cues=tuple(cues),
         )
 
-    def export(self, job_id: str, output_format: SubtitleFormat) -> SubtitleExport:
-        timeline = self.timeline(job_id)
+    def export(
+        self,
+        job_id: str,
+        output_format: SubtitleFormat,
+        *,
+        offset_seconds: float = 0.0,
+        source_audio_artifact_id: str | None = None,
+    ) -> SubtitleExport:
+        timeline = self.timeline(job_id, offset_seconds=offset_seconds)
         job = self.job_store.get_job(job_id)
         imported = import_splicr_job(
             job_id=job_id,
@@ -164,8 +175,17 @@ class SubtitleService:
             raise ValueError("the selected take has no render plan")
         payload = serialize_subtitles(timeline.cues, output_format).encode("utf-8")
         digest = hashlib.sha256(payload).hexdigest()
+        provenance_digest = hashlib.sha256(
+            f"{source_audio_artifact_id or 'source'}:{offset_seconds:.9f}".encode()
+        ).hexdigest()[:8]
+        provenance_suffix = (
+            ""
+            if source_audio_artifact_id is None and offset_seconds == 0
+            else f"-{provenance_digest}"
+        )
         artifact_id = (
-            f"subtitle-{output_format.value}-{_safe_id(imported.take_id)}-{digest[:12]}"
+            f"subtitle-{output_format.value}-{_safe_id(imported.take_id)}-"
+            f"{digest[:12]}{provenance_suffix}"
         )
         try:
             existing = self.studio_store.get_artifact(artifact_id)
@@ -200,6 +220,8 @@ class SubtitleService:
             "timing_sources": dict(timeline.source_counts),
             "timing_confidence": dict(timeline.confidence_counts),
             "content_sha256": digest,
+            "offset_seconds": offset_seconds,
+            "source_audio_artifact_id": source_audio_artifact_id,
         }
         artifact = Artifact(
             id=artifact_id,
@@ -231,9 +253,19 @@ class SubtitleService:
         return job_id
 
     def export_take(
-        self, take_id: str, output_format: SubtitleFormat
+        self,
+        take_id: str,
+        output_format: SubtitleFormat,
+        *,
+        offset_seconds: float = 0.0,
+        source_audio_artifact_id: str | None = None,
     ) -> SubtitleExport:
-        return self.export(self.job_id_for_take(take_id), output_format)
+        return self.export(
+            self.job_id_for_take(take_id),
+            output_format,
+            offset_seconds=offset_seconds,
+            source_audio_artifact_id=source_audio_artifact_id,
+        )
 
     def artifact_path(self, artifact_id: str) -> Path:
         artifact = self.studio_store.get_artifact(artifact_id)

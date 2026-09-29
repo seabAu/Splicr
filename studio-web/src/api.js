@@ -169,24 +169,43 @@ export const api = {
   jobs: () => request("/v1/speech/jobs"),
   job: (id) => request(`/v1/speech/jobs/${encodeURIComponent(id)}`),
   timelineTakes: () => request("/v1/studio/timeline/takes"),
-  timeline: (id, waveformBuckets = 940) =>
+  timeline: (id, waveformBuckets = 940, audioArtifactId = "") =>
     request(
-      `/v1/studio/timeline/jobs/${encodeURIComponent(id)}?waveform_buckets=${waveformBuckets}`,
+      `/v1/studio/timeline/jobs/${encodeURIComponent(id)}?waveform_buckets=${waveformBuckets}${audioArtifactId ? `&audio_artifact_id=${encodeURIComponent(audioArtifactId)}` : ""}`,
     ),
-  timelineSpanUrl: (id, start, end) =>
-    `/v1/studio/timeline/jobs/${encodeURIComponent(id)}/span?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`,
+  timelineSpanUrl: (id, start, end, audioArtifactId = "") =>
+    `/v1/studio/timeline/jobs/${encodeURIComponent(id)}/span?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}${audioArtifactId ? `&audio_artifact_id=${encodeURIComponent(audioArtifactId)}` : ""}`,
   reviseTimelineSegment: (id, segmentIndex, text) =>
     request(
       `/v1/studio/timeline/jobs/${encodeURIComponent(id)}/segments/${segmentIndex}/revise`,
       { method: "POST", body: JSON.stringify({ text }) },
     ),
-  subtitleTimeline: (id) =>
-    request(`/v1/studio/subtitles/jobs/${encodeURIComponent(id)}`),
-  exportJobSubtitles: (id, format) =>
+  subtitleTimeline: (id, audioArtifactId = "") =>
+    request(`/v1/studio/subtitles/jobs/${encodeURIComponent(id)}${audioArtifactId ? `?audio_artifact_id=${encodeURIComponent(audioArtifactId)}` : ""}`),
+  exportJobSubtitles: (id, format, audioArtifactId = "") =>
     request(
-      `/v1/studio/subtitles/jobs/${encodeURIComponent(id)}/export?format=${encodeURIComponent(format)}`,
+      `/v1/studio/subtitles/jobs/${encodeURIComponent(id)}/export?format=${encodeURIComponent(format)}${audioArtifactId ? `&audio_artifact_id=${encodeURIComponent(audioArtifactId)}` : ""}`,
       { method: "POST" },
     ),
+  finishingCapabilities: () => request("/v1/studio/finishing/capabilities"),
+  finishingAssets: () => request("/v1/studio/finishing/assets"),
+  uploadFinishingAsset: (file) => {
+    const body = new FormData();
+    body.append("file", file);
+    return request("/v1/studio/finishing/assets", { method: "POST", body });
+  },
+  finishingJobs: () => request("/v1/studio/finishing/jobs"),
+  finishingJob: (id) =>
+    request(`/v1/studio/finishing/jobs/${encodeURIComponent(id)}`),
+  createFinishingJob: (payload) =>
+    request("/v1/studio/finishing/jobs", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  finishingJobAction: (id, action) =>
+    request(`/v1/studio/finishing/jobs/${encodeURIComponent(id)}/${action}`, {
+      method: "POST",
+    }),
   audiogramCapabilities: () => request("/v1/studio/audiograms/capabilities"),
   audiogramSources: () => request("/v1/studio/audiograms/sources"),
   audiogramJobs: () => request("/v1/studio/audiograms/jobs"),
@@ -233,15 +252,15 @@ export const api = {
     }),
   publishingSources: () => request("/v1/studio/publishing/sources"),
   publishingEpisodes: () => request("/v1/studio/publishing/episodes"),
-  publishingChapters: (takeId) =>
-    request(`/v1/studio/publishing/takes/${encodeURIComponent(takeId)}/chapters`),
+  publishingChapters: (takeId, audioArtifactId = "") =>
+    request(`/v1/studio/publishing/takes/${encodeURIComponent(takeId)}/chapters${audioArtifactId ? `?audio_artifact_id=${encodeURIComponent(audioArtifactId)}` : ""}`),
   exportPublishingTranscript: (takeId) =>
     request(`/v1/studio/publishing/takes/${encodeURIComponent(takeId)}/transcript`, {
       method: "POST",
     }),
-  exportPublishingSubtitles: (takeId, format) =>
+  exportPublishingSubtitles: (takeId, format, audioArtifactId = "") =>
     request(
-      `/v1/studio/publishing/takes/${encodeURIComponent(takeId)}/subtitles?format=${encodeURIComponent(format)}`,
+      `/v1/studio/publishing/takes/${encodeURIComponent(takeId)}/subtitles?format=${encodeURIComponent(format)}${audioArtifactId ? `&audio_artifact_id=${encodeURIComponent(audioArtifactId)}` : ""}`,
       { method: "POST" },
     ),
   publishEpisode: (payload) =>

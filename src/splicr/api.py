@@ -95,6 +95,8 @@ from .profiles import ProfileNotFoundError, StudioProfile, StudioProfileStore
 from .service import SynthesisService
 from .secret_vault import SecretVaultUnavailableError
 from .studio import (
+    Artifact,
+    ArtifactKind,
     Project,
     SqliteStudioStore,
     VoiceProfile,
@@ -145,6 +147,19 @@ from .studio.dialogue import (
     DialogueTurn as GeneratedDialogueTurn,
     generate_script,
     refine_selection,
+)
+from .studio.finishing import (
+    FfmpegFinishingRenderer,
+    FinishingAsset,
+    FinishingAssetNotFoundError,
+    FinishingError,
+    FinishingJob,
+    FinishingJobNotFoundError,
+    FinishingJobService,
+    FinishingJobStatus,
+    FinishingSpec,
+    FinishingStore,
+    InvalidFinishingJobStateError,
 )
 from .studio.publishing import (
     ChapterCue,
@@ -1248,21 +1263,36 @@ class StudioProjectResponse(StudioProjectSummaryResponse):
     source_text: str
 
 
+class TimelineAudioArtifactResponse(BaseModel):
+    id: str
+    name: str
+    intro_offset: float
+    duration: float
+    audio_url: str
+
+
 class TimelineTakeResponse(BaseModel):
     id: str
     provider: str
     voice: str
     total_chunks: int
+    finished_audio_artifacts: list[TimelineAudioArtifactResponse]
     created_at: str
     updated_at: str
 
     @classmethod
-    def from_record(cls, job: JobRecord) -> "TimelineTakeResponse":
+    def from_record(
+        cls,
+        job: JobRecord,
+        *,
+        finished_audio_artifacts: list[TimelineAudioArtifactResponse] | None = None,
+    ) -> "TimelineTakeResponse":
         return cls(
             id=job.id,
             provider=job.provider,
             voice=job.voice,
             total_chunks=job.total_chunks,
+            finished_audio_artifacts=finished_audio_artifacts or [],
             created_at=job.created_at,
             updated_at=job.updated_at,
         )
@@ -1393,6 +1423,100 @@ class SubtitleExportResponse(BaseModel):
             size_bytes=artifact.size_bytes,
             sha256=artifact.sha256,
             download_url=f"/v1/studio/subtitles/artifacts/{artifact.id}",
+        )
+
+
+class FinishingAssetResponse(BaseModel):
+    id: str
+    name: str
+    media_type: str
+    size_bytes: int
+    sha256: str
+    duration_seconds: float
+    created_at: str
+
+    @classmethod
+    def from_domain(cls, asset: FinishingAsset) -> "FinishingAssetResponse":
+        return cls(
+            id=asset.id,
+            name=asset.name,
+            media_type=asset.media_type,
+            size_bytes=asset.size_bytes,
+            sha256=asset.sha256,
+            duration_seconds=asset.duration_seconds,
+            created_at=asset.created_at,
+        )
+
+
+class FinishingSpecPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    intro_asset_id: str | None = Field(default=None, min_length=1, max_length=64)
+    outro_asset_id: str | None = Field(default=None, min_length=1, max_length=64)
+    crossfade_seconds: float = Field(default=1.0, ge=0, le=30)
+    normalize_loudness: bool = False
+
+    def to_domain(self) -> FinishingSpec:
+        return FinishingSpec(**self.model_dump())
+
+
+class FinishingCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source_job_id: str = Field(min_length=1, max_length=64)
+    spec: FinishingSpecPayload
+
+
+class FinishingJobResponse(BaseModel):
+    id: str
+    source_job_id: str
+    project_id: str
+    take_id: str
+    status: FinishingJobStatus
+    spec: FinishingSpecPayload
+    intro_offset: float
+    intro_crossfade: float
+    outro_crossfade: float
+    source_duration: float
+    output_duration: float
+    progress: float
+    output_url: str | None
+    artifact_id: str | None
+    subtitle_artifact_ids: list[str]
+    error_code: str | None
+    error_detail: str | None
+    error_context: dict[str, Any]
+    cancel_requested: bool
+    created_at: str
+    updated_at: str
+
+    @classmethod
+    def from_domain(cls, job: FinishingJob) -> "FinishingJobResponse":
+        ready = job.status is FinishingJobStatus.COMPLETED and bool(job.output_path)
+        return cls(
+            id=job.id,
+            source_job_id=job.source_job_id,
+            project_id=job.project_id,
+            take_id=job.take_id,
+            status=job.status,
+            spec=FinishingSpecPayload(**job.spec.to_mapping()),
+            intro_offset=job.intro_offset,
+            intro_crossfade=job.intro_crossfade,
+            outro_crossfade=job.outro_crossfade,
+            source_duration=job.source_duration,
+            output_duration=job.output_duration,
+            progress=job.progress,
+            output_url=(
+                f"/v1/studio/finishing/jobs/{job.id}/file" if ready else None
+            ),
+            artifact_id=job.artifact_id,
+            subtitle_artifact_ids=list(job.subtitle_artifact_ids),
+            error_code=job.error_code,
+            error_detail=job.error_detail,
+            error_context=dict(job.error_context),
+            cancel_requested=job.cancel_requested,
+            created_at=job.created_at,
+            updated_at=job.updated_at,
         )
 
 
@@ -2264,6 +2388,7 @@ def create_app(
     chat_resource_store: SqliteChatResourceStore | None = None,
     dialogue_script_service: DialogueScriptJobService | None = None,
     subtitle_service: SubtitleService | None = None,
+    finishing_service: FinishingJobService | None = None,
     audiogram_service: AudiogramJobService | None = None,
     conversion_service: ConversionJobService | None = None,
     publishing_service: PublishingService | None = None,
@@ -2300,6 +2425,18 @@ def create_app(
         studio_store=studio,
         output_root=resolved_settings.data_dir / "studio" / "subtitles",
     )
+    finishing = finishing_service or FinishingJobService(
+        store=FinishingStore(resolved_settings.database_path),
+        source_store=synthesis.store,
+        source_storage=synthesis.storage,
+        studio_store=studio,
+        subtitle_service=subtitles,
+        asset_root=resolved_settings.data_dir / "studio" / "finishing-assets",
+        output_root=resolved_settings.data_dir / "studio" / "finished-audio",
+        renderer=FfmpegFinishingRenderer(),
+        max_upload_bytes=resolved_settings.max_audio_upload_bytes,
+    )
+    finishing.store.initialize()
     audiograms = audiogram_service or AudiogramJobService(
         store=AudiogramJobStore(resolved_settings.database_path),
         source_store=synthesis.store,
@@ -2376,15 +2513,19 @@ def create_app(
             try:
                 await voice_designs.start()
                 try:
-                    await audiograms.start()
+                    await finishing.start()
                     try:
-                        await conversions.start()
+                        await audiograms.start()
                         try:
-                            yield
+                            await conversions.start()
+                            try:
+                                yield
+                            finally:
+                                await conversions.stop()
                         finally:
-                            await conversions.stop()
+                            await audiograms.stop()
                     finally:
-                        await audiograms.stop()
+                        await finishing.stop()
                 finally:
                     await voice_designs.stop()
             finally:
@@ -2403,6 +2544,7 @@ def create_app(
     application.state.chat_resource_store = chat_resources
     application.state.dialogue_script_service = dialogue_scripts
     application.state.subtitle_service = subtitles
+    application.state.finishing_service = finishing
     application.state.audiogram_service = audiograms
     application.state.conversion_service = conversions
     application.state.publishing_service = publishing
@@ -3136,6 +3278,25 @@ def create_app(
         )
         return StudioProjectResponse(**summary.model_dump(), source_text=project.source_text)
 
+    def finished_audio_artifact(
+        source_job_id: str, artifact_id: str
+    ) -> tuple[Artifact, Path, float]:
+        artifact = studio.get_artifact(artifact_id)
+        if artifact.kind is not ArtifactKind.AUDIO:
+            raise ValueError("the selected artifact is not audio")
+        if artifact.metadata.get("source_job_id") != source_job_id:
+            raise ValueError("the selected audio artifact does not belong to this take")
+        path = Path(artifact.path)
+        if not path.is_file():
+            raise FileNotFoundError("the selected finished audio file is missing")
+        offset_value = artifact.metadata.get("intro_offset", 0.0)
+        if isinstance(offset_value, bool) or not isinstance(offset_value, (int, float)):
+            raise ValueError("the selected audio artifact has an invalid intro offset")
+        offset = float(offset_value)
+        if offset < 0:
+            raise ValueError("the selected audio artifact has an invalid intro offset")
+        return artifact, path, offset
+
     @application.get(
         "/v1/studio/timeline/takes",
         response_model=list[TimelineTakeResponse],
@@ -3147,6 +3308,17 @@ def create_app(
     ) -> list[TimelineTakeResponse]:
         response.headers["Cache-Control"] = "no-store"
         available: list[TimelineTakeResponse] = []
+        completed_finishing: dict[str, list[FinishingJob]] = {}
+        for finishing_job in finishing.store.list_jobs(limit=500):
+            if (
+                finishing_job.status is FinishingJobStatus.COMPLETED
+                and finishing_job.artifact_id
+                and finishing_job.output_path
+                and Path(finishing_job.output_path).is_file()
+            ):
+                completed_finishing.setdefault(finishing_job.source_job_id, []).append(
+                    finishing_job
+                )
         for job in synthesis.list_jobs(limit):
             if job.status is not JobStatus.COMPLETED:
                 continue
@@ -3162,7 +3334,22 @@ def create_app(
                 synthesis.output_path(job.id)
             except (ValueError, FileNotFoundError):
                 continue
-            available.append(TimelineTakeResponse.from_record(job))
+            finished_audio: list[TimelineAudioArtifactResponse] = []
+            for finishing_job in completed_finishing.get(job.id, []):
+                finished_audio.append(
+                    TimelineAudioArtifactResponse(
+                        id=finishing_job.artifact_id,
+                        name=f"Finished {finishing_job.created_at}",
+                        intro_offset=finishing_job.intro_offset,
+                        duration=finishing_job.output_duration,
+                        audio_url=f"/v1/studio/finishing/jobs/{finishing_job.id}/file",
+                    )
+                )
+            available.append(
+                TimelineTakeResponse.from_record(
+                    job, finished_audio_artifacts=finished_audio
+                )
+            )
         return available
 
     @application.get(
@@ -3174,17 +3361,36 @@ def create_app(
         job_id: str,
         response: Response,
         waveform_buckets: int = Query(default=940, ge=1, le=4_000),
+        audio_artifact_id: str | None = Query(default=None),
     ) -> TimelineResponse:
         response.headers["Cache-Control"] = "no-store"
         try:
+            audio_path = None
+            audio_url = None
+            offset = 0.0
+            if audio_artifact_id:
+                artifact, audio_path, offset = finished_audio_artifact(
+                    job_id, audio_artifact_id
+                )
+                finishing_job_id = artifact.metadata.get("finishing_job_id")
+                if not isinstance(finishing_job_id, str):
+                    raise ValueError("the selected audio artifact has no finishing job")
+                audio_url = f"/v1/studio/finishing/jobs/{finishing_job_id}/file"
             timeline = build_job_timeline(
                 synthesis.store,
                 synthesis.storage,
                 job_id,
                 waveform_buckets=waveform_buckets,
+                audio_path=audio_path,
+                audio_url=audio_url,
+                offset_seconds=offset,
             )
         except JobNotFoundError as error:
             raise HTTPException(status_code=404, detail="job not found") from error
+        except KeyError as error:
+            raise HTTPException(status_code=404, detail="audio artifact not found") from error
+        except FileNotFoundError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
         except ValueError as error:
             raise HTTPException(status_code=409, detail=str(error)) from error
         return TimelineResponse.from_domain(timeline)
@@ -3197,12 +3403,19 @@ def create_app(
         job_id: str,
         start: float = Query(ge=0),
         end: float = Query(gt=0),
+        audio_artifact_id: str | None = Query(default=None),
     ) -> Response:
         try:
-            path = synthesis.output_path(job_id)
+            path = (
+                finished_audio_artifact(job_id, audio_artifact_id)[1]
+                if audio_artifact_id
+                else synthesis.output_path(job_id)
+            )
             payload = wav_span_bytes(path, start, end)
         except JobNotFoundError as error:
             raise HTTPException(status_code=404, detail="job not found") from error
+        except KeyError as error:
+            raise HTTPException(status_code=404, detail="audio artifact not found") from error
         except (ValueError, FileNotFoundError) as error:
             raise HTTPException(status_code=409, detail=str(error)) from error
         return Response(
@@ -3244,13 +3457,24 @@ def create_app(
         tags=["studio"],
     )
     async def get_subtitle_timeline(
-        job_id: str, response: Response
+        job_id: str,
+        response: Response,
+        audio_artifact_id: str | None = Query(default=None),
     ) -> SubtitleTimelineResponse:
         response.headers["Cache-Control"] = "no-store"
         try:
-            return SubtitleTimelineResponse.from_domain(subtitles.timeline(job_id))
+            offset = 0.0
+            if audio_artifact_id:
+                _, _, offset = finished_audio_artifact(job_id, audio_artifact_id)
+            return SubtitleTimelineResponse.from_domain(
+                subtitles.timeline(job_id, offset_seconds=offset)
+            )
         except JobNotFoundError as error:
             raise HTTPException(status_code=404, detail="job not found") from error
+        except KeyError as error:
+            raise HTTPException(status_code=404, detail="audio artifact not found") from error
+        except FileNotFoundError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
         except ValueError as error:
             raise HTTPException(status_code=409, detail=str(error)) from error
 
@@ -3262,13 +3486,28 @@ def create_app(
     async def export_job_subtitles(
         job_id: str,
         output_format: SubtitleFormat = Query(alias="format"),
+        audio_artifact_id: str | None = Query(default=None),
     ) -> SubtitleExportResponse:
         try:
+            offset = 0.0
+            source_audio_artifact_id = None
+            if audio_artifact_id:
+                _, _, offset = finished_audio_artifact(job_id, audio_artifact_id)
+                source_audio_artifact_id = audio_artifact_id
             return SubtitleExportResponse.from_domain(
-                subtitles.export(job_id, output_format)
+                subtitles.export(
+                    job_id,
+                    output_format,
+                    offset_seconds=offset,
+                    source_audio_artifact_id=source_audio_artifact_id,
+                )
             )
         except JobNotFoundError as error:
             raise HTTPException(status_code=404, detail="job not found") from error
+        except KeyError as error:
+            raise HTTPException(status_code=404, detail="audio artifact not found") from error
+        except FileNotFoundError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
         except ValueError as error:
             raise HTTPException(status_code=409, detail=str(error)) from error
 
@@ -3286,6 +3525,179 @@ def create_app(
         except FileNotFoundError as error:
             raise HTTPException(status_code=404, detail=str(error)) from error
         return FileResponse(path, media_type=artifact.media_type, filename=path.name)
+
+    @application.get("/v1/studio/finishing/capabilities", tags=["studio"])
+    async def get_finishing_capabilities() -> dict[str, object]:
+        return {
+            "ffmpeg_available": finishing.ffmpeg_available,
+            "max_upload_bytes": finishing.max_upload_bytes,
+            "supported_extensions": [
+                ".aac",
+                ".flac",
+                ".m4a",
+                ".mp3",
+                ".ogg",
+                ".opus",
+                ".wav",
+                ".webm",
+            ],
+            "defaults": FinishingSpecPayload().model_dump(mode="json"),
+        }
+
+    @application.get(
+        "/v1/studio/finishing/assets",
+        response_model=list[FinishingAssetResponse],
+        tags=["studio"],
+    )
+    async def list_finishing_assets(response: Response) -> list[FinishingAssetResponse]:
+        response.headers["Cache-Control"] = "no-store"
+        return [
+            FinishingAssetResponse.from_domain(item)
+            for item in finishing.store.list_assets()
+        ]
+
+    @application.post(
+        "/v1/studio/finishing/assets",
+        response_model=FinishingAssetResponse,
+        status_code=status.HTTP_201_CREATED,
+        tags=["studio"],
+    )
+    async def upload_finishing_asset(file: UploadFile = File(...)) -> FinishingAssetResponse:
+        payload = await file.read(finishing.max_upload_bytes + 1)
+        try:
+            asset = finishing.register_upload(
+                Path(file.filename or "audio").name,
+                file.content_type or "application/octet-stream",
+                payload,
+            )
+        except FinishingError as error:
+            status_code = (
+                status.HTTP_413_CONTENT_TOO_LARGE
+                if error.code == "asset_too_large"
+                else status.HTTP_422_UNPROCESSABLE_CONTENT
+            )
+            raise HTTPException(
+                status_code=status_code,
+                detail={
+                    "code": error.code,
+                    "message": error.message,
+                    "context": error.context,
+                },
+            ) from error
+        return FinishingAssetResponse.from_domain(asset)
+
+    @application.get(
+        "/v1/studio/finishing/jobs",
+        response_model=list[FinishingJobResponse],
+        tags=["studio"],
+    )
+    async def list_finishing_jobs(
+        response: Response,
+        limit: int = Query(default=100, ge=1, le=500),
+    ) -> list[FinishingJobResponse]:
+        response.headers["Cache-Control"] = "no-store"
+        return [
+            FinishingJobResponse.from_domain(job)
+            for job in finishing.store.list_jobs(limit=limit)
+        ]
+
+    @application.post(
+        "/v1/studio/finishing/jobs",
+        response_model=FinishingJobResponse,
+        status_code=status.HTTP_202_ACCEPTED,
+        tags=["studio"],
+    )
+    async def create_finishing_job(
+        request: FinishingCreateRequest,
+    ) -> FinishingJobResponse:
+        try:
+            return FinishingJobResponse.from_domain(
+                await finishing.submit(request.source_job_id, request.spec.to_domain())
+            )
+        except JobNotFoundError as error:
+            raise HTTPException(status_code=404, detail="source take not found") from error
+        except FinishingAssetNotFoundError as error:
+            raise HTTPException(
+                status_code=404,
+                detail={
+                    "code": "asset_not_found",
+                    "message": str(error).strip("'"),
+                    "context": {},
+                },
+            ) from error
+        except FinishingError as error:
+            error_status = {
+                "asset_not_found": status.HTTP_404_NOT_FOUND,
+                "asset_missing": status.HTTP_409_CONFLICT,
+                "source_missing": status.HTTP_409_CONFLICT,
+            }.get(error.code, status.HTTP_503_SERVICE_UNAVAILABLE)
+            raise HTTPException(
+                status_code=error_status,
+                detail={
+                    "code": error.code,
+                    "message": error.message,
+                    "context": error.context,
+                },
+            ) from error
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+
+    @application.get(
+        "/v1/studio/finishing/jobs/{job_id}",
+        response_model=FinishingJobResponse,
+        tags=["studio"],
+    )
+    async def get_finishing_job(
+        job_id: str, response: Response
+    ) -> FinishingJobResponse:
+        response.headers["Cache-Control"] = "no-store"
+        try:
+            return FinishingJobResponse.from_domain(finishing.store.get_job(job_id))
+        except FinishingJobNotFoundError as error:
+            raise HTTPException(status_code=404, detail="finishing job not found") from error
+
+    @application.post(
+        "/v1/studio/finishing/jobs/{job_id}/cancel",
+        response_model=FinishingJobResponse,
+        tags=["studio"],
+    )
+    async def cancel_finishing_job(job_id: str) -> FinishingJobResponse:
+        try:
+            return FinishingJobResponse.from_domain(await finishing.cancel(job_id))
+        except FinishingJobNotFoundError as error:
+            raise HTTPException(status_code=404, detail="finishing job not found") from error
+        except InvalidFinishingJobStateError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+
+    @application.post(
+        "/v1/studio/finishing/jobs/{job_id}/retry",
+        response_model=FinishingJobResponse,
+        tags=["studio"],
+    )
+    async def retry_finishing_job(job_id: str) -> FinishingJobResponse:
+        try:
+            return FinishingJobResponse.from_domain(await finishing.retry(job_id))
+        except FinishingJobNotFoundError as error:
+            raise HTTPException(status_code=404, detail="finishing job not found") from error
+        except InvalidFinishingJobStateError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+
+    @application.get("/v1/studio/finishing/jobs/{job_id}/file", tags=["studio"])
+    async def get_finishing_file(job_id: str) -> FileResponse:
+        try:
+            job = finishing.store.get_job(job_id)
+            path = finishing.output_for(job_id)
+        except FinishingJobNotFoundError as error:
+            raise HTTPException(status_code=404, detail="finishing job not found") from error
+        except InvalidFinishingJobStateError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        except FileNotFoundError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        return FileResponse(
+            path,
+            media_type="audio/wav",
+            filename=f"splicr-finished-{job.id}.wav",
+        )
 
     @application.get("/v1/studio/audiograms/capabilities", tags=["studio"])
     async def get_audiogram_capabilities() -> dict[str, Any]:
@@ -3618,13 +4030,17 @@ def create_app(
         tags=["studio"],
     )
     def preview_publishing_chapters(
-        take_id: str, response: Response
+        take_id: str,
+        response: Response,
+        audio_artifact_id: str | None = Query(default=None),
     ) -> list[ChapterCueResponse]:
         response.headers["Cache-Control"] = "no-store"
         try:
             return [
                 ChapterCueResponse.from_domain(cue)
-                for cue in publishing.preview_chapters(take_id)
+                for cue in publishing.preview_chapters(
+                    take_id, audio_artifact_id=audio_artifact_id
+                )
             ]
         except KeyError as error:
             raise HTTPException(status_code=404, detail="publishing source not found") from error
@@ -3653,14 +4069,35 @@ def create_app(
     def export_publishing_subtitles(
         take_id: str,
         output_format: SubtitleFormat = Query(alias="format"),
+        audio_artifact_id: str | None = Query(default=None),
     ) -> SubtitleExportResponse:
         try:
+            offset = 0.0
+            if audio_artifact_id:
+                artifact = studio.get_artifact(audio_artifact_id)
+                if artifact.take_id != take_id or artifact.kind is not ArtifactKind.AUDIO:
+                    raise ValueError("the selected audio artifact does not belong to this take")
+                if not Path(artifact.path).is_file():
+                    raise FileNotFoundError("the selected audio artifact is missing")
+                offset_value = artifact.metadata.get("intro_offset", 0.0)
+                if isinstance(offset_value, bool) or not isinstance(
+                    offset_value, (int, float)
+                ):
+                    raise ValueError("the selected audio artifact has an invalid intro offset")
+                offset = float(offset_value)
             return SubtitleExportResponse.from_domain(
-                subtitles.export_take(take_id, output_format)
+                subtitles.export_take(
+                    take_id,
+                    output_format,
+                    offset_seconds=offset,
+                    source_audio_artifact_id=audio_artifact_id,
+                )
             )
         except (KeyError, JobNotFoundError) as error:
             raise HTTPException(status_code=404, detail="publishing source not found") from error
         except ValueError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        except FileNotFoundError as error:
             raise HTTPException(status_code=409, detail=str(error)) from error
 
     @application.get(

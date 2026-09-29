@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  AudioLines,
   BookOpenText,
   CheckCircle2,
   Download,
@@ -36,9 +37,16 @@ export function PublishingWorkspace() {
   const [channel, setChannel] = useState(null);
   const [sources, setSources] = useState([]);
   const [episodes, setEpisodes] = useState([]);
+  const [finishingCapabilities, setFinishingCapabilities] = useState(null);
+  const [finishingAssets, setFinishingAssets] = useState([]);
+  const [finishingJobs, setFinishingJobs] = useState([]);
   const [takeId, setTakeId] = useState("");
   const [audioId, setAudioId] = useState("");
   const [chapters, setChapters] = useState([]);
+  const [introId, setIntroId] = useState("");
+  const [outroId, setOutroId] = useState("");
+  const [crossfade, setCrossfade] = useState(1);
+  const [normalizeLoudness, setNormalizeLoudness] = useState(false);
   const [form, setForm] = useState({ title: "", description: "", publication_date: "" });
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
@@ -49,14 +57,20 @@ export function PublishingWorkspace() {
   const existing = episodes.find((item) => item.take_id === takeId) || null;
 
   const load = async () => {
-    const [nextChannel, nextSources, nextEpisodes] = await Promise.all([
+    const [nextChannel, nextSources, nextEpisodes, capabilities, assets, jobs] = await Promise.all([
       api.publishingChannel(),
       api.publishingSources(),
       api.publishingEpisodes(),
+      api.finishingCapabilities(),
+      api.finishingAssets(),
+      api.finishingJobs(),
     ]);
     setChannel(nextChannel);
     setSources(nextSources);
     setEpisodes(nextEpisodes);
+    setFinishingCapabilities(capabilities);
+    setFinishingAssets(assets);
+    setFinishingJobs(jobs);
     setTakeId((current) => current && nextSources.some((item) => item.take_id === current)
       ? current
       : nextSources[0]?.take_id || "");
@@ -65,6 +79,23 @@ export function PublishingWorkspace() {
   useEffect(() => {
     load().catch((reason) => setError(reason.message));
   }, []);
+
+  const activeFinishing = finishingJobs.some((job) =>
+    ["queued", "running"].includes(job.status),
+  );
+
+  useEffect(() => {
+    if (!activeFinishing) return undefined;
+    const timer = window.setInterval(() => {
+      api.finishingJobs().then((jobs) => {
+        setFinishingJobs(jobs);
+        if (!jobs.some((job) => ["queued", "running"].includes(job.status))) {
+          api.publishingSources().then(setSources).catch((reason) => setError(reason.message));
+        }
+      }).catch((reason) => setError(reason.message));
+    }, 1200);
+    return () => window.clearInterval(timer);
+  }, [activeFinishing]);
 
   useEffect(() => {
     if (!selected) {
@@ -81,10 +112,15 @@ export function PublishingWorkspace() {
       description: published?.description || "",
       publication_date: published?.publication_date?.slice(0, 10) || "",
     });
-    api.publishingChapters(selected.take_id)
+    if (!selected.audio_artifacts.some((item) => item.id === audioId)) return;
+    api.publishingChapters(selected.take_id, audioId)
       .then(setChapters)
       .catch((reason) => setError(reason.message));
-  }, [selected?.take_id, episodes]);
+  }, [selected?.take_id, audioId, episodes]);
+
+  const selectedFinishingJob = finishingJobs.find((job) =>
+    job.source_job_id === selected?.source_job_id,
+  ) || null;
 
   const channelReady = Boolean(channel?.media_base_url);
   const chapterSummary = useMemo(() => {
@@ -125,8 +161,52 @@ export function PublishingWorkspace() {
     setBusy(`subtitles-${format}`);
     setError("");
     try {
-      const result = await api.exportPublishingSubtitles(selected.take_id, format);
+      const result = await api.exportPublishingSubtitles(selected.take_id, format, audioId);
       window.location.assign(result.download_url);
+    } catch (reason) {
+      setError(reason.message);
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const uploadFinishingAsset = async (role, file) => {
+    if (!file) return;
+    setBusy(`upload-${role}`);
+    setError("");
+    try {
+      const asset = await api.uploadFinishingAsset(file);
+      setFinishingAssets((current) => [
+        asset,
+        ...current.filter((item) => item.id !== asset.id),
+      ]);
+      if (role === "intro") setIntroId(asset.id);
+      else setOutroId(asset.id);
+      setNotice(`${role === "intro" ? "Intro" : "Outro"} asset saved to the local library.`);
+    } catch (reason) {
+      setError(reason.message);
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const createFinishedAudio = async () => {
+    if (!selected?.source_job_id || (!introId && !outroId)) return;
+    setBusy("finishing");
+    setError("");
+    setNotice("");
+    try {
+      const job = await api.createFinishingJob({
+        source_job_id: selected.source_job_id,
+        spec: {
+          intro_asset_id: introId || null,
+          outro_asset_id: outroId || null,
+          crossfade_seconds: Number(crossfade),
+          normalize_loudness: normalizeLoudness,
+        },
+      });
+      setFinishingJobs((current) => [job, ...current]);
+      setNotice("Finishing job queued. The source narration remains unchanged.");
     } catch (reason) {
       setError(reason.message);
     } finally {
@@ -180,10 +260,30 @@ export function PublishingWorkspace() {
             {sources.length ? (
               <div className="publishing-source-grid">
                 <label className="control"><span>Project and take</span><select value={takeId} onChange={(event) => setTakeId(event.target.value)}>{sources.map((item) => <option key={item.take_id} value={item.take_id}>{item.project_name} · {item.take_label}</option>)}</select></label>
-                <label className="control"><span>Audio artifact</span><select value={audioId} onChange={(event) => setAudioId(event.target.value)}>{selected?.audio_artifacts.map((item) => <option key={item.id} value={item.id}>{item.name} · {bytes(item.size_bytes)}</option>)}</select></label>
+                <label className="control"><span>Audio artifact</span><select value={audioId} onChange={(event) => setAudioId(event.target.value)}>{selected?.audio_artifacts.map((item) => <option key={item.id} value={item.id}>{item.role === "finished" ? "Finished · " : "Source · "}{item.name} · {bytes(item.size_bytes)}</option>)}</select></label>
               </div>
             ) : <div className="publishing-empty"><FileAudio size={24} /><strong>No completed audio takes yet</strong><span>Finish a narration or conversion first.</span></div>}
           </section>
+
+          <details className="surface publishing-finishing">
+            <summary>
+              <span><AudioLines size={19} /><span><strong>Intro, outro & timing</strong><small>Create a derived master without changing narration checkpoints.</small></span></span>
+              <i>{selectedFinishingJob ? selectedFinishingJob.status : "Optional"}</i>
+            </summary>
+            <div className="publishing-finishing-body">
+              {!finishingCapabilities?.ffmpeg_available && <p className="inline-error">FFmpeg and FFprobe are required for finishing.</p>}
+              <div className="publishing-finishing-grid">
+                <label className="control"><span>Intro asset</span><select value={introId} onChange={(event) => setIntroId(event.target.value)}><option value="">No intro</option>{finishingAssets.map((item) => <option key={item.id} value={item.id}>{item.name} · {duration(item.duration_seconds)}</option>)}</select></label>
+                <label className="control"><span>Outro asset</span><select value={outroId} onChange={(event) => setOutroId(event.target.value)}><option value="">No outro</option>{finishingAssets.map((item) => <option key={item.id} value={item.id}>{item.name} · {duration(item.duration_seconds)}</option>)}</select></label>
+                <label className="control publishing-asset-upload"><span>Add intro audio</span><input type="file" accept="audio/*,.wav,.mp3,.m4a,.aac,.flac,.ogg,.opus,.webm" disabled={!!busy} onChange={(event) => uploadFinishingAsset("intro", event.target.files?.[0])} /><small>{busy === "upload-intro" ? "Inspecting audio…" : "Saved once and reusable."}</small></label>
+                <label className="control publishing-asset-upload"><span>Add outro audio</span><input type="file" accept="audio/*,.wav,.mp3,.m4a,.aac,.flac,.ogg,.opus,.webm" disabled={!!busy} onChange={(event) => uploadFinishingAsset("outro", event.target.files?.[0])} /><small>{busy === "upload-outro" ? "Inspecting audio…" : "Saved once and reusable."}</small></label>
+                <label className="control publishing-crossfade"><span>Crossfade · {Number(crossfade).toFixed(1)}s</span><input type="range" min="0" max="30" step="0.5" value={crossfade} onChange={(event) => setCrossfade(event.target.value)} /><small>Overlong fades are safely clamped per join.</small></label>
+                <label className="check-control"><input type="checkbox" checked={normalizeLoudness} onChange={(event) => setNormalizeLoudness(event.target.checked)} /><span><strong>Normalize loudness</strong><small>Optional FFmpeg loudness pass</small></span></label>
+              </div>
+              {selectedFinishingJob && <div className={`publishing-finishing-status ${selectedFinishingJob.status}`}><span><strong>{selectedFinishingJob.status}</strong><small>{Math.round(selectedFinishingJob.progress * 100)}% · intro offset {selectedFinishingJob.intro_offset.toFixed(2)}s · fades {selectedFinishingJob.intro_crossfade.toFixed(2)}s / {selectedFinishingJob.outro_crossfade.toFixed(2)}s</small></span>{selectedFinishingJob.error_detail && <p>{selectedFinishingJob.error_code}: {selectedFinishingJob.error_detail}</p>}</div>}
+              <div className="publishing-actions"><span>Subtitles, chapters, and Timeline inherit the actual intro offset.</span><button className="secondary-button" type="button" disabled={!selected?.source_job_id || (!introId && !outroId) || !finishingCapabilities?.ffmpeg_available || !!busy || activeFinishing} onClick={createFinishedAudio}>{busy === "finishing" || activeFinishing ? <LoaderCircle className="spin" size={16} /> : <AudioLines size={16} />}Create finished audio</button>{selectedFinishingJob?.status === "failed" && <button type="button" className="secondary-button" onClick={() => api.finishingJobAction(selectedFinishingJob.id, "retry").then((job) => setFinishingJobs((current) => [job, ...current.filter((item) => item.id !== job.id)])).catch((reason) => setError(reason.message))}>Retry</button>}</div>
+            </div>
+          </details>
 
           <section className="surface publishing-episode-editor">
             <div className="section-heading"><div><p className="eyebrow">02 · Episode</p><h2>Describe this release</h2></div><Upload size={20} /></div>

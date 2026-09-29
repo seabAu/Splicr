@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Iterable
 from urllib.parse import quote
 
-from splicr.domain import JobNotFoundError, utc_now
+from splicr.domain import JsonValue, JobNotFoundError, utc_now
 from splicr.storage import LocalJobStorage
 from splicr.store import SqliteJobStore
 
@@ -322,16 +322,35 @@ class PublishingService:
                         "take_label": take.label,
                         "project_id": project.id,
                         "project_name": project.name,
+                        "source_job_id": project.metadata.get("legacy_job_id"),
                         "audio_artifacts": [self._artifact_mapping(item) for item in audio],
                     }
                 )
         return sources
 
-    def preview_chapters(self, take_id: str) -> tuple[ChapterCue, ...]:
+    def preview_chapters(
+        self, take_id: str, audio_artifact_id: str | None = None
+    ) -> tuple[ChapterCue, ...]:
         take, project, plan = self._source(take_id)
         timeline = self._timeline(plan)
-        duration = timeline.duration if timeline is not None else self._take_duration(take)
-        return chapter_cues(project.source_text, plan, timeline, duration)
+        audio = (
+            self._audio_artifact(take, audio_artifact_id)
+            if audio_artifact_id is not None
+            else None
+        )
+        intro_offset = _artifact_intro_offset(audio)
+        duration = (
+            _audio_duration(Path(audio.path))
+            if audio is not None and Path(audio.path).is_file()
+            else timeline.duration if timeline is not None else self._take_duration(take)
+        )
+        return chapter_cues(
+            project.source_text,
+            plan,
+            timeline,
+            duration,
+            intro_offset=intro_offset,
+        )
 
     def export_transcript(self, take_id: str) -> Artifact:
         take, project, _ = self._source(take_id)
@@ -345,10 +364,17 @@ class PublishingService:
             "text/markdown; charset=utf-8",
         )
 
-    def export_chapters(self, take_id: str) -> tuple[Artifact, tuple[ChapterCue, ...]]:
+    def export_chapters(
+        self, take_id: str, audio_artifact_id: str | None = None
+    ) -> tuple[Artifact, tuple[ChapterCue, ...]]:
         take, _, _ = self._source(take_id)
-        cues = self.preview_chapters(take_id)
+        cues = self.preview_chapters(take_id, audio_artifact_id)
         payload = youtube_chapters(cues).encode("utf-8")
+        audio = (
+            self._audio_artifact(take, audio_artifact_id)
+            if audio_artifact_id is not None
+            else None
+        )
         artifact = self._write_artifact(
             take,
             ArtifactKind.CHAPTERS,
@@ -356,6 +382,14 @@ class PublishingService:
             ".txt",
             payload,
             "text/plain; charset=utf-8",
+            metadata=(
+                {
+                    "source_audio_artifact_id": audio_artifact_id,
+                    "intro_offset": _artifact_intro_offset(audio),
+                }
+                if audio is not None
+                else None
+            ),
         )
         return artifact, cues
 
@@ -375,9 +409,7 @@ class PublishingService:
         channel = self.store.get_channel()
         if not channel.media_base_url:
             raise ValueError("set the channel media base URL before publishing an episode")
-        source = self.studio_store.get_artifact(audio_artifact_id)
-        if source.take_id != take.id or source.kind is not ArtifactKind.AUDIO:
-            raise ValueError("the selected audio artifact does not belong to this take")
+        source = self._audio_artifact(take, audio_artifact_id)
         source_path = Path(source.path)
         if not source_path.is_file():
             raise FileNotFoundError(f"audio artifact is missing: {source_path}")
@@ -390,7 +422,7 @@ class PublishingService:
             raise ValueError("episode number must be at least 1")
         published_at = _validated_publication_date(publication_date)
         transcript = self.export_transcript(take.id)
-        chapters_artifact, cues = self.export_chapters(take.id)
+        chapters_artifact, cues = self.export_chapters(take.id, source.id)
         digest = _sha256_file(source_path)
         suffix = source_path.suffix.casefold() or mimetypes.guess_extension(source.media_type) or ".audio"
         media_name = f"{_safe_id(take.id)}-{digest[:12]}{suffix}"
@@ -478,9 +510,17 @@ class PublishingService:
         suffix: str,
         payload: bytes,
         media_type: str,
+        metadata: dict[str, JsonValue] | None = None,
     ) -> Artifact:
         digest = hashlib.sha256(payload).hexdigest()
-        artifact_id = f"publish-{kind.value}-{_safe_id(take.id)}-{digest[:12]}"
+        provenance = json.dumps(metadata or {}, sort_keys=True, separators=(",", ":"))
+        provenance_suffix = (
+            f"-{hashlib.sha256(provenance.encode()).hexdigest()[:8]}" if metadata else ""
+        )
+        artifact_id = (
+            f"publish-{kind.value}-{_safe_id(take.id)}-{digest[:12]}"
+            f"{provenance_suffix}"
+        )
         for existing in self.studio_store.list_artifacts(take.id):
             if existing.id == artifact_id and Path(existing.path).is_file():
                 return existing
@@ -495,6 +535,7 @@ class PublishingService:
             media_type=media_type,
             size_bytes=len(payload),
             sha256=digest,
+            metadata=metadata or {},
         )
         try:
             return self.studio_store.add_artifact(artifact)
@@ -508,7 +549,16 @@ class PublishingService:
             "name": Path(artifact.path).name,
             "media_type": artifact.media_type,
             "size_bytes": artifact.size_bytes,
+            "role": "finished" if artifact.metadata.get("finishing_job_id") else "source",
+            "intro_offset": _artifact_intro_offset(artifact),
+            "duration": _artifact_output_duration(artifact),
         }
+
+    def _audio_artifact(self, take: Take, artifact_id: str) -> Artifact:
+        artifact = self.studio_store.get_artifact(artifact_id)
+        if artifact.take_id != take.id or artifact.kind is not ArtifactKind.AUDIO:
+            raise ValueError("the selected audio artifact does not belong to this take")
+        return artifact
 
 
 def chapter_cues(
@@ -516,6 +566,8 @@ def chapter_cues(
     plan: RenderPlan,
     timeline: JobTimeline | None,
     duration_seconds: float,
+    *,
+    intro_offset: float = 0.0,
 ) -> tuple[ChapterCue, ...]:
     headings = list(_HEADING_RE.finditer(source_text))
     if not headings:
@@ -526,10 +578,35 @@ def chapter_cues(
         seconds = _position_seconds(position, len(source_text), plan, timeline, duration_seconds)
         title = re.sub(r"[*_`~]", "", match.group(2)).strip()
         if title:
-            cues.append(ChapterCue(title=title, seconds=max(0.0, seconds), level=len(match.group(1))))
-    if cues and cues[0].seconds > 1.5:
+            cues.append(
+                ChapterCue(
+                    title=title,
+                    seconds=max(0.0, seconds + intro_offset),
+                    level=len(match.group(1)),
+                )
+            )
+    if intro_offset > 0 and cues:
+        label = "Intro" if cues[0].title.casefold() == "introduction" else "Introduction"
+        cues.insert(0, ChapterCue(title=label, seconds=0.0, level=1))
+    elif cues and cues[0].seconds > 1.5:
         cues.insert(0, ChapterCue(title="Introduction", seconds=0.0, level=1))
     return tuple(cues)
+
+
+def _artifact_intro_offset(artifact: Artifact | None) -> float:
+    if artifact is None:
+        return 0.0
+    value = artifact.metadata.get("intro_offset")
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return 0.0
+    return max(0.0, float(value))
+
+
+def _artifact_output_duration(artifact: Artifact) -> float:
+    value = artifact.metadata.get("output_duration")
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return 0.0
+    return max(0.0, float(value))
 
 
 def youtube_chapters(cues: Iterable[ChapterCue]) -> str:

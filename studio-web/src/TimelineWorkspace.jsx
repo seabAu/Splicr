@@ -77,8 +77,7 @@ function Waveform({ timeline, selectedIndex, selection, onSelect, onSelectionCha
     return ratio * timeline.duration;
   };
   const segmentAt = (time) =>
-    timeline.segments.find((item) => time >= item.start && time <= item.end)
-      || timeline.segments.at(-1);
+    timeline.segments.find((item) => time >= item.start && time <= item.end) || null;
 
   const handlePointerDown = (event) => {
     const time = timeAtPointer(event);
@@ -172,6 +171,7 @@ function Waveform({ timeline, selectedIndex, selection, onSelect, onSelectionCha
 export function TimelineWorkspace({ onNavigate }) {
   const [takes, setTakes] = useState([]);
   const [takeId, setTakeId] = useState("");
+  const [audioArtifactId, setAudioArtifactId] = useState("");
   const [timeline, setTimeline] = useState(null);
   const [subtitles, setSubtitles] = useState(null);
   const [selectedIndex, setSelectedIndex] = useState(null);
@@ -189,6 +189,7 @@ export function TimelineWorkspace({ onNavigate }) {
     const next = preferredId && loaded.some((item) => item.id === preferredId)
       ? preferredId
       : loaded[0]?.id || "";
+    setAudioArtifactId("");
     setTakeId(next);
     return next;
   };
@@ -214,7 +215,10 @@ export function TimelineWorkspace({ onNavigate }) {
     let cancelled = false;
     setBusy("timeline");
     setError("");
-    Promise.all([api.timeline(takeId), api.subtitleTimeline(takeId)])
+    Promise.all([
+      api.timeline(takeId, 940, audioArtifactId),
+      api.subtitleTimeline(takeId, audioArtifactId),
+    ])
       .then(([loaded, subtitleTimeline]) => {
         if (cancelled) return;
         setTimeline(loaded);
@@ -232,7 +236,7 @@ export function TimelineWorkspace({ onNavigate }) {
         if (!cancelled) setBusy("");
       });
     return () => { cancelled = true; };
-  }, [takeId]);
+  }, [takeId, audioArtifactId]);
 
   useEffect(() => {
     if (!revisionJob || TERMINAL.has(revisionJob.status)) return undefined;
@@ -253,6 +257,7 @@ export function TimelineWorkspace({ onNavigate }) {
   }, [revisionJob?.id, revisionJob?.status]);
 
   const selected = timeline?.segments.find((item) => item.index === selectedIndex) || null;
+  const selectedTake = takes.find((item) => item.id === takeId) || null;
   const selectSegment = (segment, preserveSelection = false) => {
     setSelectedIndex(segment.index);
     setEditText(segment.text);
@@ -264,7 +269,7 @@ export function TimelineWorkspace({ onNavigate }) {
   const playSelection = () => {
     if (!timeline || selection.end <= selection.start) return;
     setSelectionAudio(
-      `${api.timelineSpanUrl(timeline.job_id, selection.start, selection.end)}&v=${Date.now()}`,
+      `${api.timelineSpanUrl(timeline.job_id, selection.start, selection.end, audioArtifactId)}&v=${Date.now()}`,
     );
   };
   const revise = async () => {
@@ -286,7 +291,7 @@ export function TimelineWorkspace({ onNavigate }) {
     setBusy(`subtitles-${format}`);
     setError("");
     try {
-      const result = await api.exportJobSubtitles(timeline.job_id, format);
+      const result = await api.exportJobSubtitles(timeline.job_id, format, audioArtifactId);
       window.location.assign(result.download_url);
     } catch (reason) {
       setError(reason.message);
@@ -316,8 +321,19 @@ export function TimelineWorkspace({ onNavigate }) {
         </div>
         <label className="control timeline-take-picker">
           <span>Completed take</span>
-          <select value={takeId} onChange={(event) => setTakeId(event.target.value)}>
+          <select value={takeId} onChange={(event) => { setAudioArtifactId(""); setTakeId(event.target.value); }}>
             {takes.map((take) => <option key={take.id} value={take.id}>{takeLabel(take)}</option>)}
+          </select>
+        </label>
+        <label className="control timeline-take-picker">
+          <span>Audio timing</span>
+          <select value={audioArtifactId} onChange={(event) => setAudioArtifactId(event.target.value)}>
+            <option value="">Original narration</option>
+            {selectedTake?.finished_audio_artifacts.map((artifact) => (
+              <option key={artifact.id} value={artifact.id}>
+                Finished · +{artifact.intro_offset.toFixed(2)}s intro · {formatTime(artifact.duration)}
+              </option>
+            ))}
           </select>
         </label>
       </header>

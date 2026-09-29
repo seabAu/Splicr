@@ -898,7 +898,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important
 .publishing-notice { display: flex; align-items: center; gap: 8px; margin: 0 0 16px; border: 1px solid rgba(216,255,114,.24); border-radius: 10px; background: var(--accent-soft); color: #e8f6c4; padding: 10px 12px; font-size: 12px; }
 .publishing-layout { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(360px, .72fr); gap: 18px; align-items: start; }
 .publishing-main-stack, .publishing-side-stack { min-width: 0; display: grid; gap: 16px; }
-.publishing-source, .publishing-episode-editor, .publishing-channel, .publishing-chapters, .publishing-history { padding: 22px; }
+.publishing-source, .publishing-episode-editor, .publishing-channel, .publishing-chapters, .publishing-history, .publishing-finishing { padding: 22px; }
 .publishing-source-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr); gap: 12px; }
 .publishing-source-grid .control, .publishing-fields .control, .publishing-channel .control { max-width: none; }
 .publishing-empty { min-height: 130px; display: grid; place-items: center; align-content: center; gap: 6px; color: var(--muted); }
@@ -906,6 +906,24 @@ button:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important
 .publishing-fields { display: grid; grid-template-columns: minmax(0, 1fr) 210px; gap: 12px; }
 .publishing-fields .wide { grid-column: 1 / -1; }
 .publishing-fields textarea, .publishing-channel textarea { resize: vertical; }
+.publishing-finishing > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; list-style: none; }
+.publishing-finishing > summary::-webkit-details-marker { display: none; }
+.publishing-finishing > summary > span { display: flex; align-items: center; gap: 10px; }
+.publishing-finishing > summary > span > span { display: grid; gap: 3px; }
+.publishing-finishing > summary strong { font: 600 0.92rem var(--sans); }
+.publishing-finishing > summary small { color: var(--muted); font-size: 0.68rem; font-weight: 400; }
+.publishing-finishing > summary i { border: 1px solid var(--line); border-radius: 999px; color: var(--accent); padding: 5px 8px; font-size: 0.58rem; font-style: normal; text-transform: uppercase; letter-spacing: .08em; }
+.publishing-finishing[open] > summary { border-bottom: 1px solid var(--line-soft); padding-bottom: 15px; }
+.publishing-finishing-body { display: grid; gap: 14px; padding-top: 15px; }
+.publishing-finishing-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: end; }
+.publishing-finishing-grid .control { max-width: none; }
+.publishing-asset-upload input { padding: 8px; font-size: 0.66rem; }
+.publishing-crossfade input { padding: 0; }
+.publishing-finishing-status { display: grid; gap: 7px; border: 1px solid var(--line-soft); border-radius: 10px; background: #10110f; padding: 10px 12px; }
+.publishing-finishing-status span { display: grid; gap: 3px; }
+.publishing-finishing-status strong { color: var(--accent); text-transform: capitalize; }
+.publishing-finishing-status small { color: var(--muted); font-size: .66rem; }
+.publishing-finishing-status p { margin: 0; color: #ffc293; font-size: .7rem; }
 .publishing-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 .publishing-actions > span { margin-right: auto; color: var(--subtle); font-size: 11px; }
 .job-caption-export, .publishing-caption-actions { color: var(--muted); font-size: 0.68rem; }
@@ -954,7 +972,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important
   .publishing-workspace { padding: 20px 16px 52px; }
   .publishing-header { align-items: stretch; flex-direction: column; }
   .publishing-header .secondary-button { width: 100%; justify-content: center; }
-  .publishing-source-grid, .publishing-fields, .publishing-channel-pair, .publishing-side-stack { grid-template-columns: 1fr; }
+  .publishing-source-grid, .publishing-fields, .publishing-channel-pair, .publishing-side-stack, .publishing-finishing-grid { grid-template-columns: 1fr; }
   .publishing-fields .wide { grid-column: auto; }
   .publishing-channel { grid-row: auto; }
   .publishing-actions { align-items: stretch; flex-direction: column; }

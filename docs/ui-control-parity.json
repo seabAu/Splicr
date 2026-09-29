@@ -25,9 +25,9 @@
     {"key": "editing_wav_rate", "status": "covered", "workspace": "Convert", "control": "Sample-rate selector"},
     {"key": "editing_wav_channels", "status": "covered", "workspace": "Convert", "control": "Mono/stereo selector"},
     {"key": "video_image", "status": "gap", "workspace": "Audiogram", "control": "Solid background color", "next_step": "Support a still-image background and composited overlay preview."},
-    {"key": "intro_audio", "status": "gap", "workspace": "Timeline / Publish", "control": null, "next_step": "Add non-destructive intro/outro assets to the take assembly plan."},
-    {"key": "outro_audio", "status": "gap", "workspace": "Timeline / Publish", "control": null, "next_step": "Add non-destructive intro/outro assets to the take assembly plan."},
-    {"key": "intro_crossfade", "status": "gap", "workspace": "Timeline / Publish", "control": null, "next_step": "Expose crossfade duration when intro or outro assets are configured."}
+    {"key": "intro_audio", "status": "covered", "workspace": "Publish / Timeline", "control": "Durable intro asset library and finished-audio timing selection"},
+    {"key": "outro_audio", "status": "covered", "workspace": "Publish / Timeline", "control": "Durable outro asset library and derived finished master"},
+    {"key": "intro_crossfade", "status": "covered", "workspace": "Publish", "control": "Stepped crossfade slider with persisted safe effective fades and intro offset"}
   ],
   "broader_native_capabilities": [
     {"capability": "Sentence-level regeneration and splice", "status": "gap", "workspace": "Timeline", "next_step": "Refine chunk-level revisions into sentence spans where engines provide reliable timing."},

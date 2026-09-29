@@ -21,6 +21,29 @@ function captureRuntimeErrors(page) {
   return errors;
 }
 
+function toneWav(seconds = 0.2) {
+  const sampleRate = 24_000;
+  const frames = Math.round(seconds * sampleRate);
+  const dataBytes = frames * 2;
+  const wav = Buffer.alloc(44 + dataBytes);
+  wav.write("RIFF", 0);
+  wav.writeUInt32LE(36 + dataBytes, 4);
+  wav.write("WAVEfmt ", 8);
+  wav.writeUInt32LE(16, 16);
+  wav.writeUInt16LE(1, 20);
+  wav.writeUInt16LE(1, 22);
+  wav.writeUInt32LE(sampleRate, 24);
+  wav.writeUInt32LE(sampleRate * 2, 28);
+  wav.writeUInt16LE(2, 32);
+  wav.writeUInt16LE(16, 34);
+  wav.write("data", 36);
+  wav.writeUInt32LE(dataBytes, 40);
+  for (let index = 0; index < frames; index += 1) {
+    wav.writeInt16LE(Math.round(Math.sin(index * 2 * Math.PI * 330 / sampleRate) * 3000), 44 + index * 2);
+  }
+  return wav;
+}
+
 test.beforeEach(async ({ page }) => {
   await page.goto("/studio/");
   await expect(
@@ -143,6 +166,23 @@ test("a document can be planned, directed, rendered, played, and reopened", asyn
   await expect(
     page.getByLabel("Audio waveform with synthesis segment boundaries"),
   ).toBeVisible();
+
+  await navigation.getByRole("button", { name: "Publish", exact: true }).click();
+  await page.locator("details.publishing-finishing > summary").click();
+  await page.getByLabel("Add intro audio").setInputFiles({
+    name: "acceptance-intro.wav",
+    mimeType: "audio/wav",
+    buffer: toneWav(),
+  });
+  await expect(page.getByLabel("Intro asset")).toContainText("acceptance-intro.wav");
+  await page.getByLabel(/Crossfade/).fill("0");
+  await page.getByRole("button", { name: "Create finished audio" }).click();
+  await expect(page.locator(".publishing-finishing-status.completed")).toBeVisible({ timeout: 20_000 });
+  const audioArtifact = page.getByLabel("Audio artifact");
+  const finishedOption = audioArtifact.locator("option").filter({ hasText: "Finished" }).first();
+  await expect(finishedOption).toBeAttached();
+  await audioArtifact.selectOption(await finishedOption.getAttribute("value"));
+  await expect(page.locator(".publishing-chapters").getByText("Introduction")).toBeVisible();
 
   expect(runtimeErrors).toEqual([]);
 });

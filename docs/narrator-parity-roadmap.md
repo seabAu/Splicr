@@ -263,15 +263,15 @@ Edge TTS was Narrator's zero-setup online fallback. It is not currently a merged
 
 ### Intro, outro, and crossfade
 
-- [ ] Manage intro/outro uploads as durable assets rather than arbitrary transient paths.
-- [ ] Add non-destructive assembly settings to a take/publish plan; never rewrite checkpoints.
-- [ ] Implement concat/acrossfade with overlong crossfades clamped safely.
-- [ ] Calculate and persist the actual intro offset.
-- [ ] Shift subtitle cues, chapter marks, timeline spans, and waveform navigation by that offset.
-- [ ] Leave the narration artifact untouched and report a structured error if an asset is missing or
+- [x] Manage intro/outro uploads as durable assets rather than arbitrary transient paths.
+- [x] Add non-destructive assembly settings to a take/publish plan; never rewrite checkpoints.
+- [x] Implement concat/acrossfade with overlong crossfades clamped safely.
+- [x] Calculate and persist the actual intro offset.
+- [x] Shift subtitle cues, chapter marks, timeline spans, and waveform navigation by that offset.
+- [x] Leave the narration artifact untouched and report a structured error if an asset is missing or
   unreadable.
-- [ ] Offer optional loudness normalization as an enhancement, not a parity requirement.
-- [ ] Verify real FFmpeg output for intro only, outro only, both, zero/overlong crossfade, offsets,
+- [x] Offer optional loudness normalization as an enhancement, not a parity requirement.
+- [x] Verify real FFmpeg output for intro only, outro only, both, zero/overlong crossfade, offsets,
   missing assets, and atomic failure.
 
 ### Sentence-level regeneration
@@ -454,9 +454,10 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
 
 - **Active milestone:** Milestones 2/3 live acceptance closeout plus Milestone 5 — non-destructive
   finishing and sentence editing.
-- **Next implementation slice:** introduce durable intro/outro assets and a reproducible crossfade
-  assembly plan without mutating source checkpoints. Real Qwen and Edge acceptance remains ready
-  when configured environments are available.
+- **Next implementation slice:** refine Timeline's immutable chunk revisions into sentence-level
+  spans and derived splice takes, falling back to the existing chunk revision whenever timing is
+  insufficient. Real Qwen and Edge acceptance remains ready when configured environments are
+  available.
 - **Known unrelated worktree item:** `LICENSE.txt` is untracked and not part of this roadmap unless
   deliberately adopted later.
 
@@ -494,3 +495,9 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   alignment is explicitly estimated. Narrate, Dialogue, Timeline, and Publish export immutable
   UTF-8 SRT/WebVTT artifacts from complete or partial takes, and Audiogram can burn a derived SRT
   into MP4/WebM output while preserving and hashing the original take and caption provenance.
+- **2026-09-29:** Completed Milestone 5 intro/outro finishing. Managed audio assets and durable jobs
+  persist the exact source, hashes, requested/effective crossfades, loudness option, output duration,
+  and real intro offset. FFmpeg writes a derived canonical WAV atomically while source checkpoints
+  remain unchanged; shifted captions, chapters, Timeline segments, waveform, span playback, and
+  publishing selections all resolve against the same finished artifact. Real FFmpeg combinations,
+  restart/error behavior, API integration, and the progressive Publish workflow are covered.

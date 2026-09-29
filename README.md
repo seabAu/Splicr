@@ -58,6 +58,9 @@ Despite the source document's use of “transcription,” this service performs 
   Qwen voices and Kokoro blends
 - A local publishing workspace that exports Markdown transcripts, heading-derived YouTube chapters,
   stable episode media, and an RSS 2.0/iTunes feed without uploading or mutating external services
+- Durable reusable intro/outro assets and resumable finishing jobs that create an atomic derived
+  WAV with safe crossfades, optional loudness normalization, and one shared timing offset for
+  subtitles, chapters, Timeline navigation, and publishing
 
 Gemini remains available as a Preview provider. Deepgram Aura-2 and Inworld TTS-2 are also
 registered, and every provider's model and voice defaults can be changed through environment
@@ -74,7 +77,7 @@ same reference clip, transcript, speaker, and settings.
 ## Run locally
 
 Requirements: Python 3.11+, [uv](https://docs.astral.sh/uv/), and
-[FFmpeg](https://ffmpeg.org/) plus FFprobe on `PATH` for audiogram rendering and audio conversion.
+[FFmpeg](https://ffmpeg.org/) plus FFprobe on `PATH` for audiogram rendering, finishing, and audio conversion.
 The Docker image includes both.
 
 ```powershell
@@ -109,6 +112,12 @@ The Publish workspace turns completed Takes into durable local delivery artifact
 and episodes persist in SQLite, transcript and chapter exports join the Take artifact history, and
 republishing a Take updates its stable episode instead of creating a duplicate. The configured
 media base URL is used only to construct podcast enclosure links; SPLICR does not upload the files.
+Its optional Intro, outro & timing panel manages reusable local audio assets and queues a durable
+FFmpeg finishing plan. Requested and safely clamped effective crossfades, asset hashes, actual intro
+offset, source/output durations, and loudness choice are persisted as provenance. The finished WAV
+is a new Artifact: narration checkpoints and the original master remain untouched. Selecting that
+Artifact in Publish or Timeline shifts captions, chapters, waveform navigation, and span playback
+to the same timebase.
 The established interface remains at `http://127.0.0.1:8000/` while the
 remaining Narrator workspaces are migrated. The generated interactive API remains at
 `http://127.0.0.1:8000/docs`.
@@ -317,6 +326,12 @@ uv run splicr synthesize .\input_document.md .\continuous_reading.wav `
 | `POST` | `/v1/studio/conversions/jobs/{id}/{cancel,retry}` | Cancel or retry a conversion |
 | `GET` | `/v1/studio/conversions/jobs/{id}/file` | Download the complete converted file |
 | `GET` | `/v1/studio/conversions/jobs/{id}/parts/{index}` | Download one verified split part |
+| `GET` | `/v1/studio/finishing/capabilities` | Read FFmpeg availability and finishing defaults |
+| `GET`, `POST` | `/v1/studio/finishing/assets` | List or add durable reusable intro/outro audio |
+| `GET`, `POST` | `/v1/studio/finishing/jobs` | List or queue durable derived-master jobs |
+| `GET` | `/v1/studio/finishing/jobs/{id}` | Read progress, effective fades, offset, and structured errors |
+| `POST` | `/v1/studio/finishing/jobs/{id}/{cancel,retry}` | Cancel or retry a finishing job |
+| `GET` | `/v1/studio/finishing/jobs/{id}/file` | Download the completed canonical finished WAV |
 | `GET`, `PUT` | `/v1/studio/publishing/channel` | Read or save local podcast channel metadata |
 | `GET` | `/v1/studio/publishing/sources` | List completed Takes and their available audio artifacts |
 | `GET` | `/v1/studio/publishing/takes/{id}/chapters` | Preview heading-derived chapter timestamps |

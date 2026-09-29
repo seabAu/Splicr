@@ -55,16 +55,21 @@ def build_job_timeline(
     job_id: str,
     *,
     waveform_buckets: int = 940,
+    audio_path: Path | None = None,
+    audio_url: str | None = None,
+    offset_seconds: float = 0.0,
 ) -> JobTimeline:
     if waveform_buckets < 1 or waveform_buckets > 4_000:
         raise ValueError("waveform_buckets must be between 1 and 4000")
+    if not math.isfinite(offset_seconds) or offset_seconds < 0:
+        raise ValueError("offset_seconds must be a finite non-negative value")
     job = job_store.get_job(job_id)
     chunks = job_store.chunks_for_job(job_id)
     if not chunks:
         raise ValueError("the selected take has no synthesis segments")
     paths = _completed_chunk_paths(chunks)
     segment_options = _segment_options(job, len(chunks))
-    cursor = 0.0
+    cursor = offset_seconds
     segments: list[TimelineSegment] = []
     for chunk, path, settings in zip(chunks, paths, segment_options, strict=True):
         duration = _pcm_duration(path)
@@ -86,16 +91,36 @@ def build_job_timeline(
             )
         )
         cursor += duration
-    output = Path(job.output_path) if job.output_path else job_storage.output_path(job_id)
+    output = (
+        audio_path
+        if audio_path is not None
+        else Path(job.output_path)
+        if job.output_path
+        else job_storage.output_path(job_id)
+    )
+    if audio_path is not None:
+        duration = _wav_duration(output)
+        waveform = _wav_waveform_envelope(output, waveform_buckets)
+        resolved_audio_url = audio_url
+    else:
+        duration = cursor
+        waveform = _waveform_envelope(paths, waveform_buckets)
+        resolved_audio_url = (
+            audio_url
+            if audio_url is not None
+            else f"/v1/speech/jobs/{job.id}/audio"
+            if output.is_file()
+            else None
+        )
     return JobTimeline(
         job_id=job.id,
         status=job.status,
         engine_id=job.provider,
         voice_id=job.voice,
-        duration=cursor,
-        waveform=_waveform_envelope(paths, waveform_buckets),
+        duration=duration,
+        waveform=waveform,
         segments=tuple(segments),
-        audio_url=f"/v1/speech/jobs/{job.id}/audio" if output.is_file() else None,
+        audio_url=resolved_audio_url,
     )
 
 
@@ -126,6 +151,56 @@ def wav_span_bytes(path: Path, start: float, end: float) -> bytes:
         output.setframerate(CANONICAL_AUDIO_FORMAT.sample_rate)
         output.writeframes(selected)
     return destination.getvalue()
+
+
+def _wav_duration(path: Path) -> float:
+    with wave.open(str(path), "rb") as source:
+        _validate_canonical_wav(source)
+        return source.getnframes() / source.getframerate()
+
+
+def _validate_canonical_wav(source: wave.Wave_read) -> None:
+    if (
+        source.getnchannels() != CANONICAL_AUDIO_FORMAT.channels
+        or source.getsampwidth() != CANONICAL_AUDIO_FORMAT.sample_width
+        or source.getframerate() != CANONICAL_AUDIO_FORMAT.sample_rate
+    ):
+        raise ValueError("timeline audio is not canonical mono PCM16 at 24 kHz")
+
+
+def _wav_waveform_envelope(path: Path, buckets: int) -> tuple[float, ...]:
+    with wave.open(str(path), "rb") as source:
+        _validate_canonical_wav(source)
+        total_frames = source.getnframes()
+        if not total_frames:
+            return ()
+        frames_per_bucket = max(1, math.ceil(total_frames / buckets))
+        bucket_count = math.ceil(total_frames / frames_per_bucket)
+        peaks: list[float] = []
+        for bucket in range(bucket_count):
+            bucket_start = bucket * frames_per_bucket
+            bucket_end = min(total_frames, bucket_start + frames_per_bucket)
+            sample_windows = [(bucket_start, bucket_end - bucket_start)]
+            if bucket_end - bucket_start > 1_024:
+                sample_windows = []
+                for window in range(12):
+                    midpoint = bucket_start + int(
+                        (window + 0.5) * (bucket_end - bucket_start) / 12
+                    )
+                    start = max(bucket_start, midpoint - 32)
+                    start = min(start, bucket_end - 64)
+                    sample_windows.append((start, 64))
+            peak = 0
+            for start, count in sample_windows:
+                source.setpos(start)
+                samples = array("h")
+                samples.frombytes(source.readframes(count))
+                if sys.byteorder != "little":
+                    samples.byteswap()
+                if samples:
+                    peak = max(peak, max(abs(sample) for sample in samples))
+            peaks.append(min(1.0, peak / 32_768))
+    return tuple(peaks)
 
 
 def _completed_chunk_paths(chunks: Sequence[ChunkRecord]) -> tuple[Path, ...]:

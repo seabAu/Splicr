@@ -102,6 +102,16 @@ timing-source summary, and partial state to the Studio Artifact. Audiogram capti
 that derived subtitle artifact and records its identity/hash on the video artifact; neither path
 rewrites source PCM or the master WAV.
 
+Post-production finishing follows the same derived-artifact rule. Content-addressed intro/outro
+uploads live in managed storage, while `studio_finishing_jobs` freezes the source job, asset
+identities and hashes, requested and independently clamped effective crossfades, optional loudness
+normalization, source/output durations, and actual intro offset. The worker requeues interrupted
+work, renders canonical mono PCM16/24 kHz through FFmpeg into a temporary file, and only exposes the
+finished WAV after atomic replacement and artifact registration. Missing or unreadable assets are
+structured failures; they never rewrite or invalidate the narration checkpoints. SRT/WebVTT,
+heading chapters, Timeline segment coordinates, the rendered waveform, and selection playback all
+consume the persisted finished-audio offset rather than maintaining separate timing guesses.
+
 `splicr migrate-studio` converts every existing SPLICR job into a deterministic Project, immutable
 Render Plan, and Take, then links a completed WAV as an Artifact when it exists. Import mappings
 and fingerprints make reruns idempotent while still allowing take status to catch up with a legacy
@@ -146,8 +156,10 @@ requeued after restart, a persisted cancel request is honored after restart, com
 worker output is finalized without regenerating audio, and failed/cancelled jobs can be retried.
 Voice Studio exposes Designed voice and Generate another take while keeping profile take identity
 separate from per-render seed. Workspace navigation keeps mounted form state intact. Audition will
-arrive with its isolated engine adapter. Dialogue, timeline, audiogram,
-publishing, component management, and conversion remain explicit migration slots.
+arrive with its isolated engine adapter. Publish now exposes finishing through a compact optional
+disclosure, and Timeline can switch between original narration and any completed derived master
+without mutating either. Dialogue, advanced timeline editing, audiogram, publishing, component
+management, and conversion remain explicit migration surfaces.
 
 The React shell now owns the essential SPLICR management workflows as well. Profiles save and load
 the full source/delivery state plus an optional resumable take. The connection editor creates,
