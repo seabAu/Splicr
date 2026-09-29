@@ -34,6 +34,11 @@ packages = ["src/splicr"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+markers = [
+  "live_provider: opt-in contract test that calls a real provider and may consume quota",
+  "live_engine: opt-in contract test that loads a configured local model environment",
+  "release_acceptance: slower release-level acceptance or soak test",
+]
 
 [tool.ruff]
 line-length = 100

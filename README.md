@@ -123,6 +123,18 @@ npm test
 npm run build
 ```
 
+The browser acceptance suite starts a real FastAPI server with a deterministic fake TTS provider,
+then walks every Studio workspace and exercises a complete plan/render/playback/Library/Timeline
+journey in Chromium without using API quota:
+
+```powershell
+npm --prefix studio-web run build
+npm --prefix studio-web run test:e2e
+```
+
+See [`docs/ui-control-parity.md`](docs/ui-control-parity.md) for the machine-checked mapping from
+Narrator's native controls to the merged Studio UI and its explicit remaining gaps.
+
 To reuse existing Narrator engine environments on Windows, add their interpreters to `.env` before
 starting SPLICR:
 

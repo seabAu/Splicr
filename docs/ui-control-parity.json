@@ -1,0 +1,42 @@
+{
+  "source": "legacy/narrator/narrator/render_config.py",
+  "statuses": ["covered", "intentional_replacement", "gap"],
+  "legacy_render_fields": [
+    {"key": "path", "status": "covered", "workspace": "Narrate", "control": "Document import/source editor"},
+    {"key": "root", "status": "intentional_replacement", "workspace": "Library", "control": "Managed per-user artifact store", "rationale": "Studio owns durable project artifacts and exposes downloads instead of writing beside source files."},
+    {"key": "engine", "status": "covered", "workspace": "Narrate", "control": "Engine selector"},
+    {"key": "voice", "status": "covered", "workspace": "Narrate / Voice studio", "control": "Voice selector or Voice Profile"},
+    {"key": "take", "status": "gap", "workspace": "Voice studio", "control": null, "next_step": "Expose reproducible Qwen voice-design take/seed controls in an engine-specific advanced panel."},
+    {"key": "speed", "status": "gap", "workspace": "Narrate", "control": "Five-step pace control", "next_step": "Add an optional provider-aware numeric speed override without replacing the simple pace control."},
+    {"key": "chunk_mode", "status": "gap", "workspace": "Narrate", "control": "Semantic/heading/newline boundary selector", "next_step": "Add an advanced chunk-planning mode that exposes parts, token targets, and character targets."},
+    {"key": "chunk_count", "status": "gap", "workspace": "Narrate", "control": null, "next_step": "Expose desired part count when advanced chunk mode is parts."},
+    {"key": "chunk_target", "status": "gap", "workspace": "Narrate", "control": null, "next_step": "Expose token/character target when the corresponding advanced chunk mode is selected."},
+    {"key": "chars_per_token", "status": "intentional_replacement", "workspace": "Narrate", "control": "Provider estimator", "rationale": "Provider adapters measure or estimate their own token limits rather than asking users for a conversion constant."},
+    {"key": "subtitles", "status": "gap", "workspace": "Publish", "control": null, "next_step": "Export SRT/VTT from the take timeline and optionally burn captions during video rendering."},
+    {"key": "filename", "status": "gap", "workspace": "Narrate / Library", "control": "Project and source names", "next_step": "Add an export filename field without weakening stable internal artifact identities."},
+    {"key": "format", "status": "covered", "workspace": "Convert", "control": "MP3/M4A/WAV/FLAC output format"},
+    {"key": "sample_rate", "status": "covered", "workspace": "Convert", "control": "Sample-rate selector"},
+    {"key": "bit_depth", "status": "covered", "workspace": "Convert", "control": "Bit-depth selector"},
+    {"key": "quality_pct", "status": "covered", "workspace": "Convert", "control": "Quality/compression slider"},
+    {"key": "use_subfolders", "status": "intentional_replacement", "workspace": "Library", "control": "Project/Take/Artifact hierarchy", "rationale": "Managed artifact ownership replaces user-maintained output subfolders."},
+    {"key": "keep_chunks", "status": "gap", "workspace": "Timeline", "control": "Internal durable checkpoints", "next_step": "Add a checkpoint/chunk export action while keeping internal checkpoint retention automatic."},
+    {"key": "make_video", "status": "covered", "workspace": "Audiogram", "control": "Preview and full video render"},
+    {"key": "editing_wav", "status": "covered", "workspace": "Convert", "control": "WAV output"},
+    {"key": "editing_wav_rate", "status": "covered", "workspace": "Convert", "control": "Sample-rate selector"},
+    {"key": "editing_wav_channels", "status": "covered", "workspace": "Convert", "control": "Mono/stereo selector"},
+    {"key": "video_image", "status": "gap", "workspace": "Audiogram", "control": "Solid background color", "next_step": "Support a still-image background and composited overlay preview."},
+    {"key": "intro_audio", "status": "gap", "workspace": "Timeline / Publish", "control": null, "next_step": "Add non-destructive intro/outro assets to the take assembly plan."},
+    {"key": "outro_audio", "status": "gap", "workspace": "Timeline / Publish", "control": null, "next_step": "Add non-destructive intro/outro assets to the take assembly plan."},
+    {"key": "intro_crossfade", "status": "gap", "workspace": "Timeline / Publish", "control": null, "next_step": "Expose crossfade duration when intro or outro assets are configured."}
+  ],
+  "broader_native_capabilities": [
+    {"capability": "Sentence-level regeneration and splice", "status": "gap", "workspace": "Timeline", "next_step": "Refine chunk-level revisions into sentence spans where engines provide reliable timing."},
+    {"capability": "Word pronunciation inspection", "status": "covered", "workspace": "Pronunciation", "control": "Dictionary lookup, override preview, substitutions"},
+    {"capability": "Batch document queue", "status": "gap", "workspace": "Narrate / Library", "next_step": "Add multi-document queue creation over the existing durable job service."},
+    {"capability": "Engine model parameters", "status": "gap", "workspace": "Narrate", "next_step": "Generate an advanced engine panel from typed provider variable definitions, with safe defaults and profile persistence."},
+    {"capability": "Advanced polar/transparent/formula audiograms", "status": "gap", "workspace": "Audiogram", "next_step": "Port only the useful polar, alpha-overlay, placement, and animation controls behind progressive disclosure."},
+    {"capability": "Voice cloning and reusable presets", "status": "covered", "workspace": "Voice studio", "control": "Clone and preset Voice Profiles"},
+    {"capability": "Multi-speaker dialogue", "status": "covered", "workspace": "Dialogue", "control": "Cast, writer, editable turns, render"},
+    {"capability": "Podcast feed, transcript, and chapters", "status": "covered", "workspace": "Publish", "control": "Local feed and immutable exports"}
+  ]
+}
