@@ -37,6 +37,16 @@ from .migration import (
     scan_narrator_data,
 )
 from .store import ImportRecord, SqliteStudioStore
+from .subtitles import (
+    SubtitleCue,
+    SubtitleExport,
+    SubtitleFormat,
+    SubtitleService,
+    SubtitleTimeline,
+    SubtitleTimingConfidence,
+    SubtitleTimingSource,
+    serialize_subtitles,
+)
 
 __all__ = [
     "Artifact",
@@ -65,6 +75,13 @@ __all__ = [
     "VoiceProfile",
     "VoiceProfileKind",
     "SqliteStudioStore",
+    "SubtitleCue",
+    "SubtitleExport",
+    "SubtitleFormat",
+    "SubtitleService",
+    "SubtitleTimeline",
+    "SubtitleTimingConfidence",
+    "SubtitleTimingSource",
     "engine_adapter_for_provider",
     "import_narrator_customizations",
     "import_narrator_projects",
@@ -72,4 +89,5 @@ __all__ = [
     "import_splicr_job",
     "import_splicr_jobs",
     "scan_narrator_data",
+    "serialize_subtitles",
 ]

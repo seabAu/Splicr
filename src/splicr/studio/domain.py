@@ -147,6 +147,7 @@ class Artifact:
     media_type: str
     size_bytes: int
     sha256: str | None = None
+    metadata: Mapping[str, JsonValue] = field(default_factory=dict)
     created_at: str = field(default_factory=utc_now)
 
     def __post_init__(self) -> None:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import math
 import shutil
 import struct
@@ -32,12 +33,16 @@ from splicr.studio.audiogram import (
 )
 from splicr.studio.domain import ArtifactKind
 from splicr.studio.store import SqliteStudioStore
+from splicr.studio.subtitles import SubtitleService
 
 from .fakes import RecordingProvider
 
 
 class FakeRenderer:
     available = True
+
+    def __init__(self) -> None:
+        self.subtitle_path: Path | None = None
 
     async def render(
         self,
@@ -46,12 +51,14 @@ class FakeRenderer:
         spec: AudiogramSpec,
         *,
         render_seconds: float,
+        subtitle_path: Path | None,
         on_progress,
         is_cancelled,
     ) -> None:
         assert source_path.read_bytes().startswith(b"RIFF")
         assert render_seconds > 0
         assert not is_cancelled()
+        self.subtitle_path = subtitle_path
         on_progress(0.25)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_bytes(b"fake-video")
@@ -71,6 +78,7 @@ class CancelThenCompleteRenderer:
         spec: AudiogramSpec,
         *,
         render_seconds: float,
+        subtitle_path: Path | None,
         on_progress,
         is_cancelled,
     ) -> None:
@@ -142,6 +150,41 @@ def test_ffmpeg_command_is_structured_and_keeps_audio(tmp_path: Path) -> None:
     assert "rc=255:gc=170:bc=51" in vector_graph
 
 
+@pytest.mark.parametrize(
+    ("output_format", "video_codec", "audio_codec"),
+    [
+        (AudiogramOutputFormat.MP4, "libx264", "aac"),
+        (AudiogramOutputFormat.WEBM, "libvpx-vp9", "libopus"),
+    ],
+)
+def test_caption_burn_in_uses_subtitle_filter_for_each_container(
+    tmp_path: Path,
+    output_format: AudiogramOutputFormat,
+    video_codec: str,
+    audio_codec: str,
+) -> None:
+    subtitle_path = tmp_path / "captions, unicode Ω.srt"
+    spec = AudiogramSpec(
+        output_format=output_format,
+        burn_captions=True,
+    )
+
+    command = build_ffmpeg_command(
+        "ffmpeg",
+        tmp_path / "source.wav",
+        tmp_path / f"output.{output_format.value}",
+        spec,
+        render_seconds=4.5,
+        subtitle_path=subtitle_path,
+    )
+    graph = command[command.index("-filter_complex") + 1]
+
+    assert "subtitles=filename=" in graph
+    assert "captions\\, unicode Ω.srt" in graph
+    assert video_codec in command
+    assert audio_codec in command
+
+
 def test_spec_rejects_unbounded_or_odd_render_dimensions() -> None:
     with pytest.raises(ValueError, match="even number"):
         AudiogramSpec(width=1279)
@@ -193,6 +236,74 @@ def test_durable_audiogram_job_creates_video_artifact(tmp_path: Path) -> None:
             assert artifact.kind is ArtifactKind.VIDEO
             assert artifact.take_id == current.take_id
             assert artifact.sha256
+        finally:
+            await service.stop()
+            await synthesis.stop()
+
+    asyncio.run(scenario())
+
+
+def test_captioned_audiogram_keeps_source_and_records_subtitle_provenance(
+    tmp_path: Path,
+) -> None:
+    async def scenario() -> None:
+        settings = _settings(tmp_path)
+        synthesis = SynthesisService(
+            settings=settings,
+            providers=ProviderRegistry([RecordingProvider()]),
+        )
+        studio = SqliteStudioStore(settings.database_path)
+        studio.initialize()
+        subtitles = SubtitleService(
+            job_store=synthesis.store,
+            job_storage=synthesis.storage,
+            studio_store=studio,
+            output_root=tmp_path / "studio" / "subtitles",
+        )
+        renderer = FakeRenderer()
+        service = AudiogramJobService(
+            store=AudiogramJobStore(settings.database_path),
+            source_store=synthesis.store,
+            source_storage=synthesis.storage,
+            studio_store=studio,
+            output_root=tmp_path / "studio" / "audiograms",
+            subtitle_service=subtitles,
+            renderer=renderer,
+        )
+        await synthesis.start()
+        await service.start()
+        try:
+            source_job_id = await _completed_source(synthesis)
+            source_path = synthesis.output_path(source_job_id)
+            source_hash = hashlib.sha256(source_path.read_bytes()).hexdigest()
+            created = await service.submit(
+                source_job_id,
+                AudiogramSpec(
+                    width=640,
+                    height=360,
+                    visualizer_height=180,
+                    burn_captions=True,
+                ),
+                kind=AudiogramJobKind.EXPORT,
+            )
+            for _ in range(300):
+                current = service.store.get(created.id)
+                if current.status is AudiogramJobStatus.COMPLETED:
+                    break
+                await asyncio.sleep(0.01)
+            else:
+                raise AssertionError("captioned audiogram did not finish")
+
+            assert renderer.subtitle_path is not None
+            assert renderer.subtitle_path.read_text(encoding="utf-8").startswith("1\n")
+            assert hashlib.sha256(source_path.read_bytes()).hexdigest() == source_hash
+            artifact = studio.get_artifact(current.artifact_id or "")
+            assert artifact.metadata["captions_burned_in"] is True
+            subtitle_id = artifact.metadata["subtitle_artifact_id"]
+            assert isinstance(subtitle_id, str)
+            subtitle_artifact = studio.get_artifact(subtitle_id)
+            assert subtitle_artifact.kind is ArtifactKind.SUBTITLES
+            assert artifact.metadata["subtitle_sha256"] == subtitle_artifact.sha256
         finally:
             await service.stop()
             await synthesis.stop()

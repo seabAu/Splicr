@@ -123,6 +123,7 @@ class SqliteStudioStore:
                     media_type TEXT NOT NULL,
                     size_bytes INTEGER NOT NULL CHECK (size_bytes >= 0),
                     sha256 TEXT,
+                    metadata_json TEXT NOT NULL DEFAULT '{}',
                     created_at TEXT NOT NULL,
                     FOREIGN KEY (take_id, project_id)
                         REFERENCES studio_takes(id, project_id) ON DELETE CASCADE
@@ -164,6 +165,15 @@ class SqliteStudioStore:
                     ON studio_voice_profiles(engine_id, updated_at DESC, id);
                 """
             )
+            artifact_columns = {
+                row["name"]
+                for row in connection.execute("PRAGMA table_info(studio_artifacts)")
+            }
+            if "metadata_json" not in artifact_columns:
+                connection.execute(
+                    "ALTER TABLE studio_artifacts "
+                    "ADD COLUMN metadata_json TEXT NOT NULL DEFAULT '{}'"
+                )
 
     def save_project(self, project: Project) -> Project:
         with self._lock, self._connect() as connection:
@@ -348,8 +358,8 @@ class SqliteStudioStore:
                 """
                 INSERT INTO studio_artifacts (
                     id, project_id, take_id, kind, path, media_type,
-                    size_bytes, sha256, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    size_bytes, sha256, metadata_json, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     artifact.id,
@@ -360,6 +370,7 @@ class SqliteStudioStore:
                     artifact.media_type,
                     artifact.size_bytes,
                     artifact.sha256,
+                    _encode_mapping(artifact.metadata),
                     artifact.created_at,
                 ),
             )
@@ -595,6 +606,7 @@ class SqliteStudioStore:
             media_type=row["media_type"],
             size_bytes=row["size_bytes"],
             sha256=row["sha256"],
+            metadata=_decode_mapping(row["metadata_json"]),
             created_at=row["created_at"],
         )
 

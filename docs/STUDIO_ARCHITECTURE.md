@@ -25,7 +25,8 @@ Project
 - A **Render Plan** freezes segmentation, engine/voice routing, instructions, and settings so a
   render can be reproduced even after the editor changes.
 - A **Take** records one resumable execution. Multiple takes never overwrite one another.
-- An **Artifact** is a durable output with identity, type, path, size, and optional checksum.
+- An **Artifact** is a durable output with identity, type, path, size, optional checksum, and
+  immutable provenance metadata.
 
 Existing SPLICR jobs will initially map one-to-one to takes. Existing Narrator take records and
 project manifests will be imported through compatibility adapters rather than becoming the new
@@ -92,6 +93,14 @@ continues to use the job ID. A checkpoint export is an atomic point-in-time ZIP 
 copies plus a UTF-8 manifest; it never rewrites source checkpoints and always declares that it is
 not a finished master. Missing or incomplete checkpoints remain explicit manifest entries, so
 paused, failed, and cancelled work can be recovered without overstating completion.
+
+Subtitle delivery uses a provider-neutral cue model over the same immutable checkpoints. Edge-style
+engine timing becomes exact cues; providers without alignment data produce clearly labelled
+checkpoint estimates. Complete and contiguous partial prefixes can be exported as UTF-8 SRT or
+WebVTT, preserving dialogue speaker identity and attaching the content hash, source job/take/plan,
+timing-source summary, and partial state to the Studio Artifact. Audiogram caption burn-in consumes
+that derived subtitle artifact and records its identity/hash on the video artifact; neither path
+rewrites source PCM or the master WAV.
 
 `splicr migrate-studio` converts every existing SPLICR job into a deterministic Project, immutable
 Render Plan, and Take, then links a completed WAV as an Artifact when it exists. Import mappings

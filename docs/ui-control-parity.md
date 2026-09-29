@@ -14,8 +14,9 @@ Current conclusion:
 
 - Core engine, voice, delivery, profile, conversion, video, publishing, and project controls are
   represented in Studio.
-- The largest remaining control gaps are subtitles, still-image video backgrounds, intro/outro assets,
-  transcription, batch queues, and the advanced polar/formula audiogram.
+- The largest remaining control gaps are still-image video backgrounds, intro/outro assets,
+  transcription, batch queues, and the advanced polar/formula audiogram. Subtitle timelines,
+  complete/partial SRT and WebVTT exports, and optional Audiogram burn-in are now covered.
 - Narrate now keeps everyday boundaries compact while its advanced disclosure covers approximate
   parts, character targets, and provider-estimated token targets. Preflight exposes exact spans,
   metrics, headroom, warnings, and the durable plan used by resume.

@@ -153,6 +153,13 @@ from .studio.publishing import (
     PublishingService,
     PublishingStore,
 )
+from .studio.subtitles import (
+    SubtitleCue,
+    SubtitleExport,
+    SubtitleFormat,
+    SubtitleService,
+    SubtitleTimeline,
+)
 from .studio.voice_design import (
     InvalidVoiceDesignJobStateError,
     SubprocessQwenVoiceDesignRunner,
@@ -1315,6 +1322,80 @@ class TimelineRevisionRequest(BaseModel):
         return value
 
 
+class SubtitleCueResponse(BaseModel):
+    index: int
+    source_text: str
+    start: float
+    end: float
+    speaker: str | None
+    confidence: str
+    source: str
+
+    @classmethod
+    def from_domain(cls, cue: SubtitleCue) -> "SubtitleCueResponse":
+        return cls(
+            index=cue.index,
+            source_text=cue.source_text,
+            start=cue.start,
+            end=cue.end,
+            speaker=cue.speaker,
+            confidence=cue.confidence.value,
+            source=cue.source.value,
+        )
+
+
+class SubtitleTimelineResponse(BaseModel):
+    job_id: str
+    status: str
+    partial: bool
+    duration: float
+    completed_chunks: int
+    total_chunks: int
+    source_counts: dict[str, int]
+    confidence_counts: dict[str, int]
+    cues: list[SubtitleCueResponse]
+
+    @classmethod
+    def from_domain(cls, timeline: SubtitleTimeline) -> "SubtitleTimelineResponse":
+        return cls(
+            job_id=timeline.job_id,
+            status=timeline.status,
+            partial=timeline.partial,
+            duration=timeline.duration,
+            completed_chunks=timeline.completed_chunks,
+            total_chunks=timeline.total_chunks,
+            source_counts=dict(timeline.source_counts),
+            confidence_counts=dict(timeline.confidence_counts),
+            cues=[SubtitleCueResponse.from_domain(cue) for cue in timeline.cues],
+        )
+
+
+class SubtitleExportResponse(BaseModel):
+    artifact_id: str
+    format: SubtitleFormat
+    partial: bool
+    cue_count: int
+    size_bytes: int
+    sha256: str
+    download_url: str
+
+    @classmethod
+    def from_domain(cls, export: SubtitleExport) -> "SubtitleExportResponse":
+        artifact = export.artifact
+        output_format = SubtitleFormat(str(artifact.metadata["format"]))
+        if artifact.sha256 is None:
+            raise ValueError("subtitle artifact is missing its content hash")
+        return cls(
+            artifact_id=artifact.id,
+            format=output_format,
+            partial=export.timeline.partial,
+            cue_count=len(export.timeline.cues),
+            size_bytes=artifact.size_bytes,
+            sha256=artifact.sha256,
+            download_url=f"/v1/studio/subtitles/artifacts/{artifact.id}",
+        )
+
+
 class AudiogramSpecPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -1331,6 +1412,7 @@ class AudiogramSpecPayload(BaseModel):
     blur: float = Field(default=0, ge=0, le=20)
     sharpen: float = Field(default=0, ge=0, le=1)
     trail: bool = False
+    burn_captions: bool = False
     output_format: AudiogramOutputFormat = AudiogramOutputFormat.MP4
     preset: Literal["ultrafast", "veryfast", "fast", "medium"] = "ultrafast"
     crf: int = Field(default=20, ge=0, le=63)
@@ -2181,6 +2263,7 @@ def create_app(
     service: SynthesisService | None = None,
     chat_resource_store: SqliteChatResourceStore | None = None,
     dialogue_script_service: DialogueScriptJobService | None = None,
+    subtitle_service: SubtitleService | None = None,
     audiogram_service: AudiogramJobService | None = None,
     conversion_service: ConversionJobService | None = None,
     publishing_service: PublishingService | None = None,
@@ -2211,12 +2294,19 @@ def create_app(
         ),
     )
     voice_designs.store.initialize()
+    subtitles = subtitle_service or SubtitleService(
+        job_store=synthesis.store,
+        job_storage=synthesis.storage,
+        studio_store=studio,
+        output_root=resolved_settings.data_dir / "studio" / "subtitles",
+    )
     audiograms = audiogram_service or AudiogramJobService(
         store=AudiogramJobStore(resolved_settings.database_path),
         source_store=synthesis.store,
         source_storage=synthesis.storage,
         studio_store=studio,
         output_root=resolved_settings.data_dir / "studio" / "audiograms",
+        subtitle_service=subtitles,
         renderer=FfmpegAudiogramRenderer(),
     )
     audiograms.store.initialize()
@@ -2312,6 +2402,7 @@ def create_app(
     application.state.api_resource_store = resource_store
     application.state.chat_resource_store = chat_resources
     application.state.dialogue_script_service = dialogue_scripts
+    application.state.subtitle_service = subtitles
     application.state.audiogram_service = audiograms
     application.state.conversion_service = conversions
     application.state.publishing_service = publishing
@@ -3147,6 +3238,55 @@ def create_app(
             raise HTTPException(status_code=422, detail=str(error)) from error
         return job_response(revised, take_label="Timeline revision")
 
+    @application.get(
+        "/v1/studio/subtitles/jobs/{job_id}",
+        response_model=SubtitleTimelineResponse,
+        tags=["studio"],
+    )
+    async def get_subtitle_timeline(
+        job_id: str, response: Response
+    ) -> SubtitleTimelineResponse:
+        response.headers["Cache-Control"] = "no-store"
+        try:
+            return SubtitleTimelineResponse.from_domain(subtitles.timeline(job_id))
+        except JobNotFoundError as error:
+            raise HTTPException(status_code=404, detail="job not found") from error
+        except ValueError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+
+    @application.post(
+        "/v1/studio/subtitles/jobs/{job_id}/export",
+        response_model=SubtitleExportResponse,
+        tags=["studio"],
+    )
+    async def export_job_subtitles(
+        job_id: str,
+        output_format: SubtitleFormat = Query(alias="format"),
+    ) -> SubtitleExportResponse:
+        try:
+            return SubtitleExportResponse.from_domain(
+                subtitles.export(job_id, output_format)
+            )
+        except JobNotFoundError as error:
+            raise HTTPException(status_code=404, detail="job not found") from error
+        except ValueError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+
+    @application.get(
+        "/v1/studio/subtitles/artifacts/{artifact_id}", tags=["studio"]
+    )
+    async def get_subtitle_artifact(artifact_id: str) -> FileResponse:
+        try:
+            artifact = studio.get_artifact(artifact_id)
+            path = subtitles.artifact_path(artifact_id)
+        except KeyError as error:
+            raise HTTPException(status_code=404, detail="subtitle artifact not found") from error
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        except FileNotFoundError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        return FileResponse(path, media_type=artifact.media_type, filename=path.name)
+
     @application.get("/v1/studio/audiograms/capabilities", tags=["studio"])
     async def get_audiogram_capabilities() -> dict[str, Any]:
         defaults = AudiogramSpec()
@@ -3504,6 +3644,24 @@ def create_app(
             "size_bytes": artifact.size_bytes,
             "download_url": f"/v1/studio/publishing/artifacts/{artifact.id}",
         }
+
+    @application.post(
+        "/v1/studio/publishing/takes/{take_id}/subtitles",
+        response_model=SubtitleExportResponse,
+        tags=["studio"],
+    )
+    def export_publishing_subtitles(
+        take_id: str,
+        output_format: SubtitleFormat = Query(alias="format"),
+    ) -> SubtitleExportResponse:
+        try:
+            return SubtitleExportResponse.from_domain(
+                subtitles.export_take(take_id, output_format)
+            )
+        except (KeyError, JobNotFoundError) as error:
+            raise HTTPException(status_code=404, detail="publishing source not found") from error
+        except ValueError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
 
     @application.get(
         "/v1/studio/publishing/episodes",

@@ -92,6 +92,7 @@ def test_studio_entities_round_trip_and_survive_reinitialize(tmp_path) -> None:
         media_type="audio/wav",
         size_bytes=1_024,
         sha256="a" * 64,
+        metadata={"source_job_id": "job-1", "partial": False},
         created_at="2026-09-28T09:03:00+00:00",
     )
     store.add_artifact(artifact)
@@ -103,6 +104,34 @@ def test_studio_entities_round_trip_and_survive_reinitialize(tmp_path) -> None:
     assert restarted.get_render_plan("plan-1") == _plan()
     assert restarted.get_take("take-1").artifact_ids == ("artifact-1",)
     assert restarted.list_artifacts("take-1") == [artifact]
+
+
+def test_existing_artifact_table_adds_provenance_column(tmp_path) -> None:
+    database = tmp_path / "splicr.sqlite3"
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            """
+            CREATE TABLE studio_artifacts (
+                id TEXT PRIMARY KEY,
+                project_id TEXT NOT NULL,
+                take_id TEXT NOT NULL,
+                kind TEXT NOT NULL,
+                path TEXT NOT NULL,
+                media_type TEXT NOT NULL,
+                size_bytes INTEGER NOT NULL,
+                sha256 TEXT,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+
+    SqliteStudioStore(database).initialize()
+
+    with sqlite3.connect(database) as connection:
+        columns = {
+            row[1] for row in connection.execute("PRAGMA table_info(studio_artifacts)")
+        }
+    assert "metadata_json" in columns
 
 
 def test_project_upsert_preserves_creation_timestamp(tmp_path) -> None:

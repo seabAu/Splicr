@@ -90,7 +90,10 @@ controls, playback, download, profiles, API-resource configuration, diagnostics,
 Library persistence. Its Pronunciation workspace edits Kokoro overrides and shared substitutions;
 Voice Studio manages reusable local voice identities and reference recordings. Its Audiogram
 workspace turns completed takes into checkpointed MP4 or WebM render jobs with a live composition
-preview, cancellation, retry, restart recovery, and final video artifacts in the Studio library.
+preview, cancellation, retry, restart recovery, optional caption burn-in, and final video artifacts
+in the Studio library. Narrate, Dialogue, Timeline, and Publish can export speaker-aware UTF-8 SRT
+or WebVTT from completed checkpoints, including recoverable partial takes; provider timings are
+used when available and checkpoint estimates remain explicitly labelled in artifact provenance.
 The Convert workspace accepts completed takes or safely uploaded audio, produces MP3, M4A, WAV, or
 FLAC with explicit sample-rate/channel/quality controls and optional loudness normalization, and
 can split delivery files by time or verified maximum size. Conversion progress, cancellation,

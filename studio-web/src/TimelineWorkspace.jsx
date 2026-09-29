@@ -3,6 +3,7 @@ import {
   AudioLines,
   CheckCircle2,
   Clock3,
+  Download,
   LoaderCircle,
   Play,
   RefreshCw,
@@ -172,6 +173,7 @@ export function TimelineWorkspace({ onNavigate }) {
   const [takes, setTakes] = useState([]);
   const [takeId, setTakeId] = useState("");
   const [timeline, setTimeline] = useState(null);
+  const [subtitles, setSubtitles] = useState(null);
   const [selectedIndex, setSelectedIndex] = useState(null);
   const [selection, setSelection] = useState({ start: 0, end: 0 });
   const [editText, setEditText] = useState("");
@@ -212,10 +214,11 @@ export function TimelineWorkspace({ onNavigate }) {
     let cancelled = false;
     setBusy("timeline");
     setError("");
-    api.timeline(takeId)
-      .then((loaded) => {
+    Promise.all([api.timeline(takeId), api.subtitleTimeline(takeId)])
+      .then(([loaded, subtitleTimeline]) => {
         if (cancelled) return;
         setTimeline(loaded);
+        setSubtitles(subtitleTimeline);
         const first = loaded.segments[0] || null;
         setSelectedIndex(first?.index ?? null);
         setEditText(first?.text || "");
@@ -272,6 +275,19 @@ export function TimelineWorkspace({ onNavigate }) {
       setRevisionJob(
         await api.reviseTimelineSegment(timeline.job_id, selectedIndex, editText),
       );
+    } catch (reason) {
+      setError(reason.message);
+    } finally {
+      setBusy("");
+    }
+  };
+  const exportSubtitles = async (format) => {
+    if (!timeline) return;
+    setBusy(`subtitles-${format}`);
+    setError("");
+    try {
+      const result = await api.exportJobSubtitles(timeline.job_id, format);
+      window.location.assign(result.download_url);
     } catch (reason) {
       setError(reason.message);
     } finally {
@@ -383,9 +399,30 @@ export function TimelineWorkspace({ onNavigate }) {
               <Sparkles size={17} />
             </div>
             <p className="timeline-fidelity-note">
-              Timing is exact at checkpoint boundaries. Sentence and word timing will appear when
-              an engine supplies alignment data.
+              Engine timing is used when supplied. Checkpoint-only alignment is clearly marked as estimated.
             </p>
+            {subtitles && (
+              <details className="timeline-subtitles" open>
+                <summary>
+                  <span>Captions</span>
+                  <small>{subtitles.cues.length} cues · {subtitles.confidence_counts.exact || 0} exact · {subtitles.confidence_counts.estimated || 0} estimated</small>
+                </summary>
+                <div className="timeline-subtitle-actions">
+                  <button type="button" onClick={() => exportSubtitles("srt")} disabled={!!busy}><Download size={14} />{busy === "subtitles-srt" ? "Exporting…" : "SRT"}</button>
+                  <button type="button" onClick={() => exportSubtitles("vtt")} disabled={!!busy}><Download size={14} />{busy === "subtitles-vtt" ? "Exporting…" : "WebVTT"}</button>
+                </div>
+                <ol>
+                  {subtitles.cues.slice(0, 16).map((cue) => (
+                    <li key={`${cue.index}-${cue.start}`}>
+                      <time>{formatTime(cue.start)}</time>
+                      <span>{cue.speaker && <strong>{cue.speaker}: </strong>}{cue.source_text}</span>
+                      <i className={`timing-${cue.confidence}`}>{cue.confidence}</i>
+                    </li>
+                  ))}
+                </ol>
+                {subtitles.cues.length > 16 && <small>+ {subtitles.cues.length - 16} more cues in the export</small>}
+              </details>
+            )}
             <div className="timeline-segment-list">
               {timeline.segments.map((segment) => (
                 <button

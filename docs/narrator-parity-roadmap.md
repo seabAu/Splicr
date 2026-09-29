@@ -111,9 +111,9 @@ human-readable work queue, including broader capabilities that were not render-s
 | Optional precise speed | Covered for Kokoro | Narrate advanced controls | 2 |
 | Parts/token/character chunk planning | Covered | Narrate advanced controls | 2 |
 | Edge TTS engine | Covered; live-service acceptance pending | Narrate / Components | 3 |
-| Export filename | Gap | Narrate / Library | 4 |
-| Checkpoint/chunk export | Gap | Timeline / Library | 4 |
-| SRT/VTT export and burned captions | Gap | Publish / Audiogram | 4 |
+| Export filename | Covered | Narrate / Library | 4 |
+| Checkpoint/chunk export | Covered | Timeline / Library | 4 |
+| SRT/VTT export and burned captions | Covered | Publish / Audiogram | 4 |
 | Intro/outro assets and crossfade | Gap | Timeline / Publish | 5 |
 | Sentence-level regeneration and splice | Partial: chunk-level only | Timeline | 5 |
 | Multi-document durable queue | Gap | Narrate / Library | 6 |
@@ -249,14 +249,14 @@ Edge TTS was Narrator's zero-setup online fallback. It is not currently a merged
 
 ### Subtitle timeline
 
-- [ ] Define a shared subtitle cue model with source text, start/end, speaker, timing confidence,
+- [x] Define a shared subtitle cue model with source text, start/end, speaker, timing confidence,
   and source (`engine`, `checkpoint`, or `transcription`).
-- [ ] Prefer exact engine/segment timings; clearly label estimated chunk timings.
-- [ ] Export valid UTF-8 SRT and WebVTT from a completed or partially completed take.
-- [ ] Preserve dialogue speaker identity where the target format permits it.
-- [ ] Attach subtitle artifacts to the take with hashes and immutable provenance.
-- [ ] Add optional caption burn-in to Audiogram/Publish without changing the source take.
-- [ ] Test escaping, multiline cues, Unicode, monotonically increasing times, partial takes, and
+- [x] Prefer exact engine/segment timings; clearly label estimated chunk timings.
+- [x] Export valid UTF-8 SRT and WebVTT from a completed or partially completed take.
+- [x] Preserve dialogue speaker identity where the target format permits it.
+- [x] Attach subtitle artifacts to the take with hashes and immutable provenance.
+- [x] Add optional caption burn-in to Audiogram/Publish without changing the source take.
+- [x] Test escaping, multiline cues, Unicode, monotonically increasing times, partial takes, and
   container/codec combinations.
 
 ## Milestone 5 — non-destructive finishing and sentence editing
@@ -441,16 +441,22 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   names, deterministic case-insensitive collisions, ordered WAV copies, missing checkpoints,
   paused/failed/cancelled partial manifests, source-checkpoint immutability, and interrupted-export
   cleanup.
+- [x] 2026-09-29 — Milestone 4 subtitle/caption gate passed: Ruff, the complete Python suite
+  (three opt-in live checks skipped), eight frontend unit tests, the production Vite build, and
+  three Chromium journeys. Coverage proves exact engine timing preference, explicitly estimated
+  checkpoint fallback, speaker-preserving UTF-8 SRT/WebVTT, monotonic millisecond cues, partial-take
+  export, immutable hash/provenance metadata, source-audio preservation, and MP4/WebM caption
+  filter/codec combinations.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
 ## Current work pointer
 
-- **Active milestone:** Milestones 2/3 live acceptance closeout plus Milestone 4 — subtitle timelines
-  and caption delivery.
-- **Next implementation slice:** define the shared subtitle cue model and generate exact engine cues
-  when timing metadata exists, with clearly labeled checkpoint estimates as the fallback. Real Qwen
-  and Edge acceptance remains ready when configured environments are available.
+- **Active milestone:** Milestones 2/3 live acceptance closeout plus Milestone 5 — non-destructive
+  finishing and sentence editing.
+- **Next implementation slice:** introduce durable intro/outro assets and a reproducible crossfade
+  assembly plan without mutating source checkpoints. Real Qwen and Edge acceptance remains ready
+  when configured environments are available.
 - **Known unrelated worktree item:** `LICENSE.txt` is untracked and not part of this roadmap unless
   deliberately adopted later.
 
@@ -483,3 +489,8 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   friendly filenames and checkpoint ZIP downloads. Atomic exports contain ordered canonical WAV
   copies and a UTF-8 provenance manifest, remain explicitly non-master/partial when appropriate,
   and tolerate missing checkpoints without altering resumable source PCM.
+- **2026-09-29:** Completed Milestone 4 subtitle timelines and caption delivery. Shared cues retain
+  source text, speaker, timing source, and confidence; exact provider timing wins while checkpoint
+  alignment is explicitly estimated. Narrate, Dialogue, Timeline, and Publish export immutable
+  UTF-8 SRT/WebVTT artifacts from complete or partial takes, and Audiogram can burn a derived SRT
+  into MP4/WebM output while preserving and hashing the original take and caption provenance.

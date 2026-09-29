@@ -440,6 +440,11 @@ export function DialogueWorkspace({ active }) {
     const result = await run(action, () => api.jobAction(job.id, action));
     if (result) setJob(result);
   };
+  const exportSubtitles = async (format) => {
+    if (!job) return;
+    const result = await run(`subtitles-${format}`, () => api.exportJobSubtitles(job.id, format));
+    if (result) window.location.assign(result.download_url);
+  };
   const generateDialogue = async () => {
     if (!writerResource || !sourceText.trim()) return;
     const result = await run("generate", () => api.createDialogueScriptJob({
@@ -686,6 +691,13 @@ export function DialogueWorkspace({ active }) {
                   <a href={job.checkpoint_export_url} download>
                     {job.status === "completed" ? "Export checkpoint WAVs + manifest" : "Export completed checkpoints (partial)"}
                   </a>
+                )}
+                {job.completed_chunks > 0 && (
+                  <details className="job-caption-export">
+                    <summary>Export captions</summary>
+                    <button type="button" disabled={!!busy} onClick={() => exportSubtitles("srt")}>{busy === "subtitles-srt" ? "Exporting…" : "SRT"}</button>
+                    <button type="button" disabled={!!busy} onClick={() => exportSubtitles("vtt")}>{busy === "subtitles-vtt" ? "Exporting…" : "WebVTT"}</button>
+                  </details>
                 )}
               </div>
             )}

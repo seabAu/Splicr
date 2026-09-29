@@ -246,6 +246,8 @@ function ChunkPreview({ preview, activeChunk, setActiveChunk }) {
 }
 
 function JobCard({ job, onAction, onRefresh }) {
+  const [subtitleBusy, setSubtitleBusy] = useState("");
+  const [subtitleError, setSubtitleError] = useState("");
   if (!job) {
     return (
       <section className="activity-card empty-state">
@@ -256,6 +258,18 @@ function JobCard({ job, onAction, onRefresh }) {
     );
   }
   const progress = job.progress || 0;
+  const exportSubtitles = async (format) => {
+    setSubtitleBusy(format);
+    setSubtitleError("");
+    try {
+      const result = await api.exportJobSubtitles(job.id, format);
+      window.location.assign(result.download_url);
+    } catch (reason) {
+      setSubtitleError(reason.message);
+    } finally {
+      setSubtitleBusy("");
+    }
+  };
   return (
     <section className="activity-card">
       <div className="activity-heading">
@@ -292,6 +306,14 @@ function JobCard({ job, onAction, onRefresh }) {
               {job.status === "completed" ? "Export checkpoint WAVs + manifest" : "Export completed checkpoints (partial)"}
             </a>
           )}
+          {job.completed_chunks > 0 && (
+            <details className="job-caption-export">
+              <summary><FileText size={16} />Export captions</summary>
+              <button type="button" disabled={!!subtitleBusy} onClick={() => exportSubtitles("srt")}>{subtitleBusy === "srt" ? "Exporting…" : "SRT"}</button>
+              <button type="button" disabled={!!subtitleBusy} onClick={() => exportSubtitles("vtt")}>{subtitleBusy === "vtt" ? "Exporting…" : "WebVTT"}</button>
+            </details>
+          )}
+          {subtitleError && <small className="inline-error">{subtitleError}</small>}
         </div>
       )}
       <div className="job-actions">

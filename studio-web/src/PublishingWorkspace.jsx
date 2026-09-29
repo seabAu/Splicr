@@ -120,6 +120,20 @@ export function PublishingWorkspace() {
     }
   };
 
+  const exportSubtitles = async (format) => {
+    if (!selected) return;
+    setBusy(`subtitles-${format}`);
+    setError("");
+    try {
+      const result = await api.exportPublishingSubtitles(selected.take_id, format);
+      window.location.assign(result.download_url);
+    } catch (reason) {
+      setError(reason.message);
+    } finally {
+      setBusy("");
+    }
+  };
+
   const publish = async () => {
     if (!selected || !audio) return;
     setBusy("publish");
@@ -181,6 +195,11 @@ export function PublishingWorkspace() {
             <div className="publishing-actions">
               <span>{existing ? `Updates episode ${existing.episode_number}` : "Creates the next numbered episode"}</span>
               <button className="secondary-button" type="button" disabled={!selected || !!busy} onClick={exportTranscript}><FileText size={16} />{busy === "transcript" ? "Exporting…" : "Export transcript"}</button>
+              <details className="publishing-caption-actions">
+                <summary><FileText size={16} />Captions</summary>
+                <button type="button" disabled={!selected || !!busy} onClick={() => exportSubtitles("srt")}>{busy === "subtitles-srt" ? "Exporting…" : "Download SRT"}</button>
+                <button type="button" disabled={!selected || !!busy} onClick={() => exportSubtitles("vtt")}>{busy === "subtitles-vtt" ? "Exporting…" : "Download WebVTT"}</button>
+              </details>
               <button className="primary-button" type="button" disabled={!selected || !audio || !form.title.trim() || !channelReady || !!busy} onClick={publish}>{busy === "publish" ? <LoaderCircle className="spin" size={16} /> : <Rss size={16} />}{existing ? "Update episode" : "Publish locally"}</button>
             </div>
             {!channelReady && <small className="publishing-requirement">Save a public media base URL in Channel settings before publishing.</small>}

@@ -180,6 +180,13 @@ export const api = {
       `/v1/studio/timeline/jobs/${encodeURIComponent(id)}/segments/${segmentIndex}/revise`,
       { method: "POST", body: JSON.stringify({ text }) },
     ),
+  subtitleTimeline: (id) =>
+    request(`/v1/studio/subtitles/jobs/${encodeURIComponent(id)}`),
+  exportJobSubtitles: (id, format) =>
+    request(
+      `/v1/studio/subtitles/jobs/${encodeURIComponent(id)}/export?format=${encodeURIComponent(format)}`,
+      { method: "POST" },
+    ),
   audiogramCapabilities: () => request("/v1/studio/audiograms/capabilities"),
   audiogramSources: () => request("/v1/studio/audiograms/sources"),
   audiogramJobs: () => request("/v1/studio/audiograms/jobs"),
@@ -232,6 +239,11 @@ export const api = {
     request(`/v1/studio/publishing/takes/${encodeURIComponent(takeId)}/transcript`, {
       method: "POST",
     }),
+  exportPublishingSubtitles: (takeId, format) =>
+    request(
+      `/v1/studio/publishing/takes/${encodeURIComponent(takeId)}/subtitles?format=${encodeURIComponent(format)}`,
+      { method: "POST" },
+    ),
   publishEpisode: (payload) =>
     request("/v1/studio/publishing/episodes", {
       method: "POST",

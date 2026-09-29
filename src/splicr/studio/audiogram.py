@@ -24,6 +24,7 @@ from ..store import SqliteJobStore
 from .domain import Artifact, ArtifactKind
 from .migration import import_splicr_job
 from .store import SqliteStudioStore
+from .subtitles import SubtitleFormat, SubtitleService
 
 
 _HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
@@ -71,6 +72,7 @@ class AudiogramSpec:
     blur: float = 0.0
     sharpen: float = 0.0
     trail: bool = False
+    burn_captions: bool = False
     output_format: AudiogramOutputFormat = AudiogramOutputFormat.MP4
     preset: str = "ultrafast"
     crf: int = 20
@@ -420,7 +422,16 @@ def _rgb_components(value: str) -> tuple[int, int, int]:
     return int(value[1:3], 16), int(value[3:5], 16), int(value[5:7], 16)
 
 
-def build_filter_graph(spec: AudiogramSpec) -> str:
+def _ffmpeg_subtitle_path(path: Path) -> str:
+    value = path.resolve().as_posix()
+    for character in ("\\", ":", "'", ",", "[", "]", ";"):
+        value = value.replace(character, f"\\{character}")
+    return value
+
+
+def build_filter_graph(
+    spec: AudiogramSpec, *, subtitle_path: Path | None = None
+) -> str:
     size = f"{spec.width}x{spec.visualizer_height}"
     color = _ffmpeg_color(spec.foreground_color)
     if spec.source is AudiogramSource.WAVEFORM:
@@ -452,12 +463,21 @@ def build_filter_graph(spec: AudiogramSpec) -> str:
     if spec.trail:
         effects.append("tblend=all_mode=average")
     y = round((spec.height - spec.visualizer_height) * spec.vertical_position)
-    return (
+    graph = (
         f"[0:a]aformat=channel_layouts=mono,{','.join(effects)}[viz];"
         f"color=c={_ffmpeg_color(spec.background_color)}:s={spec.width}x{spec.height}:"
         f"r={spec.fps}[bg];"
-        f"[bg][viz]overlay=x=0:y={y}:shortest=1,format=yuv420p[v]"
+        f"[bg][viz]overlay=x=0:y={y}:shortest=1,format=yuv420p[composite]"
     )
+    if spec.burn_captions:
+        if subtitle_path is None:
+            raise ValueError("caption burn-in requires a subtitle artifact")
+        escaped = _ffmpeg_subtitle_path(subtitle_path)
+        return (
+            f"{graph};[composite]subtitles=filename='{escaped}':"
+            "force_style='Alignment=2,MarginV=28,Outline=2,Shadow=1'[v]"
+        )
+    return f"{graph};[composite]null[v]"
 
 
 def build_ffmpeg_command(
@@ -467,6 +487,7 @@ def build_ffmpeg_command(
     spec: AudiogramSpec,
     *,
     render_seconds: float,
+    subtitle_path: Path | None = None,
 ) -> list[str]:
     command = [
         executable,
@@ -480,7 +501,7 @@ def build_ffmpeg_command(
         "-i",
         str(source_path),
         "-filter_complex",
-        build_filter_graph(spec),
+        build_filter_graph(spec, subtitle_path=subtitle_path),
         "-map",
         "[v]",
         "-map",
@@ -558,6 +579,7 @@ class AudiogramRenderer(Protocol):
         spec: AudiogramSpec,
         *,
         render_seconds: float,
+        subtitle_path: Path | None = None,
         on_progress: ProgressCallback,
         is_cancelled: CancelCallback,
     ) -> None: ...
@@ -578,6 +600,7 @@ class FfmpegAudiogramRenderer:
         spec: AudiogramSpec,
         *,
         render_seconds: float,
+        subtitle_path: Path | None = None,
         on_progress: ProgressCallback,
         is_cancelled: CancelCallback,
     ) -> None:
@@ -592,6 +615,7 @@ class FfmpegAudiogramRenderer:
             output_path,
             spec,
             render_seconds=render_seconds,
+            subtitle_path=subtitle_path,
         )
         creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
         process = await asyncio.create_subprocess_exec(
@@ -652,6 +676,7 @@ class AudiogramJobService:
         source_storage: LocalJobStorage,
         studio_store: SqliteStudioStore,
         output_root: Path,
+        subtitle_service: SubtitleService | None = None,
         renderer: AudiogramRenderer | None = None,
     ) -> None:
         self.store = store
@@ -659,6 +684,7 @@ class AudiogramJobService:
         self.source_storage = source_storage
         self.studio_store = studio_store
         self.output_root = Path(output_root)
+        self.subtitle_service = subtitle_service
         self.renderer = renderer or FfmpegAudiogramRenderer()
         self._queue: asyncio.Queue[str] = asyncio.Queue()
         self._worker: asyncio.Task[None] | None = None
@@ -716,6 +742,8 @@ class AudiogramJobService:
             raise AudiogramRenderError(
                 "FFmpeg was not found. Install FFmpeg and ensure the ffmpeg command is on PATH."
             )
+        if spec.burn_captions and self.subtitle_service is None:
+            raise AudiogramRenderError("caption burn-in is not configured")
         source = self.source_store.get_job(source_job_id)
         if source.status is not JobStatus.COMPLETED:
             raise ValueError("audiograms require a completed narration take")
@@ -795,6 +823,8 @@ class AudiogramJobService:
         temporary_path.parent.mkdir(parents=True, exist_ok=True)
         final_path.unlink(missing_ok=True)
         last_reported = -1.0
+        subtitle_export = None
+        subtitle_path = None
 
         def on_progress(progress: float) -> None:
             nonlocal last_reported
@@ -803,11 +833,19 @@ class AudiogramJobService:
                 last_reported = progress
 
         try:
+            if job.spec.burn_captions:
+                if self.subtitle_service is None:
+                    raise AudiogramRenderError("caption burn-in is not configured")
+                subtitle_export = self.subtitle_service.export(
+                    job.source_job_id, SubtitleFormat.SRT
+                )
+                subtitle_path = Path(subtitle_export.artifact.path)
             await self.renderer.render(
                 source_path,
                 temporary_path,
                 job.spec,
                 render_seconds=job.render_seconds,
+                subtitle_path=subtitle_path,
                 on_progress=on_progress,
                 is_cancelled=lambda: self.store.get(job.id).cancel_requested,
             )
@@ -833,6 +871,16 @@ class AudiogramJobService:
                         ),
                         size_bytes=final_path.stat().st_size,
                         sha256=self._sha256(final_path),
+                        metadata={
+                            "captions_burned_in": job.spec.burn_captions,
+                            "subtitle_artifact_id": (
+                                subtitle_export.artifact.id if subtitle_export else None
+                            ),
+                            "subtitle_sha256": (
+                                subtitle_export.artifact.sha256 if subtitle_export else None
+                            ),
+                            "source_job_id": job.source_job_id,
+                        },
                     )
                 )
             self.store.complete(job.id, final_path, artifact_id)
@@ -845,7 +893,6 @@ class AudiogramJobService:
         except Exception as error:
             temporary_path.unlink(missing_ok=True)
             self.store.fail(job.id, "render_failed", str(error))
-
     @staticmethod
     def _wav_duration(path: Path) -> float:
         with wave.open(str(path), "rb") as wav_file:
