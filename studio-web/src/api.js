@@ -99,6 +99,22 @@ export const api = {
     }),
   voices: (engineId = "") =>
     request(`/v1/studio/voices${engineId ? `?engine_id=${encodeURIComponent(engineId)}` : ""}`),
+  voiceDesignJobs: () => request("/v1/studio/voice-design/jobs"),
+  voiceDesignJob: (id) =>
+    request(`/v1/studio/voice-design/jobs/${encodeURIComponent(id)}`),
+  createVoiceDesign: (payload) =>
+    request("/v1/studio/voice-design/jobs", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  retryVoiceDesign: (id) =>
+    request(`/v1/studio/voice-design/jobs/${encodeURIComponent(id)}/retry`, {
+      method: "POST",
+    }),
+  cancelVoiceDesign: (id) =>
+    request(`/v1/studio/voice-design/jobs/${encodeURIComponent(id)}/cancel`, {
+      method: "POST",
+    }),
   createReferenceVoice: ({ file, label, engineId, referenceText, description, kind = "cloned" }) => {
     const body = new FormData();
     body.append("file", file);

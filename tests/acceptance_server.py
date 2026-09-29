@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import argparse
 import atexit
+import json
 import os
 import tempfile
+import wave
 from pathlib import Path
 
 import uvicorn
@@ -15,7 +17,50 @@ from splicr.config import Settings
 from splicr.domain import ControlCondition, ControlDefinition, ControlValueType
 from splicr.providers import ProviderRegistry
 from splicr.service import SynthesisService
+from splicr.studio import SqliteStudioStore
+from splicr.studio.voice_design import (
+    QWEN_DESIGN_MODEL,
+    QWEN_REFERENCE_TEXT,
+    VoiceDesignJobService,
+    VoiceDesignJobStore,
+    VoiceDesignResult,
+)
 from tests.fakes import RecordingProvider
+
+
+class AcceptanceVoiceDesignRunner:
+    async def design(
+        self, *, description, take, output_path, result_path, should_cancel
+    ):
+        del description, should_cancel
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with wave.open(str(output_path), "wb") as recording:
+            recording.setnchannels(1)
+            recording.setsampwidth(2)
+            recording.setframerate(24_000)
+            recording.writeframes(b"\x00\x00" * 2_400)
+        result = VoiceDesignResult(
+            output_path=str(output_path.resolve()),
+            reference_text=QWEN_REFERENCE_TEXT,
+            model=QWEN_DESIGN_MODEL,
+            seed=1000 + take,
+            sample_rate=24_000,
+            seconds=0.1,
+        )
+        result_path.write_text(
+            json.dumps(
+                {
+                    "output_path": result.output_path,
+                    "reference_text": result.reference_text,
+                    "model": result.model,
+                    "seed": result.seed,
+                    "sample_rate": result.sample_rate,
+                    "seconds": result.seconds,
+                }
+            ),
+            encoding="utf-8",
+        )
+        return result
 
 
 def _settings() -> Settings:
@@ -97,7 +142,19 @@ def application():
         settings=settings,
         providers=ProviderRegistry([primary, alternate]),
     )
-    return create_app(settings=settings, service=synthesis)
+    studio = SqliteStudioStore(settings.database_path)
+    studio.initialize()
+    voice_designs = VoiceDesignJobService(
+        store=VoiceDesignJobStore(settings.database_path),
+        studio_store=studio,
+        output_root=settings.data_dir / "studio" / "voices",
+        runner=AcceptanceVoiceDesignRunner(),
+    )
+    return create_app(
+        settings=settings,
+        service=synthesis,
+        voice_design_service=voice_designs,
+    )
 
 
 def main() -> None:

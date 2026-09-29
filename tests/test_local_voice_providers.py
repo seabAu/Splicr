@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import json
 import struct
 import sys
+import wave
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -106,6 +108,7 @@ class _FakeTorch:
 class _FakeQwenModel:
     loads: list[str] = []
     prompt_calls = 0
+    design_calls: list[dict] = []
 
     @classmethod
     def from_pretrained(cls, repo, **kwargs):
@@ -124,6 +127,10 @@ class _FakeQwenModel:
     def generate_custom_voice(self, **kwargs):
         del kwargs
         return [[0.5, -0.5]], 24_000
+
+    def generate_voice_design(self, **kwargs):
+        self.__class__.design_calls.append(kwargs)
+        return [[0.25, -0.25]], 24_000
 
 
 class _FakeInputs(dict):
@@ -263,6 +270,45 @@ def test_qwen_runtime_reuses_model_and_clone_prompt(monkeypatch, tmp_path) -> No
     assert first.read_bytes() == struct.pack("<2h", 8191, -8191)
     assert second.read_bytes() == first.read_bytes()
     assert retry.read_bytes() == first.read_bytes()
+
+
+def test_qwen_voice_design_tool_writes_exact_managed_reference(monkeypatch, tmp_path) -> None:
+    _FakeQwenModel.loads.clear()
+    _FakeQwenModel.design_calls.clear()
+    _FakeTorch.seeds.clear()
+    modules = {
+        "numpy": _FakeNumpy,
+        "torch": _FakeTorch,
+        "qwen_tts": SimpleNamespace(Qwen3TTSModel=_FakeQwenModel),
+    }
+    monkeypatch.setattr(engine_worker.importlib, "import_module", modules.__getitem__)
+    output = tmp_path / "reference.wav"
+    result_path = tmp_path / "design-result.json"
+
+    result = engine_worker._tool_qwen_voice_design(
+        {
+            "description": "A calm, precise narrator",
+            "take": 7,
+            "output_path": str(output.resolve()),
+            "result_path": str(result_path.resolve()),
+        }
+    )
+
+    assert _FakeQwenModel.loads == [engine_worker.QWEN_DESIGN_REPO]
+    assert _FakeTorch.seeds == [1007]
+    assert _FakeQwenModel.design_calls == [
+        {
+            "text": engine_worker.QWEN_REFERENCE_TEXT,
+            "instruct": "A calm, precise narrator",
+            "language": "English",
+        }
+    ]
+    with wave.open(str(output), "rb") as recording:
+        assert recording.getnchannels() == 1
+        assert recording.getsampwidth() == 2
+        assert recording.getframerate() == 24_000
+        assert recording.getnframes() == 2
+    assert json.loads(result_path.read_text(encoding="utf-8")) == result
 
 
 def test_audio8_runtime_reuses_model_and_normalizes_to_24khz(monkeypatch, tmp_path) -> None:

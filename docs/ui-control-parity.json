@@ -6,7 +6,7 @@
     {"key": "root", "status": "intentional_replacement", "workspace": "Library", "control": "Managed per-user artifact store", "rationale": "Studio owns durable project artifacts and exposes downloads instead of writing beside source files."},
     {"key": "engine", "status": "covered", "workspace": "Narrate", "control": "Engine selector"},
     {"key": "voice", "status": "covered", "workspace": "Narrate / Voice studio", "control": "Voice selector or Voice Profile"},
-    {"key": "take", "status": "gap", "workspace": "Narrate / Voice studio", "control": "Profile-owned designed-voice take plus randomizable frozen synthesis seed", "next_step": "Add the durable Qwen VoiceDesign creation job and Voice Studio flow that materializes another designed Voice Profile take."},
+    {"key": "take", "status": "covered", "workspace": "Narrate / Voice studio", "control": "Profile-owned designed-voice take plus randomizable frozen synthesis seed", "evidence": "Durable isolated VoiceDesign jobs materialize idempotent managed profiles; Voice Studio creates and retries takes, generates another take, and preserves exact reference text/audio. Faithful fake coverage and an opt-in real-Qwen contract test exist; the live run remains tracked in the roadmap."},
     {"key": "speed", "status": "covered", "workspace": "Narrate", "control": "Five-step pace plus an optional schema-driven Kokoro precise-speed override (0.5x-2.0x)"},
     {"key": "chunk_mode", "status": "covered", "workspace": "Narrate", "control": "Semantic, Heading 1-6, newline, and double-newline boundaries plus provider-safe advanced target modes"},
     {"key": "chunk_count", "status": "covered", "workspace": "Narrate", "control": "Approximate desired part count with hard-limit infeasibility warnings"},

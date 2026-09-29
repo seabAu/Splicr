@@ -16,6 +16,7 @@ import os
 import re
 import sys
 import traceback
+import wave
 from pathlib import Path
 from typing import Any, Mapping, Protocol
 
@@ -36,6 +37,12 @@ QWEN_CLONE_REPOS = (
     "Qwen/Qwen3-TTS-12Hz-0.6B-Base",
 )
 QWEN_CUSTOM_REPO = "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice"
+QWEN_DESIGN_REPO = "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign"
+QWEN_REFERENCE_TEXT = (
+    "This is a short reference recording. It is made once, from a written "
+    "description, so that every chapter that follows can be read in this "
+    "same voice, at this same steady pace."
+)
 QWEN_SAMPLING = {
     "temperature": 0.75,
     "subtalker_temperature": 0.75,
@@ -211,6 +218,37 @@ def _write_canonical_pcm(
         os.replace(temporary_path, output_path)
     finally:
         temporary_path.unlink(missing_ok=True)
+
+
+def _write_canonical_wav(np: Any, samples: Any, sample_rate: int, output_path: Path) -> int:
+    if sample_rate < 1:
+        raise ValueError("engine returned an invalid sample rate")
+    audio = np.asarray(samples, dtype=np.float32)
+    if audio.ndim > 1:
+        channel_axis = 0 if audio.shape[0] <= 8 else 1
+        audio = audio.mean(axis=channel_axis)
+    audio = audio.reshape(-1)
+    if not len(audio):
+        raise ValueError("VoiceDesign returned empty audio")
+    if sample_rate != 24_000:
+        output_length = max(1, round(len(audio) * 24_000 / sample_rate))
+        source_positions = np.linspace(0.0, 1.0, num=len(audio), endpoint=False)
+        target_positions = np.linspace(0.0, 1.0, num=output_length, endpoint=False)
+        audio = np.interp(target_positions, source_positions, audio).astype(np.float32)
+    pcm = (np.clip(audio, -1.0, 1.0) * 32767.0).astype("<i2", copy=False)
+    frame_count = len(audio)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path = output_path.with_name(f".{output_path.name}.{os.getpid()}.tmp")
+    try:
+        with wave.open(str(temporary_path), "wb") as output:
+            output.setnchannels(1)
+            output.setsampwidth(2)
+            output.setframerate(24_000)
+            output.writeframes(pcm.tobytes())
+        os.replace(temporary_path, output_path)
+    finally:
+        temporary_path.unlink(missing_ok=True)
+    return frame_count
 
 
 class Qwen3Runtime:
@@ -632,6 +670,54 @@ def _tool_respell_to_ipa(payload: Mapping[str, Any]) -> dict[str, Any]:
     return {"ipa": "".join(phoneme_parts) or None, "failed": None}
 
 
+def _tool_qwen_voice_design(payload: Mapping[str, Any]) -> dict[str, Any]:
+    description = " ".join(str(payload.get("description") or "").split())
+    if not description:
+        raise ValueError("voice description must not be blank")
+    take = int(payload.get("take") or 0)
+    if not 1 <= take <= 99:
+        raise ValueError("voice design take must be between 1 and 99")
+    output_path = Path(str(payload.get("output_path") or ""))
+    result_path = Path(str(payload.get("result_path") or ""))
+    if not output_path.is_absolute() or not result_path.is_absolute():
+        raise ValueError("voice design output paths must be absolute")
+
+    np = importlib.import_module("numpy")
+    torch = importlib.import_module("torch")
+    model_type = getattr(importlib.import_module("qwen_tts"), "Qwen3TTSModel")
+    kwargs: dict[str, Any] = {}
+    if torch.cuda.is_available():
+        kwargs = {"device_map": "cuda:0", "dtype": torch.bfloat16}
+    seed = 1000 + take
+    torch.manual_seed(seed)
+    model = model_type.from_pretrained(QWEN_DESIGN_REPO, **kwargs)
+    wavs, sample_rate = model.generate_voice_design(
+        text=QWEN_REFERENCE_TEXT,
+        instruct=description,
+        language="English",
+    )
+    frames = _write_canonical_wav(np, wavs[0], int(sample_rate), output_path)
+    result: dict[str, Any] = {
+        "output_path": str(output_path.resolve()),
+        "reference_text": QWEN_REFERENCE_TEXT,
+        "model": QWEN_DESIGN_REPO,
+        "seed": seed,
+        "sample_rate": 24_000,
+        "seconds": frames / 24_000,
+    }
+    result_path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = result_path.with_name(f".{result_path.name}.{os.getpid()}.tmp")
+    try:
+        temporary.write_text(
+            json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True),
+            encoding="utf-8",
+        )
+        os.replace(temporary, result_path)
+    finally:
+        temporary.unlink(missing_ok=True)
+    return result
+
+
 def run_tool(operation: str) -> int:
     try:
         payload = json.loads(sys.stdin.read() or "{}")
@@ -644,6 +730,8 @@ def run_tool(operation: str) -> int:
                 result = _tool_current_phonemes(payload)
             elif operation == "respell_to_ipa":
                 result = _tool_respell_to_ipa(payload)
+            elif operation == "qwen_voice_design":
+                result = _tool_qwen_voice_design(payload)
             else:
                 raise ValueError(f"unknown tool operation {operation!r}")
     except Exception as error:

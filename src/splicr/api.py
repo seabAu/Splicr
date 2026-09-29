@@ -153,6 +153,16 @@ from .studio.publishing import (
     PublishingService,
     PublishingStore,
 )
+from .studio.voice_design import (
+    InvalidVoiceDesignJobStateError,
+    SubprocessQwenVoiceDesignRunner,
+    VoiceDesignJob,
+    VoiceDesignJobNotFoundError,
+    VoiceDesignJobService,
+    VoiceDesignJobStatus,
+    VoiceDesignJobStore,
+    VoiceDesignUnavailableError,
+)
 from .studio.timeline import JobTimeline, TimelineSegment, build_job_timeline, wav_span_bytes
 from .studio.voice_resolution import (
     VOICE_PROFILE_VARIABLE,
@@ -403,6 +413,38 @@ class VoiceProfileUpdatePayload(BaseModel):
 
     label: str = Field(min_length=1, max_length=200)
     description: str = Field(default="", max_length=2_000)
+
+
+class VoiceDesignCreatePayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    label: str = Field(min_length=1, max_length=200)
+    description: str = Field(min_length=1, max_length=2_000)
+    take: int = Field(default=1, ge=1, le=99)
+
+    @field_validator("label", "description")
+    @classmethod
+    def text_must_not_be_blank(cls, value: str) -> str:
+        normalized = " ".join(value.split())
+        if not normalized:
+            raise ValueError("value cannot be blank")
+        return normalized
+
+
+class VoiceDesignJobResponse(BaseModel):
+    id: str
+    label: str
+    description: str
+    take: int
+    status: VoiceDesignJobStatus
+    progress: float
+    profile_id: str | None
+    reference_text: str
+    error_code: str | None
+    error_detail: str | None
+    created_at: str
+    updated_at: str
+    profile: VoiceProfileResponse | None = None
 
 
 class VoicePresetPayload(BaseModel):
@@ -2125,6 +2167,7 @@ def create_app(
     audiogram_service: AudiogramJobService | None = None,
     conversion_service: ConversionJobService | None = None,
     publishing_service: PublishingService | None = None,
+    voice_design_service: VoiceDesignJobService | None = None,
 ) -> FastAPI:
     base_settings = settings or Settings.from_env()
     components = ComponentManager(base_settings)
@@ -2134,6 +2177,23 @@ def create_app(
     profiles.initialize()
     studio = SqliteStudioStore(resolved_settings.database_path)
     studio.initialize()
+    voice_designs = voice_design_service or VoiceDesignJobService(
+        store=VoiceDesignJobStore(resolved_settings.database_path),
+        studio_store=studio,
+        output_root=resolved_settings.data_dir / "studio" / "voices",
+        runner=(
+            SubprocessQwenVoiceDesignRunner(
+                resolved_settings.qwen3_python,
+                timeout_seconds=max(
+                    1_800.0,
+                    resolved_settings.local_engine_startup_timeout_seconds,
+                ),
+            )
+            if resolved_settings.qwen3_python is not None
+            else None
+        ),
+    )
+    voice_designs.store.initialize()
     audiograms = audiogram_service or AudiogramJobService(
         store=AudiogramJobStore(resolved_settings.database_path),
         source_store=synthesis.store,
@@ -2207,15 +2267,19 @@ def create_app(
         try:
             await dialogue_scripts.start()
             try:
-                await audiograms.start()
+                await voice_designs.start()
                 try:
-                    await conversions.start()
+                    await audiograms.start()
                     try:
-                        yield
+                        await conversions.start()
+                        try:
+                            yield
+                        finally:
+                            await conversions.stop()
                     finally:
-                        await conversions.stop()
+                        await audiograms.stop()
                 finally:
-                    await audiograms.stop()
+                    await voice_designs.stop()
             finally:
                 await dialogue_scripts.stop()
         finally:
@@ -2234,6 +2298,7 @@ def create_app(
     application.state.audiogram_service = audiograms
     application.state.conversion_service = conversions
     application.state.publishing_service = publishing
+    application.state.voice_design_service = voice_designs
     application.state.component_manager = components
     application.state.error_event_store = synthesis.store
     application.state.studio_store = studio
@@ -2571,6 +2636,31 @@ def create_app(
             return studio.get_voice_profile(profile_id)
         except KeyError as error:
             raise HTTPException(status_code=404, detail="Voice profile not found") from error
+
+    def voice_design_response(job: VoiceDesignJob) -> VoiceDesignJobResponse:
+        profile: VoiceProfileResponse | None = None
+        if job.profile_id:
+            try:
+                profile = VoiceProfileResponse.from_domain(
+                    studio.get_voice_profile(job.profile_id)
+                )
+            except KeyError:
+                profile = None
+        return VoiceDesignJobResponse(
+            id=job.id,
+            label=job.label,
+            description=job.description,
+            take=job.take,
+            status=job.status,
+            progress=job.progress,
+            profile_id=job.profile_id,
+            reference_text=job.reference_text,
+            error_code=job.error_code,
+            error_detail=job.error_detail,
+            created_at=job.created_at,
+            updated_at=job.updated_at,
+            profile=profile,
+        )
 
     def resolved_voice_request(
         request: CreateJobRequest,
@@ -3469,6 +3559,74 @@ def create_app(
             VoiceProfileResponse.from_domain(profile)
             for profile in studio.list_voice_profiles(engine_id)
         ]
+
+    @application.get(
+        "/v1/studio/voice-design/jobs",
+        response_model=list[VoiceDesignJobResponse],
+        tags=["studio"],
+    )
+    def list_voice_design_jobs(
+        limit: int = Query(default=100, ge=1, le=500),
+    ) -> list[VoiceDesignJobResponse]:
+        return [voice_design_response(job) for job in voice_designs.store.list(limit)]
+
+    @application.post(
+        "/v1/studio/voice-design/jobs",
+        response_model=VoiceDesignJobResponse,
+        status_code=status.HTTP_202_ACCEPTED,
+        tags=["studio"],
+    )
+    async def create_voice_design_job(
+        payload: VoiceDesignCreatePayload,
+    ) -> VoiceDesignJobResponse:
+        try:
+            job = await voice_designs.submit(
+                label=payload.label,
+                description=payload.description,
+                take=payload.take,
+            )
+        except VoiceDesignUnavailableError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        return voice_design_response(job)
+
+    @application.get(
+        "/v1/studio/voice-design/jobs/{job_id}",
+        response_model=VoiceDesignJobResponse,
+        tags=["studio"],
+    )
+    def get_voice_design_job(job_id: str) -> VoiceDesignJobResponse:
+        try:
+            return voice_design_response(voice_designs.store.get(job_id))
+        except VoiceDesignJobNotFoundError as error:
+            raise HTTPException(status_code=404, detail="Voice design job not found") from error
+
+    @application.post(
+        "/v1/studio/voice-design/jobs/{job_id}/retry",
+        response_model=VoiceDesignJobResponse,
+        status_code=status.HTTP_202_ACCEPTED,
+        tags=["studio"],
+    )
+    async def retry_voice_design_job(job_id: str) -> VoiceDesignJobResponse:
+        try:
+            return voice_design_response(await voice_designs.retry(job_id))
+        except VoiceDesignJobNotFoundError as error:
+            raise HTTPException(status_code=404, detail="Voice design job not found") from error
+        except (InvalidVoiceDesignJobStateError, VoiceDesignUnavailableError) as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+
+    @application.post(
+        "/v1/studio/voice-design/jobs/{job_id}/cancel",
+        response_model=VoiceDesignJobResponse,
+        status_code=status.HTTP_202_ACCEPTED,
+        tags=["studio"],
+    )
+    async def cancel_voice_design_job(job_id: str) -> VoiceDesignJobResponse:
+        try:
+            return voice_design_response(await voice_designs.cancel(job_id))
+        except VoiceDesignJobNotFoundError as error:
+            raise HTTPException(status_code=404, detail="Voice design job not found") from error
+        except InvalidVoiceDesignJobStateError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
 
     @application.post(
         "/v1/studio/voices/reference",

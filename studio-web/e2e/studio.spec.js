@@ -142,3 +142,33 @@ test("a document can be planned, directed, rendered, played, and reopened", asyn
 
   expect(runtimeErrors).toEqual([]);
 });
+
+test("Voice Studio designs a durable identity and generates another take", async ({ page }) => {
+  const runtimeErrors = captureRuntimeErrors(page);
+  const navigation = page.getByRole("navigation", { name: "Studio workspaces" });
+  await navigation.getByRole("button", { name: "Voice studio", exact: true }).click();
+
+  await page.getByRole("button", { name: "Designed voice" }).click();
+  await page.getByLabel("Name").fill("Acceptance designed voice");
+  await page.getByLabel("Voice description").fill(
+    "A calm, measured documentary narrator with a warm alto register",
+  );
+  await page.getByRole("spinbutton", { name: "Take", exact: true }).fill("1");
+  await page.getByRole("button", { name: "Design voice" }).click();
+
+  await expect(page.getByRole("heading", { name: "Acceptance designed voice" })).toBeVisible();
+  await expect(page.getByText("Designed take 1")).toBeVisible();
+  await expect(page.getByText("Exact reference transcript")).toBeVisible();
+  await expect(page.locator("audio")).toHaveAttribute("src", /\/v1\/studio\/voices\/.+\/reference/);
+
+  await page.getByRole("button", { name: "Generate another take" }).click();
+  await expect(page.getByRole("spinbutton", { name: "Take", exact: true })).toHaveValue("2");
+  await expect(page.getByLabel("Name")).toHaveValue("Acceptance designed voice · take 2");
+  await page.getByRole("button", { name: "Design voice" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Acceptance designed voice · take 2" }),
+  ).toBeVisible();
+  await expect(page.getByText("Designed take 2")).toBeVisible();
+
+  expect(runtimeErrors).toEqual([]);
+});

@@ -514,6 +514,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important
 .voice-preset-summary > div, .voice-runtime-note > div { display: grid; gap: 3px; }
 .voice-preset-summary strong, .voice-runtime-note strong { font-size: 0.68rem; }
 .voice-preset-summary span, .voice-runtime-note span { color: var(--muted); font-size: 0.62rem; line-height: 1.5; }
+.voice-preset-summary > button { margin-left: auto; flex: 0 0 auto; }
 .voice-delete-row { min-height: 34px; margin-top: 14px; border-top: 1px solid var(--line-soft); padding-top: 11px; display: flex; align-items: center; gap: 8px; }
 .voice-delete-row > span { margin-right: auto; color: #d7aaa6; font-size: 0.63rem; }
 .voice-edit-fields { margin-top: 16px; display: grid; gap: 10px; }
@@ -536,6 +537,12 @@ button:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important
 .voice-upload small { color: var(--subtle); font-size: 0.59rem; }
 .voice-upload input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .voice-create-form > .primary-button { justify-self: end; width: auto; }
+.voice-design-status { display: grid; grid-template-columns: minmax(0, 1fr) minmax(100px, 0.35fr) auto; gap: 12px; align-items: center; border: 1px solid var(--line-soft); border-radius: 10px; background: #11120f; padding: 11px 12px; }
+.voice-design-status > div { display: grid; gap: 3px; }
+.voice-design-status strong { font-size: 0.68rem; }
+.voice-design-status span { color: var(--muted); font-size: 0.62rem; line-height: 1.4; }
+.voice-design-status progress { width: 100%; accent-color: var(--accent); }
+.voice-design-status.status-failed { border-color: rgba(255, 108, 99, 0.35); }
 .voice-runtime-note { margin: 0; background: rgba(216, 255, 114, 0.035); }
 .voice-notice { margin: -10px 0 16px; border: 1px solid rgba(143, 215, 186, 0.25); border-radius: 10px; background: rgba(143, 215, 186, 0.05); color: #a9ddc8; padding: 10px 12px; font-size: 0.68rem; }
 .voice-notice.error { border-color: rgba(255, 129, 123, 0.28); background: rgba(255, 129, 123, 0.06); color: #efaaa5; }

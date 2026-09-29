@@ -113,8 +113,15 @@ and manages overrides alongside provider-neutral substitutions. New Kokoro jobs 
 dictionary snapshot in their persisted variables, so an edit cannot change a resumed book midway.
 Voice Studio persists cloned/designed reference identities separately from reproducible engine
 presets, plays registered references, and safely distinguishes Studio-managed files from imported
-external assets. Workspace navigation keeps mounted form state intact. Direct Qwen voice design
-and audition will arrive with its isolated engine adapter. Dialogue, timeline, audiogram,
+external assets. Qwen VoiceDesign runs as a durable SQLite-backed job through its configured
+isolated Python environment, never loads model code in FastAPI, atomically writes one canonical
+reference WAV plus its exact transcript, and materializes an idempotent profile for each normalized
+description/take identity. Queued or running jobs can be cancelled, interrupted running work is
+requeued after restart, a persisted cancel request is honored after restart, completed atomic
+worker output is finalized without regenerating audio, and failed/cancelled jobs can be retried.
+Voice Studio exposes Designed voice and Generate another take while keeping profile take identity
+separate from per-render seed. Workspace navigation keeps mounted form state intact. Audition will
+arrive with its isolated engine adapter. Dialogue, timeline, audiogram,
 publishing, component management, and conversion remain explicit migration slots.
 
 The React shell now owns the essential SPLICR management workflows as well. Profiles save and load

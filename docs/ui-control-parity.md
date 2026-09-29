@@ -14,8 +14,8 @@ Current conclusion:
 
 - Core engine, voice, delivery, profile, conversion, video, publishing, and project controls are
   represented in Studio.
-- The largest remaining control gaps are durable Qwen voice-design creation, subtitles, export
-  naming, checkpoint export, still-image video backgrounds, intro/outro assets, Edge TTS,
+- The largest remaining control gaps are subtitles, export naming, checkpoint export, still-image
+  video backgrounds, intro/outro assets, Edge TTS,
   transcription, batch queues, and the advanced polar/formula audiogram.
 - Narrate now keeps everyday boundaries compact while its advanced disclosure covers approximate
   parts, character targets, and provider-estimated token targets. Preflight exposes exact spans,

@@ -56,7 +56,7 @@ Controls belong in three layers:
   job, and chunk options used for resume.
 - [ ] Provider/engine secrets and private paths never enter logs, error reports, exported profiles,
   browser storage, or GitHub Actions artifacts.
-- [ ] New long-running utilities use durable jobs with progress, cancellation, restart recovery,
+- [x] New long-running utilities use durable jobs with progress, cancellation, restart recovery,
   structured errors, and atomic final outputs.
 - [x] All advanced controls remain keyboard accessible, have labels/help text, and do not rely on
   color alone.
@@ -107,7 +107,7 @@ human-readable work queue, including broader capabilities that were not render-s
 | Capability | Current state | Destination | Milestone |
 | --- | --- | --- | --- |
 | Typed engine/model parameters | Gap | Narrate advanced controls | 1 |
-| Qwen voice-design take and deterministic seed | Gap | Narrate / Voice Studio | 2 |
+| Qwen voice-design take and deterministic seed | Covered; live-model acceptance pending | Narrate / Voice Studio | 2 |
 | Optional precise speed | Covered for Kokoro | Narrate advanced controls | 2 |
 | Parts/token/character chunk planning | Covered | Narrate advanced controls | 2 |
 | Edge TTS engine | Gap | Narrate / Components | 3 |
@@ -182,11 +182,14 @@ Voice Profile in Voice Studio; it never mutates a take number on an existing pro
   first chunk.
 - [x] Prove resumed chunks use the same designed/cloned voice and seed policy.
 - [x] Add tests for same settings/same take, new take, retry, resume, and profile round-trip.
-- [ ] Add a durable Qwen VoiceDesign job that turns description + take into a managed reference
+- [x] Add a durable Qwen VoiceDesign job that turns description + take into a managed reference
   recording and exact reference transcript without loading the model in FastAPI.
-- [ ] Add **Designed voice** and **Generate another take** flows to Voice Studio; reuse an existing
+- [x] Add **Designed voice** and **Generate another take** flows to Voice Studio; reuse an existing
   description/take profile rather than duplicating it.
-- [ ] Verify the design worker against a faithful fake Qwen API and an opt-in real local model.
+- [x] Add faithful fake-worker coverage plus an opt-in real-local-model acceptance test that
+  validates the exact transcript, deterministic take seed, and canonical WAV contract.
+- [ ] Run the opt-in VoiceDesign acceptance test against a configured Qwen environment and record
+  its Python/model/date/result; mocks alone cannot close this local-model evidence item.
 
 ### Precise speed
 
@@ -422,14 +425,20 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   provider test skipped), seven frontend unit tests, the production Vite build, and two Chromium
   journeys covering keyboard disclosure, provider switching, conditional fields, local bounds,
   profile round-trip, checkpoint resume, playback, and Studio reopening.
+- [x] 2026-09-29 — Milestone 2 implementation gate passed: Ruff, the complete Python suite (the
+  opt-in live-provider and live-Qwen tests skipped), eight frontend unit tests, the production Vite
+  build, and three Chromium journeys. VoiceDesign coverage includes durable idempotency, atomic
+  restart finalization, cancellation, cancellation recovery, retry, managed-profile creation, and
+  generating another take through the real FastAPI transport.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
 ## Current work pointer
 
-- **Active milestone:** Milestone 2 — narration controls: Qwen, speed, and chunk planning.
-- **Next implementation slice:** reconcile Qwen Voice Profile identity with deterministic
-  VoiceDesign creation jobs, then extend the immutable planner with provider-safe target modes.
+- **Active milestone:** Milestone 2 acceptance closeout, then Milestone 3 — Edge TTS and engine
+  onboarding breadth.
+- **Next implementation slice:** run the opt-in real Qwen VoiceDesign acceptance check when a
+  configured environment is available; otherwise begin the provider-neutral Edge TTS adapter.
 - **Known unrelated worktree item:** `LICENSE.txt` is untracked and not part of this roadmap unless
   deliberately adopted later.
 
@@ -447,3 +456,8 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   owned by the selected Voice Profile; synthesis seed is visible, randomizable, profile-safe, and
   frozen with model/reference/design/sampling state through checkpoint resume. The audit made the
   missing durable VoiceDesign creation flow explicit before marking legacy `take` parity covered.
+- **2026-09-29:** Added the durable isolated Qwen VoiceDesign queue, atomic managed reference and
+  exact-transcript materialization, idempotent description/take identity, restart recovery,
+  cancellation and retry, Voice Studio Designed voice / Generate another take flows, a faithful
+  worker fake, and an opt-in real-model contract test. Full mocked regressions pass; the real Qwen
+  execution remains an explicit acceptance item until a configured environment supplies evidence.
