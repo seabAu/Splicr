@@ -16,10 +16,14 @@ Current conclusion:
   represented in Studio.
 - The largest remaining control gaps are precise speed, Qwen take/seed, manual chunk sizing,
   subtitles, export naming, checkpoint export, still-image video backgrounds, intro/outro assets,
-  model-specific generation parameters, batch queues, and the advanced polar/formula audiogram.
+  model-specific generation parameters, Edge TTS, transcription, batch queues, and the advanced
+  polar/formula audiogram.
 - The merged UI should not recreate the original wall of widgets. Use a compact default workflow,
   an **Advanced engine controls** drawer generated from typed provider metadata, and dedicated
   post-production workspaces.
+
+The implementation order, acceptance criteria, and living task checklist are maintained in
+[`narrator-parity-roadmap.md`](narrator-parity-roadmap.md).
 
 ## Acceptance layers
 

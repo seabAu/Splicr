@@ -133,7 +133,9 @@ npm --prefix studio-web run test:e2e
 ```
 
 See [`docs/ui-control-parity.md`](docs/ui-control-parity.md) for the machine-checked mapping from
-Narrator's native controls to the merged Studio UI and its explicit remaining gaps.
+Narrator's native controls to the merged Studio UI and its explicit remaining gaps. The active
+implementation program and living checklist are in
+[`docs/narrator-parity-roadmap.md`](docs/narrator-parity-roadmap.md).
 
 To reuse existing Narrator engine environments on Windows, add their interpreters to `.env` before
 starting SPLICR:
