@@ -18,6 +18,14 @@ import {
 import { api } from "./api.js";
 
 const TERMINAL = new Set(["completed", "failed", "cancelled"]);
+const FORMULA_FIELDS = [
+  ["linear_x", "Linear X"], ["linear_y", "Linear Y"],
+  ["linear_width", "Linear width"], ["linear_height", "Linear height"],
+  ["center_x", "Polar center X"], ["center_y", "Polar center Y"],
+  ["inner_radius", "Inner radius"], ["outer_radius", "Outer radius"],
+  ["pivot_x", "Pivot X"], ["pivot_y", "Pivot Y"],
+  ["rotation", "Rotation"], ["opacity", "Opacity"], ["line_width", "Line width"],
+];
 
 function formatDuration(value) {
   if (!Number.isFinite(value)) return "0:00";
@@ -56,28 +64,62 @@ function AudiogramEmpty({ loading, ffmpegAvailable, onNavigate }) {
   );
 }
 
+function resample(values, count) {
+  const size = Math.max(2, Math.min(count, values.length));
+  return Array.from({ length: size }, (_, index) => (
+    values[Math.round((index / (size - 1)) * (values.length - 1))] || 0
+  ));
+}
+
+function smoothSamples(values, amount) {
+  const radius = Math.round(Math.max(0, Math.min(0.95, amount || 0)) * 6);
+  if (!radius) return values;
+  return values.map((_, index) => {
+    const start = Math.max(0, index - radius);
+    const end = Math.min(values.length, index + radius + 1);
+    return values.slice(start, end).reduce((sum, value) => sum + value, 0) / (end - start);
+  });
+}
+
 function LiveCanvas({ spec, waveform, layout, background }) {
   if (!layout) return <div className="audiogram-canvas-shell audiogram-canvas-loading" />;
   const width = 1000;
   const height = Math.round((width * layout.canvas_height) / layout.canvas_width);
-  const visualizerHeight = (layout.visualizer_height / layout.canvas_height) * height;
-  const top = (layout.visualizer_y / layout.canvas_height) * height;
+  const scaleX = width / layout.canvas_width;
+  const scaleY = height / layout.canvas_height;
+  const visualizerX = layout.visualizer_x * scaleX;
+  const visualizerWidth = layout.visualizer_width * scaleX;
+  const visualizerHeight = layout.visualizer_height * scaleY;
+  const top = layout.visualizer_y * scaleY;
   const hasSignal = waveform?.some((value) => value > 0.001);
-  const samples = hasSignal ? waveform : Array.from({ length: 120 }, (_, index) => (
+  const rawSamples = hasSignal ? waveform : Array.from({ length: 120 }, (_, index) => (
     0.18 + Math.abs(Math.sin(index * 0.31) * Math.cos(index * 0.073)) * 0.72
   ));
-  const points = samples.map((value, index) => {
-    const x = samples.length === 1 ? width / 2 : (index / (samples.length - 1)) * width;
-    const y = top + visualizerHeight / 2 - value * visualizerHeight * 0.44;
-    return [x, y];
+  const samples = smoothSamples(resample(rawSamples, layout.bar_count || 96), layout.smoothing);
+  const isPolar = layout.geometry === "polar";
+  const centerX = layout.center_x * scaleX;
+  const centerY = layout.center_y * scaleY;
+  const innerRadius = layout.inner_radius * Math.min(scaleX, scaleY);
+  const outerRadius = layout.outer_radius * Math.min(scaleX, scaleY);
+  const polarBaseline = (innerRadius + outerRadius) / 2;
+  const polarPoints = samples.map((value, index) => {
+    const angle = -Math.PI / 2 + (index / samples.length) * Math.PI * 2;
+    const radius = layout.mirror
+      ? polarBaseline + value * (outerRadius - innerRadius) / 2
+      : innerRadius + value * (outerRadius - innerRadius);
+    return [centerX + Math.cos(angle) * radius, centerY + Math.sin(angle) * radius, angle, value];
   });
-  const mirror = [...points].reverse().map(([x, y]) => [
-    x,
-    top + visualizerHeight - (y - top),
-  ]);
-  const area = `M ${points.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" L ")} L ${mirror.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" L ")} Z`;
-  const line = `M ${points.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" L ")}`;
+  const linearBaseline = top + (layout.mirror ? visualizerHeight / 2 : visualizerHeight);
+  const linearPoints = samples.map((value, index) => {
+    const x = visualizerX + (index / Math.max(1, samples.length - 1)) * visualizerWidth;
+    const amplitude = value * visualizerHeight * (layout.mirror ? 0.45 : 0.9);
+    return [x, linearBaseline - amplitude, amplitude];
+  });
+  const linePoints = isPolar ? polarPoints : linearPoints;
+  const line = `M ${linePoints.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" L ")}${isPolar ? " Z" : ""}`;
   const blur = spec.blur ? `blur(${Math.min(spec.blur, 8)}px)` : undefined;
+  const rotation = `rotate(${layout.rotation || 0} ${layout.pivot_x * scaleX} ${layout.pivot_y * scaleY})`;
+  const strokeWidth = Math.max(1, (layout.line_width || 3) * Math.min(scaleX, scaleY));
 
   return (
     <div className={`audiogram-canvas-shell ${layout.background_mode === "transparent" ? "is-transparent" : ""}`} style={{
@@ -97,33 +139,41 @@ function LiveCanvas({ spec, waveform, layout, background }) {
       )}
       <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" aria-label="Live audiogram composition preview">
         {layout.background_mode === "solid" && <rect width={width} height={height} fill={spec.background_color} />}
-        {spec.source === "spectrum" ? (
-          samples.map((value, index) => (
-            <rect
+        <g transform={rotation} opacity={layout.opacity} style={{ filter: blur }}>
+          {layout.show_bars && (isPolar ? polarPoints.map(([x, y, angle, value], index) => {
+            const startRadius = layout.mirror
+              ? polarBaseline - value * (outerRadius - innerRadius) / 2
+              : innerRadius;
+            return (
+              <line
+                key={index}
+                x1={centerX + Math.cos(angle) * startRadius}
+                y1={centerY + Math.sin(angle) * startRadius}
+                x2={x}
+                y2={y}
+                stroke={spec.foreground_color}
+                strokeWidth={Math.max(1, (visualizerWidth / samples.length) * spec.bar_width * 0.08)}
+                strokeLinecap="round"
+              />
+            );
+          }) : linearPoints.map(([x, y, amplitude], index) => (
+            <line
               key={index}
-              x={(index / samples.length) * width}
-              y={top + visualizerHeight * (1 - value)}
-              width={width / samples.length + 1}
-              height={visualizerHeight * value}
-              fill={spec.foreground_color}
-              opacity={0.2 + value * 0.8}
+              x1={x}
+              y1={layout.mirror ? linearBaseline + amplitude : linearBaseline}
+              x2={x}
+              y2={y}
+              stroke={spec.foreground_color}
+              strokeWidth={Math.max(1, (visualizerWidth / samples.length) * spec.bar_width)}
+              strokeLinecap="round"
             />
-          ))
-        ) : spec.source === "frequency" ? (
-          <path d={line} fill="none" stroke={spec.foreground_color} strokeWidth="5" style={{ filter: blur }} />
-        ) : spec.source === "vectorscope" ? (
-          <ellipse
-            cx={width / 2}
-            cy={top + visualizerHeight / 2}
-            rx={visualizerHeight * 0.35}
-            ry={visualizerHeight * 0.43}
-            fill="none"
-            stroke={spec.foreground_color}
-            strokeWidth="5"
-            style={{ filter: blur }}
-          />
-        ) : (
-          <path d={area} fill={spec.foreground_color} opacity={spec.trail ? 0.72 : 0.92} style={{ filter: blur }} />
+          )))}
+          {layout.show_line && (
+            <path d={line} fill="none" stroke={spec.foreground_color} strokeWidth={strokeWidth} strokeLinejoin="round" />
+          )}
+        </g>
+        {(layout.rotation !== 0 || layout.animated) && (
+          <circle cx={layout.pivot_x * scaleX} cy={layout.pivot_y * scaleY} r="5" fill="#F4A259" opacity="0.9" />
         )}
       </svg>
       <span><Waves size={14} /> Live layout preview</span>
@@ -185,6 +235,8 @@ export function AudiogramWorkspace({ onNavigate }) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
+  const [formulaField, setFormulaField] = useState("rotation");
+  const [referenceQuery, setReferenceQuery] = useState("");
 
   const load = async () => {
     const [nextCapabilities, nextSources, nextBackgrounds, nextJobs] = await Promise.all([
@@ -243,6 +295,11 @@ export function AudiogramWorkspace({ onNavigate }) {
   const background = backgrounds.find((item) => item.id === spec?.background_asset_id) || null;
   const activeJob = jobs.find((job) => job.source_job_id === sourceId) || jobs[0] || null;
   const alphaFormats = capabilities?.alpha_output_formats || [];
+  const resolvedLayout = estimate?.layout || capabilities?.default_layout || null;
+  const expressionReference = (capabilities?.expression_reference || []).filter((item) => {
+    const query = referenceQuery.trim().toLowerCase();
+    return !query || `${item.name} ${item.signature} ${item.detail}`.toLowerCase().includes(query);
+  });
   const update = (key, value) => setSpec((current) => ({ ...current, [key]: value }));
   const render = async (kind) => {
     if (!sourceId || !spec) return;
@@ -331,7 +388,7 @@ export function AudiogramWorkspace({ onNavigate }) {
               <LiveCanvas
                 spec={spec}
                 waveform={waveform}
-                layout={estimate?.layout || capabilities.default_layout}
+                layout={resolvedLayout}
                 background={background}
               />
               <div className="audiogram-render-bar">
@@ -410,6 +467,62 @@ export function AudiogramWorkspace({ onNavigate }) {
               <label><span>Encoder speed</span><select value={spec.preset} onChange={(event) => update("preset", event.target.value)}>{capabilities.presets.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
               <label><span>Quality · CRF <strong>{spec.crf}</strong></span><input type="range" min="12" max={spec.output_format === "webm" ? "50" : "40"} step="1" value={spec.crf} onChange={(event) => update("crf", Number(event.target.value))} /></label>
             </div>
+            <details className="audiogram-advanced">
+              <summary>
+                <span><strong>Advanced</strong> Geometry, layers, and animation</span>
+                <small>Optional</small>
+              </summary>
+              <div className="audiogram-control-grid audiogram-advanced-grid">
+                <label><span>Geometry</span><select value={spec.geometry} onChange={(event) => update("geometry", event.target.value)}>{(capabilities.geometries || ["linear", "polar"]).map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
+                <label><span>Layer mode</span><select value={spec.show_bars && spec.show_line ? "both" : (spec.show_line ? "line" : "bars")} onChange={(event) => {
+                  const value = event.target.value;
+                  setSpec((current) => ({ ...current, show_bars: value !== "line", show_line: value !== "bars" }));
+                }}><option value="bars">Bars</option><option value="line">Line</option><option value="both">Bars + line</option></select></label>
+                <label className="check"><input type="checkbox" checked={spec.mirror} onChange={(event) => update("mirror", event.target.checked)} /><span>Mirror around the baseline</span></label>
+                <label><span>Bar count <strong>{spec.bar_count}</strong></span><input type="range" min="12" max="256" step="4" value={spec.bar_count} onChange={(event) => update("bar_count", Number(event.target.value))} /></label>
+                <label><span>Bar width <strong>{Number(spec.bar_width).toFixed(2)}</strong></span><input type="range" min="0.1" max="1" step="0.05" value={spec.bar_width} onChange={(event) => update("bar_width", Number(event.target.value))} /></label>
+                <label><span>Smoothing <strong>{Math.round(spec.smoothing * 100)}%</strong></span><input type="range" min="0" max="0.95" step="0.05" value={spec.smoothing} onChange={(event) => update("smoothing", Number(event.target.value))} /></label>
+                {spec.geometry === "linear" ? (
+                  <>
+                    <label><span>Horizontal position</span><input type="range" min="0" max="1" step="0.01" value={typeof spec.linear_x === "number" ? spec.linear_x : 0} onChange={(event) => update("linear_x", Number(event.target.value))} /></label>
+                    <label><span>Horizontal span</span><input type="range" min="0.05" max="1" step="0.01" value={typeof spec.linear_width === "number" ? spec.linear_width : 1} onChange={(event) => update("linear_width", Number(event.target.value))} /></label>
+                    <label><span>Vertical position</span><input type="range" min="0" max="1" step="0.01" value={typeof spec.linear_y === "number" ? spec.linear_y : spec.vertical_position} onChange={(event) => update("linear_y", Number(event.target.value))} /></label>
+                    <label><span>Vertical span</span><input type="range" min="0.05" max="1" step="0.01" value={typeof spec.linear_height === "number" ? spec.linear_height : spec.visualizer_height / spec.height} onChange={(event) => update("linear_height", Number(event.target.value))} /></label>
+                  </>
+                ) : (
+                  <>
+                    <label><span>Center X</span><input type="range" min="0" max="1" step="0.01" value={typeof spec.center_x === "number" ? spec.center_x : 0.5} onChange={(event) => update("center_x", Number(event.target.value))} /></label>
+                    <label><span>Center Y</span><input type="range" min="0" max="1" step="0.01" value={typeof spec.center_y === "number" ? spec.center_y : 0.5} onChange={(event) => update("center_y", Number(event.target.value))} /></label>
+                    <label><span>Inner radius</span><input type="range" min="0" max="0.48" step="0.01" value={typeof spec.inner_radius === "number" ? spec.inner_radius : 0.18} onChange={(event) => update("inner_radius", Number(event.target.value))} /></label>
+                    <label><span>Outer radius</span><input type="range" min="0.02" max="0.5" step="0.01" value={typeof spec.outer_radius === "number" ? spec.outer_radius : 0.42} onChange={(event) => update("outer_radius", Number(event.target.value))} /></label>
+                  </>
+                )}
+                <label><span>Pivot X</span><input type="range" min="0" max="1" step="0.01" value={typeof spec.pivot_x === "number" ? spec.pivot_x : 0.5} onChange={(event) => update("pivot_x", Number(event.target.value))} /></label>
+                <label><span>Pivot Y</span><input type="range" min="0" max="1" step="0.01" value={typeof spec.pivot_y === "number" ? spec.pivot_y : 0.5} onChange={(event) => update("pivot_y", Number(event.target.value))} /></label>
+                <label><span>Rotation <strong>{typeof spec.rotation === "number" ? `${spec.rotation.toFixed(0)}°` : "formula"}</strong></span><input type="range" min="-180" max="180" step="1" value={typeof spec.rotation === "number" ? spec.rotation : 0} onChange={(event) => update("rotation", Number(event.target.value))} /></label>
+                <label><span>Opacity <strong>{typeof spec.opacity === "number" ? `${Math.round(spec.opacity * 100)}%` : "formula"}</strong></span><input type="range" min="0" max="1" step="0.01" value={typeof spec.opacity === "number" ? spec.opacity : 1} onChange={(event) => update("opacity", Number(event.target.value))} /></label>
+                <label className="wide"><span>Line width <strong>{typeof spec.line_width === "number" ? spec.line_width.toFixed(1) : "formula"}</strong></span><input type="range" min="0.5" max="24" step="0.5" value={typeof spec.line_width === "number" ? spec.line_width : 3} onChange={(event) => update("line_width", Number(event.target.value))} /></label>
+              </div>
+              <section className="audiogram-formula-editor">
+                <div className="audiogram-formula-heading">
+                  <div><p className="eyebrow">Safe expressions</p><h3>Animate any layout field</h3></div>
+                  <span>No eval</span>
+                </div>
+                <div className="audiogram-formula-row">
+                  <select aria-label="Formula field" value={formulaField} onChange={(event) => setFormulaField(event.target.value)}>{FORMULA_FIELDS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+                  <input aria-label="Formula expression" value={String(spec[formulaField] ?? "")} onChange={(event) => update(formulaField, event.target.value)} placeholder="e.g. 15 * sin(t * 2)" />
+                </div>
+                <p>Numbers stay static. Expressions may use time, progress, frame, and audio-reactive values; invalid or unsafe formulas are rejected before rendering.</p>
+                <input className="audiogram-reference-search" aria-label="Search expression variables and functions" value={referenceQuery} onChange={(event) => setReferenceQuery(event.target.value)} placeholder="Search variables and functions" />
+                <div className="audiogram-reference-list">
+                  {expressionReference.slice(0, 14).map((item) => (
+                    <button type="button" key={`${item.kind}-${item.name}`} title={item.detail} onClick={() => update(formulaField, item.signature)}>
+                      <code>{item.signature}</code><small>{item.kind}</small>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            </details>
             <div className="audiogram-parity-note">
               <CheckCircle2 size={16} />
               <p><strong>Built for long-form work.</strong> Renders are persisted, restart safely, preserve the take audio, and become Studio artifacts. The live preview, estimate, and final render share one layout contract; alpha-capable FFmpeg installs also expose WebM, ProRes 4444, and PNG sequences.</p>

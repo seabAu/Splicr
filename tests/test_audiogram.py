@@ -22,6 +22,7 @@ from splicr.service import SynthesisService
 from splicr.studio.audiogram import (
     AudiogramBackgroundFit,
     AudiogramBackgroundMode,
+    AudiogramGeometry,
     AudiogramJob,
     AudiogramJobKind,
     AudiogramJobService,
@@ -36,6 +37,7 @@ from splicr.studio.audiogram import (
     audiogram_output_extension,
     build_ffmpeg_command,
     build_filter_graph,
+    requires_frame_renderer,
     resolve_layout,
 )
 from splicr.studio.domain import ArtifactKind
@@ -191,7 +193,7 @@ def test_image_background_uses_shared_layout_and_managed_ffmpeg_input(tmp_path: 
     assert layout.to_mapping()["background_fit"] == "cover"
     assert "[1:v]scale=1080x1920:force_original_aspect_ratio=increase" in graph
     assert "crop=1080x1920:x='(iw-ow)*0.200000':y='(ih-oh)*0.800000'" in graph
-    assert "overlay=x=0:y=360" in graph
+    assert "overlay=x='0':y='360'" in graph
     start = command.index("-loop")
     assert command[start : start + 7] == [
         "-loop",
@@ -245,7 +247,9 @@ def test_transparent_output_commands_preserve_alpha(
         output_format=output_format,
     )
     target = tmp_path / (
-        "frame-%08d.png" if output_format is AudiogramOutputFormat.PNG_SEQUENCE else f"out.{extension}"
+        "frame-%08d.png"
+        if output_format is AudiogramOutputFormat.PNG_SEQUENCE
+        else f"out.{extension}"
     )
     graph = build_filter_graph(spec)
     command = build_ffmpeg_command(
@@ -317,6 +321,78 @@ def test_spec_rejects_unbounded_or_odd_render_dimensions() -> None:
         AudiogramSpec(height=360, visualizer_height=500)
     with pytest.raises(ValueError, match="#RRGGBB"):
         AudiogramSpec(foreground_color="red")
+
+
+def test_polar_layout_uses_short_dimension_and_never_inverts_radii() -> None:
+    layout = resolve_layout(
+        AudiogramSpec(
+            width=1280,
+            height=720,
+            geometry=AudiogramGeometry.POLAR,
+            inner_radius=0.45,
+            outer_radius=0.2,
+        )
+    )
+
+    assert layout.inner_radius == round(720 * 0.45)
+    assert layout.outer_radius == layout.inner_radius + 1
+    assert layout.visualizer_width == layout.outer_radius * 2
+
+
+def test_formula_layout_resolves_against_frame_and_audio_context() -> None:
+    spec = AudiogramSpec(
+        rotation="360 * progress",
+        opacity="clamp(level, 0, 1)",
+        pivot_x="0.25 + bass * 0.25",
+    )
+    layout = resolve_layout(
+        spec,
+        {
+            "progress": 0.25,
+            "level": 0.4,
+            "bass": 0.5,
+            "duration": 10,
+            "fps": 24,
+            "t": 2.5,
+            "frame": 60,
+            "mid": 0.3,
+            "treble": 0.2,
+        },
+    )
+
+    assert layout.rotation == 90
+    assert layout.opacity == pytest.approx(0.4)
+    assert layout.pivot_x == round(1280 * 0.375)
+    assert layout.animated is True
+
+
+def test_fast_renderer_stays_default_while_advanced_controls_opt_in() -> None:
+    assert requires_frame_renderer(AudiogramSpec()) is False
+    assert requires_frame_renderer(AudiogramSpec(geometry=AudiogramGeometry.POLAR)) is True
+    assert requires_frame_renderer(AudiogramSpec(rotation="15 * sin(t)")) is True
+    assert "v360=" not in build_filter_graph(AudiogramSpec())
+    assert "tmix=" not in build_filter_graph(AudiogramSpec())
+    assert "v360=" in build_filter_graph(AudiogramSpec(geometry=AudiogramGeometry.POLAR))
+
+
+def test_api_rejects_unsafe_audiogram_formula_before_render(tmp_path: Path) -> None:
+    settings = _settings(tmp_path)
+    synthesis = SynthesisService(
+        settings=settings,
+        providers=ProviderRegistry([RecordingProvider()]),
+    )
+    with TestClient(create_app(settings=settings, service=synthesis)) as client:
+        response = client.post(
+            "/v1/studio/audiograms/estimate",
+            json={
+                "source_job_id": "missing",
+                "kind": "preview",
+                "spec": {"rotation": "__import__('os').system('whoami')"},
+            },
+        )
+
+    assert response.status_code == 422
+    assert "Only listed formula functions" in response.text
 
 
 def test_durable_audiogram_job_creates_video_artifact(tmp_path: Path) -> None:
@@ -567,6 +643,99 @@ def test_real_ffmpeg_renderer_smoke(tmp_path: Path, visualizer: AudiogramSource)
 
 
 @pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="FFmpeg is not installed")
+def test_advanced_renderer_exports_formula_driven_polar_alpha_frames(
+    tmp_path: Path,
+) -> None:
+    renderer = FfmpegAudiogramRenderer()
+    if AudiogramOutputFormat.PNG_SEQUENCE not in renderer.supported_output_formats:
+        pytest.skip("FFmpeg PNG encoder is unavailable")
+    source = tmp_path / "tone.wav"
+    with wave.open(str(source), "wb") as audio:
+        audio.setnchannels(1)
+        audio.setsampwidth(2)
+        audio.setframerate(24_000)
+        audio.writeframes(
+            b"".join(
+                struct.pack(
+                    "<h",
+                    round(math.sin(index * 2 * math.pi * 220 / 24_000) * 10_000),
+                )
+                for index in range(6_000)
+            )
+        )
+    output = tmp_path / "advanced-frames.zip"
+    progress: list[float] = []
+
+    asyncio.run(
+        renderer.render(
+            source,
+            output,
+            AudiogramSpec(
+                width=320,
+                height=180,
+                visualizer_height=90,
+                fps=12,
+                geometry=AudiogramGeometry.POLAR,
+                bar_count=16,
+                show_line=True,
+                rotation="15 * sin(t * 2)",
+                background_mode=AudiogramBackgroundMode.TRANSPARENT,
+                output_format=AudiogramOutputFormat.PNG_SEQUENCE,
+            ),
+            render_seconds=0.25,
+            on_progress=progress.append,
+            is_cancelled=lambda: False,
+        )
+    )
+
+    with zipfile.ZipFile(output) as archive:
+        manifest = json.loads(archive.read("manifest.json"))
+        first_frame = archive.read("frames/frame-00000000.png")
+    assert manifest["frame_count"] == 3
+    assert first_frame.startswith(b"\x89PNG\r\n\x1a\n")
+    assert progress[-1] == 1
+
+
+@pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="FFmpeg is not installed")
+def test_advanced_renderer_cancellation_removes_partial_frame_workspace(
+    tmp_path: Path,
+) -> None:
+    renderer = FfmpegAudiogramRenderer()
+    if AudiogramOutputFormat.PNG_SEQUENCE not in renderer.supported_output_formats:
+        pytest.skip("FFmpeg PNG encoder is unavailable")
+    source = tmp_path / "silence.wav"
+    with wave.open(str(source), "wb") as audio:
+        audio.setnchannels(1)
+        audio.setsampwidth(2)
+        audio.setframerate(24_000)
+        audio.writeframes(b"\0\0" * 6_000)
+    output = tmp_path / "cancelled.zip"
+
+    with pytest.raises(AudiogramRenderCancelled):
+        asyncio.run(
+            renderer.render(
+                source,
+                output,
+                AudiogramSpec(
+                    width=320,
+                    height=180,
+                    visualizer_height=90,
+                    fps=12,
+                    geometry=AudiogramGeometry.POLAR,
+                    background_mode=AudiogramBackgroundMode.TRANSPARENT,
+                    output_format=AudiogramOutputFormat.PNG_SEQUENCE,
+                ),
+                render_seconds=0.25,
+                on_progress=lambda _progress: None,
+                is_cancelled=lambda: True,
+            )
+        )
+
+    assert not output.exists()
+    assert not list(tmp_path.glob(".*.frames"))
+
+
+@pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="FFmpeg is not installed")
 def test_real_ffmpeg_renderer_builds_atomic_png_sequence_archive(tmp_path: Path) -> None:
     renderer = FfmpegAudiogramRenderer()
     if AudiogramOutputFormat.PNG_SEQUENCE not in renderer.supported_output_formats:
@@ -669,7 +838,22 @@ def test_audiogram_api_lists_sources_and_serves_completed_preview(tmp_path: Path
             },
         )
         assert estimate.status_code == 200
-        assert estimate.json()["layout"] == {
+        layout = estimate.json()["layout"]
+        assert {
+            key: layout[key]
+            for key in (
+                "canvas_width",
+                "canvas_height",
+                "visualizer_x",
+                "visualizer_y",
+                "visualizer_width",
+                "visualizer_height",
+                "background_mode",
+                "background_fit",
+                "background_position_x",
+                "background_position_y",
+            )
+        } == {
             "canvas_width": 640,
             "canvas_height": 360,
             "visualizer_x": 0,

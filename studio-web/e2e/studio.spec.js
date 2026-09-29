@@ -100,6 +100,15 @@ test("Audiogram manages still backgrounds and previews alpha output", async ({ p
   await expect(page.getByLabel("Background mode")).toHaveValue("transparent");
   await expect(page.locator(".audiogram-canvas-shell.is-transparent")).toBeVisible();
   await expect(page.getByRole("button", { name: /8-second proof/ })).toBeDisabled();
+
+  await page.getByText("Geometry, layers, and animation").click();
+  await page.getByLabel("Geometry").selectOption("polar");
+  await page.getByLabel("Layer mode").selectOption("both");
+  await page.getByLabel("Formula field").selectOption("rotation");
+  await page.getByLabel("Formula expression").fill("15 * sin(t * 2)");
+  await page.getByLabel("Search expression variables and functions").fill("treble");
+  await expect(page.getByRole("button", { name: /treble/ })).toBeVisible();
+  await expect(page.locator(".audiogram-canvas-shell svg circle")).toBeVisible();
   expect(runtimeErrors).toEqual([]);
 });
 

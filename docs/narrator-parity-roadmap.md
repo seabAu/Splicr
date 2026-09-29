@@ -143,7 +143,7 @@ human-readable work queue, including broader capabilities that were not render-s
 | Multi-document durable queue | Covered | Narrate / Library | 6 |
 | Audio transcription and guessed chapters | Covered; live-model acceptance pending | Convert / Publish | 7 |
 | Still-image audiogram background | Covered | Audiogram | 8 |
-| Polar/transparent/formula audiograms | Partial: transparency covered | Audiogram | 8 |
+| Polar/transparent/formula audiograms | Covered; release-level visual acceptance pending | Audiogram | 8 |
 | Real provider/model/installer/crash acceptance | Partial | Test/release infrastructure | 9 |
 
 ## Milestone 1 — typed advanced-engine control foundation
@@ -368,17 +368,25 @@ test opens that archive and verifies its frames.
 
 ### Geometry, animation, and expressions
 
-- [ ] Add linear/polar geometry, bars/line, mirror, smoothing, line width, placement, inner/outer
+- [x] Add linear/polar geometry, bars/line, mirror, smoothing, line width, placement, inner/outer
   radius, pivot, rotation, color, and opacity behind Advanced layout controls.
-- [ ] Scale polar geometry against the shorter frame dimension and prevent inverted radii.
-- [ ] Add a safe expression language using a parsed AST whitelist—never `eval()` user text.
-- [ ] Publish searchable variables/functions from the same registry used by validation.
-- [ ] Support time-, progress-, frame-, and audio-reactive variables for animatable layout values.
-- [ ] Disable unsafe cropping when rotation or animation can move content outside predicted bounds.
-- [ ] Keep the quick FFmpeg visualizers as the normal path; advanced rendering must not slow users
+- [x] Scale polar geometry against the shorter frame dimension and prevent inverted radii.
+- [x] Add a safe expression language using a parsed AST whitelist—never `eval()` user text.
+- [x] Publish searchable variables/functions from the same registry used by validation.
+- [x] Support time-, progress-, frame-, and audio-reactive variables for animatable layout values.
+- [x] Disable unsafe cropping when rotation or animation can move content outside predicted bounds.
+- [x] Keep the quick FFmpeg visualizers as the normal path; advanced rendering must not slow users
   who do not enable it.
-- [ ] Test expression escape attempts, preview/final agreement, alpha codecs, even dimensions,
+- [x] Test expression escape attempts, preview/final agreement, alpha codecs, even dimensions,
   invalid formulas, cancellation, restart, and atomic output.
+
+Implementation checkpoint: Studio keeps the existing FFmpeg graph for default layouts and selects a
+full-frame Pillow/NumPy renderer only when exact advanced geometry is required. Both paths feed the
+same durable job lifecycle. The exact path resolves the shared layout for every frame, derives
+audio-reactive expression context from the canonical WAV, renders full-canvas RGBA whenever motion
+could escape a static crop, and pipes frames back through FFmpeg for audio muxing, captions, and the
+selected opaque or alpha-capable codec. Automated coverage includes a real formula-driven polar PNG
+sequence, cancellation cleanup, deterministic archives, API validation, and the browser editor.
 
 ## Milestone 9 — real-world acceptance and release hardening
 
@@ -511,16 +519,22 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   guessed-chapter labelling, SRT/WebVTT, line timestamps, structured model errors, cancellation,
   atomic outputs, interrupted-process recovery, managed upload, live browser progress/downloads,
   and reload persistence. The real-model opt-in test remains open by design.
+- [x] 2026-09-29 — Milestone 8 advanced audiogram gate passed: Ruff, 530 Python tests with four
+  explicit live-environment skips, eight frontend unit tests, the Vite production build, and six
+  Chromium journeys. Coverage proves managed image and transparent backgrounds, shared preview and
+  render layouts, linear/polar geometry, bars/line/mirror/smoothing/pivots, AST-whitelisted
+  time/progress/frame/audio expressions, fast-path isolation, real formula-driven RGBA frame
+  rendering, alpha archive metadata, invalid-formula rejection, cancellation cleanup, restart, and
+  atomic finalization.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
 ## Current work pointer
 
-- **Active milestone:** Milestones 2/3/5/7 live acceptance closeout plus Milestone 8 — advanced
-  audiogram parity.
-- **Next implementation slice:** expose linear/polar geometry, placement, rotation, smoothing,
-  mirror, and styling controls through an advanced panel backed by the shared layout resolver,
-  then add safe parsed animation expressions. Real
+- **Active milestone:** Milestone 9 — real-world acceptance and release hardening, including the
+  remaining Milestones 2/3/5/7 live-environment evidence.
+- **Next implementation slice:** harden repeatable crash/scale and CI acceptance that can run without
+  provider credentials, then document the clean-machine installer/upgrade matrix. Real
   Qwen, Edge, faster-whisper, and audible sentence-seam acceptance remains ready when configured
   environments are available.
 - **Known unrelated worktree item:** `LICENSE.txt` is untracked and not part of this roadmap unless

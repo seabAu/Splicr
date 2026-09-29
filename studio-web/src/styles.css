@@ -788,6 +788,24 @@ button:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important
 .audiogram-control-grid label.check { grid-template-columns: auto minmax(0, 1fr); align-items: center; border: 1px solid var(--line-soft); border-radius: 9px; background: #121310; padding: 10px; cursor: pointer; }
 .audiogram-control-grid label.check span { justify-content: flex-start; color: var(--muted); font-weight: 500; }
 .audiogram-control-grid label.check input { accent-color: var(--accent); }
+.audiogram-advanced { margin-top: 14px; border: 1px solid var(--line-soft); border-radius: 12px; background: rgba(8, 9, 8, 0.36); overflow: hidden; }
+.audiogram-advanced > summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 13px; color: var(--muted); cursor: pointer; font-size: 0.64rem; list-style-position: inside; }
+.audiogram-advanced > summary strong { color: #e4e6dd; margin-right: 5px; }
+.audiogram-advanced > summary small { border: 1px solid var(--line); border-radius: 999px; color: var(--subtle); padding: 3px 7px; text-transform: uppercase; letter-spacing: 0.08em; }
+.audiogram-advanced[open] > summary { border-bottom: 1px solid var(--line-soft); }
+.audiogram-advanced-grid { padding: 13px; }
+.audiogram-formula-editor { border-top: 1px solid var(--line-soft); padding: 14px 13px; }
+.audiogram-formula-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.audiogram-formula-heading h3 { margin: 2px 0 0; color: #e7e9df; font-size: 0.78rem; }
+.audiogram-formula-heading > span { border: 1px solid rgba(216, 255, 114, 0.2); border-radius: 999px; background: var(--accent-soft); color: var(--accent); padding: 4px 8px; font-size: 0.57rem; font-weight: 750; text-transform: uppercase; letter-spacing: 0.08em; }
+.audiogram-formula-row { display: grid; grid-template-columns: minmax(120px, 0.7fr) minmax(0, 1.3fr); gap: 8px; margin-top: 11px; }
+.audiogram-formula-row select, .audiogram-formula-row input, .audiogram-reference-search { width: 100%; min-height: 38px; border: 1px solid var(--line); border-radius: 9px; outline: 0; background: #10110f; color: #ecece7; padding: 7px 9px; }
+.audiogram-formula-editor > p { margin: 9px 0; color: var(--subtle); font-size: 0.59rem; line-height: 1.5; }
+.audiogram-reference-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; max-height: 116px; overflow: auto; }
+.audiogram-reference-list button { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 7px; background: #141612; color: #dfe2d7; padding: 6px 8px; cursor: pointer; }
+.audiogram-reference-list button:hover { border-color: rgba(216, 255, 114, 0.35); color: var(--accent); }
+.audiogram-reference-list code { font-size: 0.59rem; }
+.audiogram-reference-list small { color: var(--subtle); font-size: 0.51rem; text-transform: uppercase; }
 .audiogram-parity-note { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 9px; margin-top: 14px; border-top: 1px solid var(--line-soft); padding-top: 13px; color: var(--accent); }
 .audiogram-parity-note p { margin: 0; color: var(--subtle); font-size: 0.62rem; line-height: 1.55; }
 .audiogram-parity-note strong { color: #dfe2d7; }
@@ -822,6 +840,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important
   .audiogram-render-bar { grid-template-columns: 1fr; }
   .audiogram-control-grid { grid-template-columns: 1fr; }
   .audiogram-control-grid .wide { grid-column: auto; }
+  .audiogram-formula-row { grid-template-columns: 1fr; }
   .audiogram-job-actions { align-items: stretch; flex-direction: column; }
   .audiogram-job-actions > * { width: 100%; }
   .audiogram-empty { align-items: flex-start; flex-direction: column; padding: 24px; }

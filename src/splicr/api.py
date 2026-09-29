@@ -110,6 +110,7 @@ from .studio.audiogram import (
     AudiogramBackgroundError,
     AudiogramBackgroundFit,
     AudiogramBackgroundMode,
+    AudiogramGeometry,
     AudiogramJob,
     AudiogramJobKind,
     AudiogramJobNotFoundError,
@@ -127,6 +128,7 @@ from .studio.audiogram import (
     estimate_render_seconds,
     resolve_layout,
 )
+from .studio.audiogram_expressions import expression_reference
 from .studio.batch import (
     BatchItem,
     BatchItemDraft,
@@ -467,9 +469,7 @@ class VoiceProfileResponse(BaseModel):
             settings=dict(profile.settings),
             metadata=dict(profile.metadata),
             has_reference=bool(reference and reference.is_file()),
-            reference_url=(
-                f"/v1/studio/voices/{profile.id}/reference" if reference else None
-            ),
+            reference_url=(f"/v1/studio/voices/{profile.id}/reference" if reference else None),
             created_at=profile.created_at,
             updated_at=profile.updated_at,
         )
@@ -1033,9 +1033,7 @@ class JobResponse(BaseModel):
                 else None
             ),
             checkpoint_export_url=(
-                f"/v1/speech/jobs/{job.id}/checkpoints"
-                if job.completed_chunks > 0
-                else None
+                f"/v1/speech/jobs/{job.id}/checkpoints" if job.completed_chunks > 0 else None
             ),
             export_stem=job.export_stem,
             download_filename=f"{job.export_stem}.wav",
@@ -1427,9 +1425,7 @@ class TimelineSentenceSpanResponse(BaseModel):
     reliable: bool
 
     @classmethod
-    def from_domain(
-        cls, sentence: TimelineSentenceSpan
-    ) -> "TimelineSentenceSpanResponse":
+    def from_domain(cls, sentence: TimelineSentenceSpan) -> "TimelineSentenceSpanResponse":
         return cls(**asdict(sentence))
 
 
@@ -1462,8 +1458,7 @@ class TimelineSegmentResponse(BaseModel):
             voice_id=segment.voice_id,
             speaker=segment.speaker,
             sentences=[
-                TimelineSentenceSpanResponse.from_domain(sentence)
-                for sentence in segment.sentences
+                TimelineSentenceSpanResponse.from_domain(sentence) for sentence in segment.sentences
             ],
             sentence_revision_available=segment.sentence_revision_available,
             sentence_revision_fallback=segment.sentence_revision_fallback,
@@ -1665,9 +1660,7 @@ class FinishingJobResponse(BaseModel):
             source_duration=job.source_duration,
             output_duration=job.output_duration,
             progress=job.progress,
-            output_url=(
-                f"/v1/studio/finishing/jobs/{job.id}/file" if ready else None
-            ),
+            output_url=(f"/v1/studio/finishing/jobs/{job.id}/file" if ready else None),
             artifact_id=job.artifact_id,
             subtitle_artifact_ids=list(job.subtitle_artifact_ids),
             error_code=job.error_code,
@@ -1695,6 +1688,26 @@ class AudiogramSpecPayload(BaseModel):
     background_fit: AudiogramBackgroundFit = AudiogramBackgroundFit.COVER
     background_position_x: float = Field(default=0.5, ge=0, le=1)
     background_position_y: float = Field(default=0.5, ge=0, le=1)
+    geometry: AudiogramGeometry = AudiogramGeometry.LINEAR
+    show_bars: bool = True
+    show_line: bool = False
+    bar_count: int = Field(default=96, ge=2, le=512)
+    bar_width: float = Field(default=0.7, ge=0.05, le=1)
+    mirror: bool = True
+    smoothing: float = Field(default=0, ge=0, le=0.95)
+    linear_x: float | str = 0.0
+    linear_y: float | str | None = None
+    linear_width: float | str = 1.0
+    linear_height: float | str | None = None
+    center_x: float | str = 0.5
+    center_y: float | str = 0.5
+    inner_radius: float | str = 0.18
+    outer_radius: float | str = 0.34
+    pivot_x: float | str = 0.5
+    pivot_y: float | str = 0.5
+    rotation: float | str = 0.0
+    opacity: float | str = 0.92
+    line_width: float | str = 3.0
     waveform_mode: Literal["cline", "line", "p2p", "point"] = "cline"
     amplitude_scale: Literal["lin", "sqrt", "cbrt", "log"] = "sqrt"
     blur: float = Field(default=0, ge=0, le=20)
@@ -1704,6 +1717,14 @@ class AudiogramSpecPayload(BaseModel):
     output_format: AudiogramOutputFormat = AudiogramOutputFormat.MP4
     preset: Literal["ultrafast", "veryfast", "fast", "medium"] = "ultrafast"
     crf: int = Field(default=20, ge=0, le=63)
+
+    @model_validator(mode="after")
+    def validate_render_contract(self) -> AudiogramSpecPayload:
+        try:
+            AudiogramSpec(**self.model_dump())
+        except ValueError as error:
+            raise ValueError(str(error)) from error
+        return self
 
     def to_domain(self) -> AudiogramSpec:
         try:
@@ -1873,7 +1894,10 @@ class ConversionJobResponse(BaseModel):
             progress=job.progress,
             output_url=f"/v1/studio/conversions/jobs/{job.id}/file" if ready else None,
             part_urls=(
-                [f"/v1/studio/conversions/jobs/{job.id}/parts/{index}" for index in range(len(job.part_paths))]
+                [
+                    f"/v1/studio/conversions/jobs/{job.id}/parts/{index}"
+                    for index in range(len(job.part_paths))
+                ]
                 if ready
                 else []
             ),
@@ -1892,9 +1916,7 @@ class TranscriptionOptionsPayload(BaseModel):
     model: str = Field(default="base", min_length=1, max_length=240)
     language: str | None = Field(default=None, max_length=24)
     device: Literal["auto", "cpu", "cuda"] = "auto"
-    compute_type: Literal["default", "int8", "int8_float16", "float16", "float32"] = (
-        "default"
-    )
+    compute_type: Literal["default", "int8", "int8_float16", "float16", "float32"] = "default"
     vad_filter: bool = True
     word_timestamps: bool = False
     include_srt: bool = True
@@ -2929,9 +2951,7 @@ def create_app(
                 project_name=project_name,
                 source_name=source_name,
                 source_media_type=(
-                    mimetypes.guess_type(source_name)[0]
-                    if source_name is not None
-                    else None
+                    mimetypes.guess_type(source_name)[0] if source_name is not None else None
                 ),
                 take_label=take_label,
                 target_project_id=target_project_id,
@@ -3063,8 +3083,7 @@ def create_app(
     ) -> DialogueScriptResponse:
         return DialogueScriptResponse(
             turns=[
-                DialogueTurnPayload(speaker=turn.speaker, text=turn.text)
-                for turn in script.turns
+                DialogueTurnPayload(speaker=turn.speaker, text=turn.text) for turn in script.turns
             ],
             sections=script.sections,
             outline=list(script.outline),
@@ -3236,8 +3255,7 @@ def create_app(
                     revision_resolver = getattr(synthesis.providers, "get_revision", None)
                     selected_provider = (
                         revision_resolver(payload.resource_id, payload.resource_revision)
-                        if payload.resource_revision is not None
-                        and revision_resolver is not None
+                        if payload.resource_revision is not None and revision_resolver is not None
                         else synthesis.providers.get(payload.resource_id)
                     )
             else:
@@ -3295,9 +3313,7 @@ def create_app(
         profile: VoiceProfileResponse | None = None
         if job.profile_id:
             try:
-                profile = VoiceProfileResponse.from_domain(
-                    studio.get_voice_profile(job.profile_id)
-                )
+                profile = VoiceProfileResponse.from_domain(studio.get_voice_profile(job.profile_id))
             except KeyError:
                 profile = None
         return VoiceDesignJobResponse(
@@ -3326,11 +3342,7 @@ def create_app(
         }
         if managed_variables:
             key = sorted(managed_variables)[0]
-            owner = (
-                "Voice Profile selection"
-                if key == VOICE_PROFILE_VARIABLE
-                else "SPLICR"
-            )
+            owner = "Voice Profile selection" if key == VOICE_PROFILE_VARIABLE else "SPLICR"
             raise HTTPException(
                 status_code=422,
                 detail=f"{key} is managed by {owner}",
@@ -3555,9 +3567,7 @@ def create_app(
 
     @application.get("/v1/studio/pronunciation/status")
     def pronunciation_status() -> dict[str, Any]:
-        available = (
-            kokoro_tools is not None and kokoro_tools.python_executable.is_file()
-        )
+        available = kokoro_tools is not None and kokoro_tools.python_executable.is_file()
         return {
             "available": available,
             "message": (
@@ -3996,9 +4006,7 @@ def create_app(
                     )
                 )
             available.append(
-                TimelineTakeResponse.from_record(
-                    job, finished_audio_artifacts=finished_audio
-                )
+                TimelineTakeResponse.from_record(job, finished_audio_artifacts=finished_audio)
             )
         return available
 
@@ -4019,9 +4027,7 @@ def create_app(
             audio_url = None
             offset = 0.0
             if audio_artifact_id:
-                artifact, audio_path, offset = finished_audio_artifact(
-                    job_id, audio_artifact_id
-                )
+                artifact, audio_path, offset = finished_audio_artifact(job_id, audio_artifact_id)
                 finishing_job_id = artifact.metadata.get("finishing_job_id")
                 if not isinstance(finishing_job_id, str):
                     raise ValueError("the selected audio artifact has no finishing job")
@@ -4191,9 +4197,7 @@ def create_app(
         except ValueError as error:
             raise HTTPException(status_code=409, detail=str(error)) from error
 
-    @application.get(
-        "/v1/studio/subtitles/artifacts/{artifact_id}", tags=["studio"]
-    )
+    @application.get("/v1/studio/subtitles/artifacts/{artifact_id}", tags=["studio"])
     async def get_subtitle_artifact(artifact_id: str) -> FileResponse:
         try:
             artifact = studio.get_artifact(artifact_id)
@@ -4231,10 +4235,7 @@ def create_app(
     )
     async def list_finishing_assets(response: Response) -> list[FinishingAssetResponse]:
         response.headers["Cache-Control"] = "no-store"
-        return [
-            FinishingAssetResponse.from_domain(item)
-            for item in finishing.store.list_assets()
-        ]
+        return [FinishingAssetResponse.from_domain(item) for item in finishing.store.list_assets()]
 
     @application.post(
         "/v1/studio/finishing/assets",
@@ -4277,8 +4278,7 @@ def create_app(
     ) -> list[FinishingJobResponse]:
         response.headers["Cache-Control"] = "no-store"
         return [
-            FinishingJobResponse.from_domain(job)
-            for job in finishing.store.list_jobs(limit=limit)
+            FinishingJobResponse.from_domain(job) for job in finishing.store.list_jobs(limit=limit)
         ]
 
     @application.post(
@@ -4327,9 +4327,7 @@ def create_app(
         response_model=FinishingJobResponse,
         tags=["studio"],
     )
-    async def get_finishing_job(
-        job_id: str, response: Response
-    ) -> FinishingJobResponse:
+    async def get_finishing_job(job_id: str, response: Response) -> FinishingJobResponse:
         response.headers["Cache-Control"] = "no-store"
         try:
             return FinishingJobResponse.from_domain(finishing.store.get_job(job_id))
@@ -4394,6 +4392,8 @@ def create_app(
             ],
             "background_modes": [item.value for item in AudiogramBackgroundMode],
             "background_fits": [item.value for item in AudiogramBackgroundFit],
+            "geometries": [item.value for item in AudiogramGeometry],
+            "expression_reference": expression_reference(),
             "max_background_bytes": audiograms.max_background_bytes,
             "presets": ["ultrafast", "veryfast", "fast", "medium"],
             "waveform_modes": ["cline", "line", "p2p", "point"],
@@ -4646,7 +4646,9 @@ def create_app(
         limit: int = Query(default=100, ge=1, le=500),
     ) -> list[ConversionJobResponse]:
         response.headers["Cache-Control"] = "no-store"
-        return [ConversionJobResponse.from_domain(job) for job in conversions.store.list(limit=limit)]
+        return [
+            ConversionJobResponse.from_domain(job) for job in conversions.store.list(limit=limit)
+        ]
 
     @application.post(
         "/v1/studio/conversions/jobs",
@@ -4726,9 +4728,7 @@ def create_app(
             filename=f"{Path(job.source_name).stem}-converted.{job.spec.output_format.value}",
         )
 
-    @application.get(
-        "/v1/studio/conversions/jobs/{job_id}/parts/{part_index}", tags=["studio"]
-    )
+    @application.get("/v1/studio/conversions/jobs/{job_id}/parts/{part_index}", tags=["studio"])
     async def get_conversion_part(job_id: str, part_index: int) -> FileResponse:
         try:
             job = conversions.store.get(job_id)
@@ -4805,9 +4805,7 @@ def create_app(
         response_model=TranscriptionJobResponse,
         tags=["studio"],
     )
-    async def get_transcription_job(
-        job_id: str, response: Response
-    ) -> TranscriptionJobResponse:
+    async def get_transcription_job(job_id: str, response: Response) -> TranscriptionJobResponse:
         response.headers["Cache-Control"] = "no-store"
         try:
             return TranscriptionJobResponse.from_domain(transcriptions.store.get(job_id))
@@ -4840,9 +4838,7 @@ def create_app(
         except InvalidTranscriptionJobStateError as error:
             raise HTTPException(status_code=409, detail=str(error)) from error
 
-    @application.get(
-        "/v1/studio/transcriptions/jobs/{job_id}/files/{output_name}", tags=["studio"]
-    )
+    @application.get("/v1/studio/transcriptions/jobs/{job_id}/files/{output_name}", tags=["studio"])
     async def get_transcription_file(job_id: str, output_name: str) -> FileResponse:
         media_types = {
             "transcript": "text/markdown",
@@ -4910,9 +4906,7 @@ def create_app(
         try:
             return [
                 ChapterCueResponse.from_domain(cue)
-                for cue in publishing.preview_chapters(
-                    take_id, audio_artifact_id=audio_artifact_id
-                )
+                for cue in publishing.preview_chapters(take_id, audio_artifact_id=audio_artifact_id)
             ]
         except KeyError as error:
             raise HTTPException(status_code=404, detail="publishing source not found") from error
@@ -4952,9 +4946,7 @@ def create_app(
                 if not Path(artifact.path).is_file():
                     raise FileNotFoundError("the selected audio artifact is missing")
                 offset_value = artifact.metadata.get("intro_offset", 0.0)
-                if isinstance(offset_value, bool) or not isinstance(
-                    offset_value, (int, float)
-                ):
+                if isinstance(offset_value, bool) or not isinstance(offset_value, (int, float)):
                     raise ValueError("the selected audio artifact has an invalid intro offset")
                 offset = float(offset_value)
             return SubtitleExportResponse.from_domain(
@@ -5013,9 +5005,7 @@ def create_app(
         path = publishing.rebuild_feed()
         return FileResponse(path, media_type="application/rss+xml", filename="podcast.xml")
 
-    @application.get(
-        "/v1/studio/publishing/episodes/{episode_id}/media", tags=["studio"]
-    )
+    @application.get("/v1/studio/publishing/episodes/{episode_id}/media", tags=["studio"])
     def get_published_episode_media(episode_id: str) -> FileResponse:
         try:
             episode = publishing.store.get_episode(episode_id)
@@ -5026,9 +5016,7 @@ def create_app(
             raise HTTPException(status_code=404, detail=str(error)) from error
         return FileResponse(path, media_type=episode.media_type, filename=path.name)
 
-    @application.get(
-        "/v1/studio/publishing/artifacts/{artifact_id}", tags=["studio"]
-    )
+    @application.get("/v1/studio/publishing/artifacts/{artifact_id}", tags=["studio"])
     def get_publishing_artifact(artifact_id: str) -> FileResponse:
         try:
             artifact = studio.get_artifact(artifact_id)
@@ -5137,7 +5125,9 @@ def create_app(
         kind: VoiceProfileKind = Form(default=VoiceProfileKind.CLONED),
     ) -> VoiceProfileResponse:
         if kind not in {VoiceProfileKind.CLONED, VoiceProfileKind.DESIGNED}:
-            raise HTTPException(status_code=422, detail="Reference audio must be cloned or designed")
+            raise HTTPException(
+                status_code=422, detail="Reference audio must be cloned or designed"
+            )
         if kind is VoiceProfileKind.CLONED and not reference_text.strip():
             raise HTTPException(
                 status_code=422,
@@ -5173,9 +5163,13 @@ def create_app(
                     frames = recording.getnframes()
                     compression = recording.getcomptype()
             except (OSError, EOFError, wave.Error) as error:
-                raise HTTPException(status_code=422, detail="The upload is not a readable WAV file") from error
+                raise HTTPException(
+                    status_code=422, detail="The upload is not a readable WAV file"
+                ) from error
             if compression != "NONE" or channels < 1 or sample_rate < 1 or sample_width < 1:
-                raise HTTPException(status_code=422, detail="The WAV must contain uncompressed PCM audio")
+                raise HTTPException(
+                    status_code=422, detail="The WAV must contain uncompressed PCM audio"
+                )
             seconds = frames / sample_rate
             minimum_seconds = 3.0 if engine_id.strip().casefold() == "audio8" else 2.0
             if kind is VoiceProfileKind.CLONED and seconds < minimum_seconds:
@@ -5435,8 +5429,7 @@ def create_app(
         limit: int = Query(default=50, ge=1, le=200),
     ) -> list[DialogueScriptJobResponse]:
         return [
-            dialogue_script_job_response(job)
-            for job in dialogue_scripts.store.list(limit=limit)
+            dialogue_script_job_response(job) for job in dialogue_scripts.store.list(limit=limit)
         ]
 
     @application.get(
@@ -5950,10 +5943,7 @@ def create_app(
                         total_chars=plan.total_chars,
                         total_bytes=plan.total_bytes,
                         total_words=plan.total_words,
-                        chunks=[
-                            ChunkPreviewResponse.from_chunk(chunk)
-                            for chunk in plan.chunks
-                        ],
+                        chunks=[ChunkPreviewResponse.from_chunk(chunk) for chunk in plan.chunks],
                     )
                 )
         except UnknownProviderError as error:

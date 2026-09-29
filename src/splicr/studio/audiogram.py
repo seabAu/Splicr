@@ -23,6 +23,12 @@ from ..domain import JobStatus, utc_now
 from ..storage import LocalJobStorage
 from ..store import SqliteJobStore
 from .domain import Artifact, ArtifactKind
+from .audiogram_expressions import (
+    AudiogramExpressionError,
+    compile_expression,
+    resolve_numeric,
+    sample_context,
+)
 from .migration import import_splicr_job
 from .store import SqliteStudioStore
 from .subtitles import SubtitleFormat, SubtitleService
@@ -59,6 +65,11 @@ class AudiogramBackgroundFit(StrEnum):
     STRETCH = "stretch"
 
 
+class AudiogramGeometry(StrEnum):
+    LINEAR = "linear"
+    POLAR = "polar"
+
+
 class AudiogramJobKind(StrEnum):
     PREVIEW = "preview"
     EXPORT = "export"
@@ -92,6 +103,22 @@ class AudiogramLayout:
     visualizer_y: int
     visualizer_width: int
     visualizer_height: int
+    geometry: AudiogramGeometry
+    center_x: int
+    center_y: int
+    inner_radius: int
+    outer_radius: int
+    pivot_x: int
+    pivot_y: int
+    rotation: float
+    opacity: float
+    line_width: float
+    show_bars: bool
+    show_line: bool
+    mirror: bool
+    smoothing: float
+    bar_count: int
+    animated: bool
     background_mode: AudiogramBackgroundMode
     background_fit: AudiogramBackgroundFit
     background_position_x: float
@@ -116,6 +143,26 @@ class AudiogramSpec:
     background_fit: AudiogramBackgroundFit = AudiogramBackgroundFit.COVER
     background_position_x: float = 0.5
     background_position_y: float = 0.5
+    geometry: AudiogramGeometry = AudiogramGeometry.LINEAR
+    show_bars: bool = True
+    show_line: bool = False
+    bar_count: int = 96
+    bar_width: float = 0.7
+    mirror: bool = True
+    smoothing: float = 0.0
+    linear_x: float | str = 0.0
+    linear_y: float | str | None = None
+    linear_width: float | str = 1.0
+    linear_height: float | str | None = None
+    center_x: float | str = 0.5
+    center_y: float | str = 0.5
+    inner_radius: float | str = 0.18
+    outer_radius: float | str = 0.34
+    pivot_x: float | str = 0.5
+    pivot_y: float | str = 0.5
+    rotation: float | str = 0.0
+    opacity: float | str = 0.92
+    line_width: float | str = 3.0
     waveform_mode: str = "cline"
     amplitude_scale: str = "sqrt"
     blur: float = 0.0
@@ -141,6 +188,35 @@ class AudiogramSpec:
             raise ValueError("background_position_x must be between 0 and 1")
         if not 0 <= self.background_position_y <= 1:
             raise ValueError("background_position_y must be between 0 and 1")
+        if not 2 <= self.bar_count <= 512:
+            raise ValueError("bar_count must be between 2 and 512")
+        if not 0.05 <= self.bar_width <= 1:
+            raise ValueError("bar_width must be between 0.05 and 1")
+        if not 0 <= self.smoothing <= 0.95:
+            raise ValueError("smoothing must be between 0 and 0.95")
+        if not self.show_bars and not self.show_line:
+            raise ValueError("at least one of show_bars or show_line must be enabled")
+        for field_name in (
+            "linear_x",
+            "linear_y",
+            "linear_width",
+            "linear_height",
+            "center_x",
+            "center_y",
+            "inner_radius",
+            "outer_radius",
+            "pivot_x",
+            "pivot_y",
+            "rotation",
+            "opacity",
+            "line_width",
+        ):
+            value = getattr(self, field_name)
+            if isinstance(value, str):
+                try:
+                    compile_expression(value)
+                except AudiogramExpressionError as error:
+                    raise ValueError(f"{field_name}: {error}") from error
         if self.background_mode is AudiogramBackgroundMode.IMAGE and not self.background_asset_id:
             raise ValueError("image backgrounds require background_asset_id")
         if self.background_mode is not AudiogramBackgroundMode.IMAGE and self.background_asset_id:
@@ -173,8 +249,7 @@ class AudiogramSpec:
             raise ValueError("preset must be ultrafast, veryfast, fast, or medium")
         crf_max = (
             63
-            if self.output_format
-            in {AudiogramOutputFormat.WEBM, AudiogramOutputFormat.WEBM_ALPHA}
+            if self.output_format in {AudiogramOutputFormat.WEBM, AudiogramOutputFormat.WEBM_ALPHA}
             else 51
         )
         if not 0 <= self.crf <= crf_max:
@@ -193,9 +268,8 @@ class AudiogramSpec:
                 "background_mode": AudiogramBackgroundMode(
                     str(value.get("background_mode", "solid"))
                 ),
-                "background_fit": AudiogramBackgroundFit(
-                    str(value.get("background_fit", "cover"))
-                ),
+                "background_fit": AudiogramBackgroundFit(str(value.get("background_fit", "cover"))),
+                "geometry": AudiogramGeometry(str(value.get("geometry", "linear"))),
             }
         )
 
@@ -593,18 +667,112 @@ def _ffmpeg_subtitle_path(path: Path) -> str:
     return value
 
 
-def resolve_layout(spec: AudiogramSpec) -> AudiogramLayout:
+def resolve_layout(
+    spec: AudiogramSpec,
+    context: dict[str, float] | None = None,
+) -> AudiogramLayout:
+    resolved_context = context or sample_context(fps=float(spec.fps))
+    animated_values = (
+        spec.linear_x,
+        spec.linear_y,
+        spec.linear_width,
+        spec.linear_height,
+        spec.center_x,
+        spec.center_y,
+        spec.inner_radius,
+        spec.outer_radius,
+        spec.pivot_x,
+        spec.pivot_y,
+        spec.rotation,
+        spec.opacity,
+        spec.line_width,
+    )
+    animated = any(isinstance(value, str) for value in animated_values)
+
+    def number(value: float | str | None, fallback: float) -> float:
+        return resolve_numeric(fallback if value is None else value, resolved_context)
+
+    def bounded(value: float | str | None, fallback: float, low: float, high: float) -> float:
+        return max(low, min(high, number(value, fallback)))
+
+    pivot_x = round(bounded(spec.pivot_x, 0.5, 0, 1) * spec.width)
+    pivot_y = round(bounded(spec.pivot_y, 0.5, 0, 1) * spec.height)
+    opacity = bounded(spec.opacity, 0.92, 0, 1)
+    line_width = bounded(spec.line_width, 3, 1, 40)
+    rotation = bounded(spec.rotation, 0, -36_000, 36_000)
+    short_dimension = min(spec.width, spec.height)
+    if spec.geometry is AudiogramGeometry.POLAR:
+        center_x = round(bounded(spec.center_x, 0.5, 0, 1) * spec.width)
+        center_y = round(bounded(spec.center_y, 0.5, 0, 1) * spec.height)
+        inner_radius = round(bounded(spec.inner_radius, 0.18, 0, 0.7) * short_dimension)
+        outer_radius = round(bounded(spec.outer_radius, 0.34, 0.01, 0.7) * short_dimension)
+        outer_radius = max(inner_radius + 1, outer_radius)
+        visualizer_x = center_x - outer_radius
+        visualizer_y = center_y - outer_radius
+        visualizer_width = max(2, outer_radius * 2)
+        visualizer_height = visualizer_width
+    else:
+        fallback_y = (spec.height - spec.visualizer_height) * spec.vertical_position / spec.height
+        fallback_height = spec.visualizer_height / spec.height
+        x_fraction = bounded(spec.linear_x, 0, 0, 1)
+        y_fraction = bounded(spec.linear_y, fallback_y, 0, 1)
+        width_fraction = bounded(spec.linear_width, 1, 0.01, 1)
+        height_fraction = bounded(spec.linear_height, fallback_height, 0.01, 1)
+        width_fraction = min(width_fraction, 1 - x_fraction)
+        height_fraction = min(height_fraction, 1 - y_fraction)
+        visualizer_x = round(x_fraction * spec.width)
+        visualizer_y = round(y_fraction * spec.height)
+        visualizer_width = max(2, round(width_fraction * spec.width))
+        visualizer_height = max(2, round(height_fraction * spec.height))
+        center_x = visualizer_x + visualizer_width // 2
+        center_y = visualizer_y + visualizer_height // 2
+        inner_radius = 0
+        outer_radius = 0
+
     return AudiogramLayout(
         canvas_width=spec.width,
         canvas_height=spec.height,
-        visualizer_x=0,
-        visualizer_y=round((spec.height - spec.visualizer_height) * spec.vertical_position),
-        visualizer_width=spec.width,
-        visualizer_height=spec.visualizer_height,
+        visualizer_x=visualizer_x,
+        visualizer_y=visualizer_y,
+        visualizer_width=visualizer_width,
+        visualizer_height=visualizer_height,
+        geometry=spec.geometry,
+        center_x=center_x,
+        center_y=center_y,
+        inner_radius=inner_radius,
+        outer_radius=outer_radius,
+        pivot_x=pivot_x,
+        pivot_y=pivot_y,
+        rotation=rotation,
+        opacity=opacity,
+        line_width=line_width,
+        show_bars=spec.show_bars,
+        show_line=spec.show_line,
+        mirror=spec.mirror,
+        smoothing=spec.smoothing,
+        bar_count=spec.bar_count,
+        animated=animated,
         background_mode=spec.background_mode,
         background_fit=spec.background_fit,
         background_position_x=spec.background_position_x,
         background_position_y=spec.background_position_y,
+    )
+
+
+def requires_frame_renderer(spec: AudiogramSpec) -> bool:
+    """Return whether exact drawing is needed instead of FFmpeg's fast visualizer."""
+    layout = resolve_layout(spec)
+    return bool(
+        layout.animated
+        or spec.geometry is AudiogramGeometry.POLAR
+        or spec.show_line
+        or not spec.show_bars
+        or not spec.mirror
+        or spec.bar_count != 96
+        or spec.bar_width != 0.7
+        or spec.smoothing
+        or layout.rotation
+        or layout.line_width != 3
     )
 
 
@@ -632,15 +800,18 @@ def _background_filter(spec: AudiogramSpec, layout: AudiogramLayout) -> str:
     )
 
 
-def build_filter_graph(
-    spec: AudiogramSpec, *, subtitle_path: Path | None = None
-) -> str:
+def build_filter_graph(spec: AudiogramSpec, *, subtitle_path: Path | None = None) -> str:
     layout = resolve_layout(spec)
     size = f"{layout.visualizer_width}x{layout.visualizer_height}"
     color = _ffmpeg_color(spec.foreground_color)
     if spec.source is AudiogramSource.WAVEFORM:
+        waveform_mode = spec.waveform_mode
+        if spec.show_line and not spec.show_bars:
+            waveform_mode = "line"
+        elif spec.show_bars and not spec.mirror:
+            waveform_mode = "p2p"
         visualizer = (
-            f"showwaves=s={size}:mode={spec.waveform_mode}:rate={spec.fps}:"
+            f"showwaves=s={size}:mode={waveform_mode}:rate={spec.fps}:"
             f"colors={color}:scale={spec.amplitude_scale}"
         )
     elif spec.source is AudiogramSource.FREQUENCY:
@@ -659,27 +830,37 @@ def build_filter_graph(
             f"avectorscope=s={size}:mode=lissajous:draw=line:scale=lin:"
             f"rate={spec.fps}:rc={red}:gc={green}:bc={blue}"
         )
-    effects = [visualizer, "format=rgba", "colorkey=0x000000:0.08:0.04"]
+    effects = [visualizer]
+    if layout.geometry is AudiogramGeometry.POLAR:
+        effects.append("v360=input=flat:output=fisheye:h_fov=360:v_fov=360")
+    effects.extend(["format=rgba", "colorkey=0x000000:0.08:0.04"])
+    if layout.opacity < 1:
+        effects.append(f"colorchannelmixer=aa={layout.opacity:.6f}")
+    if layout.smoothing:
+        smoothing_frames = max(2, min(12, round(2 + layout.smoothing * 10)))
+        effects.append(f"tmix=frames={smoothing_frames}:weights='1'")
     if spec.sharpen:
         effects.append(f"cas=strength={spec.sharpen:.3f}")
     if spec.blur:
         effects.append(f"gblur=sigma={spec.blur:.3f}")
     if spec.trail:
         effects.append("tblend=all_mode=average")
+    overlay_x = str(layout.visualizer_x)
+    overlay_y = str(layout.visualizer_y)
+    if layout.rotation:
+        effects.append(f"rotate={layout.rotation:.6f}*PI/180:ow=rotw(iw):oh=roth(ih):c=none")
+        overlay_x = f"{layout.visualizer_x}-(w-{layout.visualizer_width})/2"
+        overlay_y = f"{layout.visualizer_y}-(h-{layout.visualizer_height})/2"
     composite_format = (
-        "rgba"
-        if spec.background_mode is AudiogramBackgroundMode.TRANSPARENT
-        else "yuv420p"
+        "rgba" if spec.background_mode is AudiogramBackgroundMode.TRANSPARENT else "yuv420p"
     )
     overlay_format = (
-        ":format=auto"
-        if spec.background_mode is AudiogramBackgroundMode.TRANSPARENT
-        else ""
+        ":format=auto" if spec.background_mode is AudiogramBackgroundMode.TRANSPARENT else ""
     )
     graph = (
         f"[0:a]aformat=channel_layouts=mono,{','.join(effects)}[viz];"
         f"{_background_filter(spec, layout)};"
-        f"[bg][viz]overlay=x={layout.visualizer_x}:y={layout.visualizer_y}:"
+        f"[bg][viz]overlay=x='{overlay_x}':y='{overlay_y}':"
         f"shortest=1{overlay_format},format={composite_format}[composite]"
     )
     if spec.burn_captions:
@@ -718,9 +899,7 @@ def build_ffmpeg_command(
     if spec.background_mode is AudiogramBackgroundMode.IMAGE:
         if background_path is None:
             raise ValueError("image backgrounds require a managed background file")
-        command.extend(
-            ["-loop", "1", "-framerate", str(spec.fps), "-i", str(background_path)]
-        )
+        command.extend(["-loop", "1", "-framerate", str(spec.fps), "-i", str(background_path)])
     command.extend(
         [
             "-filter_complex",
@@ -809,7 +988,17 @@ def estimate_render_seconds(spec: AudiogramSpec, audio_seconds: float) -> float:
         + (0.18 if spec.trail else 0)
         + (0.08 if layout.background_mode is AudiogramBackgroundMode.IMAGE else 0)
     )
-    return max(1.0, audio_seconds * pixel_ratio * fps_ratio * _PRESET_COST[spec.preset] * source_cost * effects_cost)
+    renderer_cost = 4.5 if requires_frame_renderer(spec) else 1.0
+    return max(
+        1.0,
+        audio_seconds
+        * pixel_ratio
+        * fps_ratio
+        * _PRESET_COST[spec.preset]
+        * source_cost
+        * effects_cost
+        * renderer_cost,
+    )
 
 
 def audiogram_output_extension(output_format: AudiogramOutputFormat) -> str:
@@ -883,9 +1072,7 @@ class FfmpegAudiogramRenderer:
         if re.search(r"\blibx264\b", encoders):
             supported.append(AudiogramOutputFormat.MP4)
         if re.search(r"\blibvpx-vp9\b", encoders):
-            supported.extend(
-                [AudiogramOutputFormat.WEBM, AudiogramOutputFormat.WEBM_ALPHA]
-            )
+            supported.extend([AudiogramOutputFormat.WEBM, AudiogramOutputFormat.WEBM_ALPHA])
         if re.search(r"\bprores_ks\b", encoders):
             supported.append(AudiogramOutputFormat.PRORES_4444)
         if re.search(r"\bpng\b", encoders):
@@ -913,6 +1100,21 @@ class FfmpegAudiogramRenderer:
             raise AudiogramRenderError(
                 f"this FFmpeg installation does not support {spec.output_format.value}"
             )
+        if requires_frame_renderer(spec):
+            from .audiogram_frames import render_advanced_audiogram
+
+            await render_advanced_audiogram(
+                self.executable,
+                source_path,
+                output_path,
+                spec,
+                render_seconds=render_seconds,
+                subtitle_path=subtitle_path,
+                background_path=background_path,
+                on_progress=on_progress,
+                is_cancelled=is_cancelled,
+            )
+            return
         output_path.parent.mkdir(parents=True, exist_ok=True)
         frames_dir: Path | None = None
         render_target = output_path
@@ -961,14 +1163,10 @@ class FfmpegAudiogramRenderer:
                 if not line:
                     await process.wait()
                     break
-                key, _, raw_value = (
-                    line.decode("utf-8", errors="replace").strip().partition("=")
-                )
+                key, _, raw_value = line.decode("utf-8", errors="replace").strip().partition("=")
                 if key in {"out_time_us", "out_time_ms"}:
                     with contextlib.suppress(ValueError):
-                        on_progress(
-                            min(0.995, int(raw_value) / 1_000_000 / render_seconds)
-                        )
+                        on_progress(min(0.995, int(raw_value) / 1_000_000 / render_seconds))
             stderr = (await stderr_task).decode("utf-8", errors="replace").strip()
             if process.returncode:
                 raise AudiogramRenderError(
@@ -1041,7 +1239,9 @@ class AudiogramJobService:
         self.source_storage = source_storage
         self.studio_store = studio_store
         self.output_root = Path(output_root)
-        self.background_root = Path(background_root or self.output_root.parent / "audiogram-backgrounds")
+        self.background_root = Path(
+            background_root or self.output_root.parent / "audiogram-backgrounds"
+        )
         self.background_store = background_store or AudiogramBackgroundStore(store.database_path)
         self.subtitle_service = subtitle_service
         self.renderer = renderer or FfmpegAudiogramRenderer()
@@ -1082,7 +1282,11 @@ class AudiogramJobService:
         for source in self.source_store.list_jobs():
             if source.status is not JobStatus.COMPLETED:
                 continue
-            path = Path(source.output_path) if source.output_path else self.source_storage.output_path(source.id)
+            path = (
+                Path(source.output_path)
+                if source.output_path
+                else self.source_storage.output_path(source.id)
+            )
             if not path.is_file():
                 continue
             with contextlib.suppress(OSError, wave.Error):
@@ -1165,7 +1369,11 @@ class AudiogramJobService:
         source = self.source_store.get_job(source_job_id)
         if source.status is not JobStatus.COMPLETED:
             raise ValueError("audiograms require a completed narration take")
-        source_path = Path(source.output_path) if source.output_path else self.source_storage.output_path(source.id)
+        source_path = (
+            Path(source.output_path)
+            if source.output_path
+            else self.source_storage.output_path(source.id)
+        )
         if not source_path.is_file():
             raise FileNotFoundError("the completed take's audio file is missing")
         duration = self._wav_duration(source_path)
@@ -1233,7 +1441,11 @@ class AudiogramJobService:
     async def _render(self, job_id: str) -> None:
         job = self.store.get(job_id)
         source = self.source_store.get_job(job.source_job_id)
-        source_path = Path(source.output_path) if source.output_path else self.source_storage.output_path(source.id)
+        source_path = (
+            Path(source.output_path)
+            if source.output_path
+            else self.source_storage.output_path(source.id)
+        )
         extension = audiogram_output_extension(job.spec.output_format)
         directory = self.output_root / job.id
         final_path = directory / f"{job.kind.value}.{extension}"
@@ -1311,6 +1523,7 @@ class AudiogramJobService:
         except Exception as error:
             temporary_path.unlink(missing_ok=True)
             self.store.fail(job.id, "render_failed", str(error))
+
     @staticmethod
     def _detect_image(payload: bytes) -> tuple[str, str]:
         if payload.startswith(b"\x89PNG\r\n\x1a\n"):
