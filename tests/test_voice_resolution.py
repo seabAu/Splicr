@@ -51,6 +51,71 @@ def test_qwen_preset_resolution_uses_native_speaker() -> None:
     assert variables[VOICE_PROFILE_VARIABLE]["kind"] == "preset"
 
 
+def test_qwen_designed_profile_owns_take_identity(tmp_path) -> None:
+    reference = tmp_path / "designed.wav"
+    reference.write_bytes(b"RIFF-reference")
+    profile = VoiceProfile(
+        id="designed-one",
+        label="Designed narrator",
+        description="Warm, measured, and reflective",
+        engine_id="qwen3",
+        kind=VoiceProfileKind.DESIGNED,
+        reference_audio_path=str(reference),
+        reference_text="These are the exact reference words.",
+        settings={"design_take": 7},
+    )
+
+    _, variables = resolve_voice_profile(
+        "qwen3-local",
+        profile,
+        {"seed": 42, "voice_take": 99},
+    )
+
+    assert variables["seed"] == 42
+    assert variables["voice_take"] == 7
+    assert variables[VOICE_PROFILE_VARIABLE]["description"] == (
+        "Warm, measured, and reflective"
+    )
+    _, repeated_variables = resolve_voice_profile(
+        "qwen3-local",
+        profile,
+        {"seed": 42},
+    )
+    assert repeated_variables == variables
+
+    another = VoiceProfile(
+        id="designed-two",
+        label="Designed narrator, take 8",
+        engine_id="qwen3",
+        kind=VoiceProfileKind.DESIGNED,
+        reference_audio_path=str(reference),
+        reference_text="These are the exact reference words.",
+        settings={"design_take": 8},
+    )
+    _, another_variables = resolve_voice_profile("qwen3-local", another, {"seed": 42})
+    assert another_variables["voice_take"] == 8
+    assert another_variables[VOICE_PROFILE_VARIABLE]["id"] != (
+        variables[VOICE_PROFILE_VARIABLE]["id"]
+    )
+
+
+def test_qwen_designed_profile_rejects_invalid_take(tmp_path) -> None:
+    reference = tmp_path / "designed.wav"
+    reference.write_bytes(b"RIFF-reference")
+    profile = VoiceProfile(
+        id="designed-one",
+        label="Broken designed narrator",
+        engine_id="qwen3",
+        kind=VoiceProfileKind.DESIGNED,
+        reference_audio_path=str(reference),
+        reference_text="These are the exact reference words.",
+        settings={"design_take": 0},
+    )
+
+    with pytest.raises(ValueError, match="invalid designed take"):
+        resolve_voice_profile("qwen3-local", profile, {})
+
+
 def test_voice_profile_selects_the_model_family_it_can_render(tmp_path) -> None:
     reference = tmp_path / "reference.wav"
     reference.write_bytes(b"RIFF-reference")

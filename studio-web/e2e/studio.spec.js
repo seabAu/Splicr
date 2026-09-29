@@ -79,6 +79,8 @@ test("a document can be planned, directed, rendered, played, and reopened", asyn
   await page.getByLabel("Performance variation").fill("0.4");
   await page.getByLabel("Delivery mode").selectOption({ label: "dramatic" });
   await expect(page.getByLabel("Repeatable seed")).toBeVisible();
+  await page.getByRole("button", { name: "Generate another" }).click();
+  await expect(page.getByLabel("Repeatable seed")).not.toHaveValue("");
   await page.getByLabel("Repeatable seed").fill("42");
   await page.getByLabel("Normalize audio").uncheck();
   await expect(page.getByText("4 customized")).toBeVisible();

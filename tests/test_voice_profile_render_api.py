@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 from splicr.api import create_app
 from splicr.bootstrap import create_service
 from splicr.config import Settings
+from splicr.studio import VoiceProfile, VoiceProfileKind
 from splicr.studio.voice_resolution import VOICE_PROFILE_VARIABLE
 
 
@@ -120,3 +121,37 @@ def test_profile_persists_voice_profile_selection_and_reserved_snapshot_is_write
     assert profile.json()["voice_profile_id"] == voice["id"]
     assert forged.status_code == 422
     assert "managed by Voice Profile selection" in forged.json()["detail"]
+
+
+def test_qwen_profile_freezes_seed_and_profile_owned_designed_take(tmp_path) -> None:
+    app = _app(tmp_path)
+    reference = tmp_path / "designed-reference.wav"
+    reference.write_bytes(_wav_bytes())
+    voice = app.state.studio_store.save_voice_profile(
+        VoiceProfile(
+            id="designed-voice",
+            label="Designed narrator",
+            engine_id="qwen3",
+            kind=VoiceProfileKind.DESIGNED,
+            reference_audio_path=str(reference),
+            reference_text="These are the exact spoken words.",
+            settings={"design_take": 7},
+        )
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/v1/profiles",
+            json={
+                "name": "Reproducible Qwen narration",
+                "resource_id": "qwen3-local",
+                "voice_profile_id": voice.id,
+                "variables": {"seed": 31_415, "voice_take": 99},
+            },
+        )
+
+    assert response.status_code == 201
+    variables = response.json()["variables"]
+    assert variables == {"seed": 31_415, "voice_take": 7}
+    assert VOICE_PROFILE_VARIABLE not in variables
+    assert str(reference) not in response.text

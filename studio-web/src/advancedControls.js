@@ -73,6 +73,13 @@ export function countNonDefaultControls(definitions = [], values = {}) {
   }).length;
 }
 
+export function randomControlValue(definition, random = Math.random) {
+  const minimum = Math.ceil(definition.minimum ?? 0);
+  const maximum = Math.floor(definition.maximum ?? 2_147_483_647);
+  if (maximum < minimum) throw new Error("randomizable control has an invalid range");
+  return minimum + Math.floor(random() * (maximum - minimum + 1));
+}
+
 export function groupedVisibleControls(definitions = [], values = {}) {
   const groups = new Map();
   for (const definition of definitions) {

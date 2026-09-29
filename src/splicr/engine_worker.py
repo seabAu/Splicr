@@ -30,6 +30,7 @@ PACE_SPEEDS = {
 }
 PRONUNCIATION_VARIABLE = "__splicr_pronunciations"
 VOICE_PROFILE_VARIABLE = "__splicr_voice_profile"
+QWEN_SEED_VARIABLE = "seed"
 QWEN_CLONE_REPOS = (
     "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "Qwen/Qwen3-TTS-12Hz-0.6B-Base",
@@ -153,8 +154,16 @@ def _reference_voice(snapshot: Mapping[str, Any]) -> tuple[str, str]:
     return reference_path, reference_text
 
 
-def _seed_for(snapshot: Mapping[str, Any], text: str) -> int:
-    raw = f"{snapshot.get('id', '')}|{snapshot.get('updated_at', '')}|{text}"
+def _seed_for(
+    snapshot: Mapping[str, Any],
+    text: str,
+    variables: Mapping[str, Any] | None = None,
+) -> int:
+    seed = None if variables is None else variables.get(QWEN_SEED_VARIABLE)
+    if seed is not None and (isinstance(seed, bool) or not isinstance(seed, int)):
+        raise ValueError("Qwen synthesis seed must be an integer")
+    prefix = "" if seed is None else f"{seed}|"
+    raw = f"{prefix}{snapshot.get('id', '')}|{snapshot.get('updated_at', '')}|{text}"
     return int(hashlib.sha256(raw.encode("utf-8")).hexdigest()[:8], 16)
 
 
@@ -250,7 +259,14 @@ class Qwen3Runtime:
             for key in QWEN_SAMPLING:
                 if key in custom_sampling:
                     sampling[key] = custom_sampling[key]
-        self._torch.manual_seed(_seed_for(snapshot, text))
+        variables = options.get("variables")
+        self._torch.manual_seed(
+            _seed_for(
+                snapshot,
+                text,
+                variables if isinstance(variables, Mapping) else None,
+            )
+        )
         budget = max(2048, min(8192, len(text) * 2))
 
         if kind == "preset":

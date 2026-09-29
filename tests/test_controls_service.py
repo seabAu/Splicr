@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import sys
+from pathlib import Path
 
 import pytest
 
@@ -16,6 +18,7 @@ from splicr.domain import (
     VocalStyle,
 )
 from splicr.providers import ProviderRegistry
+from splicr.providers.qwen3 import Qwen3TtsProvider
 from splicr.service import SynthesisService
 
 from .fakes import RecordingProvider
@@ -142,5 +145,64 @@ def test_nonverbal_cue_plan_is_persisted_in_synthesis_chunks(tmp_path) -> None:
             assert provider.calls == [stored_text]
         finally:
             await service.stop()
+
+    asyncio.run(scenario())
+
+
+def test_qwen_identity_and_seed_survive_checkpoint_resume(tmp_path) -> None:
+    async def scenario() -> None:
+        definitions = Qwen3TtsProvider(
+            Path(sys.executable)
+        ).info.capabilities.control_definitions
+        provider = RecordingProvider(
+            provider_name="qwen3-local",
+            fail_text="three four.",
+            control_definitions=definitions,
+            allows_undeclared_variables=False,
+        )
+        settings = Settings(
+            data_dir=tmp_path,
+            chunk_max_words=2,
+            pacing_seconds=0,
+            max_attempts=2,
+            backoff_base_seconds=0,
+            backoff_max_seconds=0,
+            backoff_jitter_seconds=0,
+        )
+        service = SynthesisService(settings=settings, providers=ProviderRegistry([provider]))
+        frozen = {
+            "seed": 31_415,
+            "voice_take": 7,
+            "__splicr_voice_profile": {
+                "id": "designed-one",
+                "kind": "designed",
+                "description": "Warm and measured",
+                "reference_audio_path": "managed-reference.wav",
+                "reference_text": "Exact reference words.",
+                "settings": {"design_take": 7, "sampling": {"temperature": 0.6}},
+                "updated_at": "2026-09-29T00:00:00Z",
+            },
+        }
+        await service.start()
+        try:
+            submitted = await service.submit(
+                text="one two. three four.",
+                provider_name="qwen3-local",
+                variables=frozen,
+            )
+            paused = await _terminal(service, submitted.id)
+            assert paused.status is JobStatus.PAUSED
+            assert provider.calls == ["one two.", "three four."]
+
+            provider.fail_text = None
+            await service.resume(submitted.id)
+            finished = await _terminal(service, submitted.id)
+            assert finished.status is JobStatus.COMPLETED
+        finally:
+            await service.stop()
+
+        assert provider.calls == ["one two.", "three four.", "three four."]
+        assert all(options.variables == frozen for options in provider.options)
+        assert service.get_job(submitted.id).variables == frozen
 
     asyncio.run(scenario())

@@ -318,7 +318,12 @@ def import_narrator_voices(
                 None if kind is VoiceProfileKind.BLEND else str(item.asset_path.resolve())
             ),
             reference_text=(str(reference_text) if reference_text else None),
-            settings=(dict(item.metadata) if kind is VoiceProfileKind.BLEND else {}),
+            settings=(
+                dict(item.metadata)
+                if kind is VoiceProfileKind.BLEND
+                else ({"design_take": int(item.metadata.get("take", 1) or 1)}
+                      if kind is VoiceProfileKind.DESIGNED else {})
+            ),
             metadata={
                 "legacy_source_system": _NARRATOR_SOURCE_SYSTEM,
                 "legacy_metadata_path": str(item.metadata_path.resolve()),

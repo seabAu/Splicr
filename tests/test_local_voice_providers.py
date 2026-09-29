@@ -191,7 +191,14 @@ def test_local_voice_provider_builds_job_scoped_adapter(
 
 
 def test_local_voice_provider_models_are_explicit() -> None:
-    assert Qwen3TtsProvider(Path(sys.executable)).info.capabilities.models == QWEN3_MODELS
+    qwen = Qwen3TtsProvider(Path(sys.executable)).info.capabilities
+    assert qwen.models == QWEN3_MODELS
+    assert [definition.key for definition in qwen.control_definitions] == [
+        "seed",
+        "voice_take",
+    ]
+    assert qwen.control_definitions[0].randomizable is True
+    assert qwen.control_definitions[1].read_only is True
     assert Audio8TtsProvider(Path(sys.executable)).info.capabilities.models == (AUDIO8_MODEL,)
 
 
@@ -228,6 +235,7 @@ def test_qwen_runtime_reuses_model_and_clone_prompt(monkeypatch, tmp_path) -> No
     options = {
         "model": QWEN3_MODELS[0],
         "variables": {
+            "seed": 31_415,
             engine_worker.VOICE_PROFILE_VARIABLE: {
                 "id": "voice-one",
                 "kind": "cloned",
@@ -242,14 +250,19 @@ def test_qwen_runtime_reuses_model_and_clone_prompt(monkeypatch, tmp_path) -> No
 
     first = tmp_path / "first.pcm"
     second = tmp_path / "second.pcm"
+    retry = tmp_path / "retry.pcm"
     runtime.synthesize("First sentence.", options, first)
     runtime.synthesize("Second sentence.", options, second)
+    runtime.synthesize("First sentence.", options, retry)
 
     assert _FakeQwenModel.loads == [QWEN3_MODELS[0]]
     assert _FakeQwenModel.prompt_calls == 1
-    assert len(_FakeTorch.seeds) == 2
+    assert len(_FakeTorch.seeds) == 3
+    assert _FakeTorch.seeds[0] == _FakeTorch.seeds[2]
+    assert _FakeTorch.seeds[0] != _FakeTorch.seeds[1]
     assert first.read_bytes() == struct.pack("<2h", 8191, -8191)
     assert second.read_bytes() == first.read_bytes()
+    assert retry.read_bytes() == first.read_bytes()
 
 
 def test_audio8_runtime_reuses_model_and_normalizes_to_24khz(monkeypatch, tmp_path) -> None:

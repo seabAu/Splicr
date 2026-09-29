@@ -4,6 +4,9 @@ from pathlib import Path
 
 from ..domain import (
     AudioChunk,
+    ControlCondition,
+    ControlDefinition,
+    ControlValueType,
     ProviderCapabilities,
     ProviderError,
     ProviderInfo,
@@ -18,6 +21,8 @@ QWEN3_MODELS = (
     "Qwen/Qwen3-TTS-12Hz-0.6B-Base",
     "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice",
 )
+QWEN_SEED_VARIABLE = "seed"
+QWEN_VOICE_TAKE_VARIABLE = "voice_take"
 
 
 class Qwen3TtsProvider:
@@ -48,6 +53,37 @@ class Qwen3TtsProvider:
             capabilities=ProviderCapabilities(
                 models=QWEN3_MODELS,
                 supports_custom_instructions=True,
+                control_definitions=(
+                    ControlDefinition(
+                        key=QWEN_SEED_VARIABLE,
+                        value_type=ControlValueType.INTEGER,
+                        label="Synthesis seed",
+                        description=(
+                            "Freezes Qwen sampling for a reproducible take. Generate another "
+                            "seed to explore a different delivery without changing the voice."
+                        ),
+                        group="Generation",
+                        default=1000,
+                        minimum=0,
+                        maximum=2_147_483_647,
+                        step=1,
+                        randomizable=True,
+                    ),
+                    ControlDefinition(
+                        key=QWEN_VOICE_TAKE_VARIABLE,
+                        value_type=ControlValueType.INTEGER,
+                        label="Designed voice take",
+                        description=(
+                            "This identity belongs to the selected Voice Profile. Create another "
+                            "designed profile in Voice Studio to change it."
+                        ),
+                        group="Voice",
+                        minimum=1,
+                        maximum=99,
+                        read_only=True,
+                        visible_when=(ControlCondition("voice_profile_kind", "designed"),),
+                    ),
+                ),
             ),
         )
 

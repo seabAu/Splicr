@@ -65,6 +65,7 @@ def application():
                 group="Generation",
                 minimum=0,
                 visible_when=(ControlCondition("delivery_mode", "dramatic"),),
+                randomizable=True,
             ),
             ControlDefinition(
                 key="normalize_audio",

@@ -7,6 +7,7 @@ import {
   controlValueError,
   countNonDefaultControls,
   groupedVisibleControls,
+  randomControlValue,
 } from "./advancedControls.js";
 
 function titleFor(definition) {
@@ -56,7 +57,8 @@ function JsonControl({ definition, value, disabled, onChange, onDraftValidity })
 }
 
 function ControlInput({ definition, value, values, onChange, onDraftValidity }) {
-  const disabled = !conditionsMatch(definition.enabled_when, values);
+  const conditionDisabled = !conditionsMatch(definition.enabled_when, values);
+  const disabled = definition.read_only || conditionDisabled;
   const id = `advanced-control-${definition.key}`;
   const label = titleFor(definition);
   const validationError = controlValueError(definition, value);
@@ -126,6 +128,16 @@ function ControlInput({ definition, value, values, onChange, onDraftValidity }) 
         }}
       />
       {definition.unit && <i>{definition.unit}</i>}
+      {definition.randomizable && (
+        <button
+          className="advanced-randomize"
+          type="button"
+          disabled={disabled}
+          onClick={() => onChange(randomControlValue(definition))}
+        >
+          Generate another
+        </button>
+      )}
     </span>
   );
 
@@ -134,7 +146,8 @@ function ControlInput({ definition, value, values, onChange, onDraftValidity }) 
       <span>{label}{definition.required && <sup aria-label="required">*</sup>}</span>
       {input}
       {definition.description && <small>{definition.description}</small>}
-      {disabled && <small>Available when its related engine setting is enabled.</small>}
+      {conditionDisabled && <small>Available when its related engine setting is enabled.</small>}
+      {definition.read_only && <small>This value is owned by the selected Voice Profile.</small>}
       {validationError && <small className="advanced-control-error" role="alert">{validationError}</small>}
     </label>
   );

@@ -7,6 +7,7 @@ import {
   controlValueError,
   countNonDefaultControls,
   groupedVisibleControls,
+  randomControlValue,
   reconcileControlValues,
 } from "./advancedControls.js";
 
@@ -65,4 +66,10 @@ test("local validation explains required values and numeric bounds", () => {
     controlValueError({ key: "speed", value_type: "number", minimum: 0.5 }, 1),
     "",
   );
+});
+
+test("randomizable integers honor the declared inclusive range", () => {
+  const definition = { minimum: 10, maximum: 20 };
+  assert.equal(randomControlValue(definition, () => 0), 10);
+  assert.equal(randomControlValue(definition, () => 0.999999), 20);
 });

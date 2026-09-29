@@ -168,15 +168,25 @@ This is the enabling layer. Do not add one-off Qwen-only form state before this 
 
 ### Qwen take and seed
 
-- [ ] Expose Qwen voice-design take identity through the typed control schema.
-- [ ] Expose a deterministic seed with Generate another/Randomize behavior that always reveals the
+The selected designed Voice Profile is the voice identity: its read-only take is surfaced in
+Narrate, but cannot be edited into a different identity. The seed belongs to a render and may be
+randomized without changing that profile. Creating another voice take therefore creates another
+Voice Profile in Voice Studio; it never mutates a take number on an existing profile.
+
+- [x] Expose Qwen voice-design take identity through the typed control schema.
+- [x] Expose a deterministic seed with Generate another/Randomize behavior that always reveals the
   resulting stored seed.
-- [ ] Define how take identity relates to existing Qwen Voice Profiles; avoid two competing sources
+- [x] Define how take identity relates to existing Qwen Voice Profiles; avoid two competing sources
   of identity.
-- [ ] Freeze take, seed, model, voice-design description, reference, and sampling values before the
+- [x] Freeze take, seed, model, voice-design description, reference, and sampling values before the
   first chunk.
-- [ ] Prove resumed chunks use the same designed/cloned voice and seed policy.
-- [ ] Add tests for same settings/same take, new take, retry, resume, and profile round-trip.
+- [x] Prove resumed chunks use the same designed/cloned voice and seed policy.
+- [x] Add tests for same settings/same take, new take, retry, resume, and profile round-trip.
+- [ ] Add a durable Qwen VoiceDesign job that turns description + take into a managed reference
+  recording and exact reference transcript without loading the model in FastAPI.
+- [ ] Add **Designed voice** and **Generate another take** flows to Voice Studio; reuse an existing
+  description/take profile rather than duplicating it.
+- [ ] Verify the design worker against a faithful fake Qwen API and an opt-in real local model.
 
 ### Precise speed
 
@@ -419,7 +429,7 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
 
 - **Active milestone:** Milestone 2 — narration controls: Qwen, speed, and chunk planning.
 - **Next implementation slice:** reconcile Qwen Voice Profile identity with deterministic
-  take/seed controls, then extend the immutable planner with provider-safe target modes.
+  VoiceDesign creation jobs, then extend the immutable planner with provider-safe target modes.
 - **Known unrelated worktree item:** `LICENSE.txt` is untracked and not part of this roadmap unless
   deliberately adopted later.
 
@@ -433,3 +443,7 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   persistence, the generated progressive-disclosure Studio panel, profile round-trip, and
   unit/integration/browser acceptance coverage. Declared Kokoro's existing precise-speed override
   through the new schema as the first real engine control.
+- **2026-09-29:** Completed the Qwen narration identity slice: designed-voice take is read-only and
+  owned by the selected Voice Profile; synthesis seed is visible, randomizable, profile-safe, and
+  frozen with model/reference/design/sampling state through checkpoint resume. The audit made the
+  missing durable VoiceDesign creation flow explicit before marking legacy `take` parity covered.

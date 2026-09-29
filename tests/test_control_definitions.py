@@ -84,3 +84,9 @@ def test_invalid_control_metadata_is_rejected_early() -> None:
             {"token": secret},
         )
     assert secret not in str(raised.value)
+    with pytest.raises(ValueError, match="randomizable controls must be integers"):
+        ControlDefinition(
+            key="temperature",
+            value_type=ControlValueType.NUMBER,
+            randomizable=True,
+        )

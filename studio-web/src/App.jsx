@@ -80,6 +80,13 @@ const PACE = ["very_slow", "slow", "normal", "fast", "very_fast"];
 const NONVERBAL = ["never", "rare", "occasional", "frequent", "very_frequent"];
 const TERMINAL = new Set(["completed", "failed", "cancelled"]);
 
+function designedVoiceTake(profile) {
+  if (!profile || profile.kind !== "designed") return null;
+  const legacy = profile.metadata?.legacy_voice_metadata;
+  const value = profile.settings?.design_take ?? profile.settings?.take ?? legacy?.take ?? 1;
+  return Number.isInteger(value) && value >= 1 && value <= 99 ? value : 1;
+}
+
 function Control({ label, help, children, wide = false }) {
   return (
     <label className={`control${wide ? " control-wide" : ""}`}>
@@ -506,6 +513,19 @@ function NarrateWorkspace({ active, projectToLoad }) {
   }, [provider?.name, selectedVoiceProfile?.id, selectedVoiceProfile?.kind]);
 
   useEffect(() => {
+    if (provider?.name !== "qwen3-local") return;
+    const voiceTake = designedVoiceTake(selectedVoiceProfile);
+    setForm((current) => {
+      const variables = { ...current.variables };
+      if (voiceTake === null) delete variables.voice_take;
+      else variables.voice_take = voiceTake;
+      return JSON.stringify(variables) === JSON.stringify(current.variables)
+        ? current
+        : { ...current, variables };
+    });
+  }, [provider?.name, selectedVoiceProfile?.id, selectedVoiceProfile?.kind]);
+
+  useEffect(() => {
     if (!projectToLoad) return;
     setForm((current) => ({ ...current, text: projectToLoad.source_text || "" }));
     setSourceName(projectToLoad.source_name || projectToLoad.name);
@@ -755,7 +775,12 @@ function NarrateWorkspace({ active, projectToLoad }) {
             <AdvancedControls
               definitions={controlDefinitions}
               values={form.variables}
-              context={{ model: form.model, voice: form.voice, voice_profile_id: form.voice_profile_id }}
+              context={{
+                model: form.model,
+                voice: form.voice,
+                voice_profile_id: form.voice_profile_id,
+                voice_profile_kind: selectedVoiceProfile?.kind || null,
+              }}
               onChange={(variables) => patchForm({ variables })}
               onValidityChange={setAdvancedControlsValid}
             />

@@ -144,6 +144,8 @@ def _resource_capabilities(spec: ApiResourceSpec) -> ProviderCapabilities:
             step=variable.step,
             unit=variable.unit,
             sensitive=variable.sensitive,
+            read_only=variable.read_only,
+            randomizable=variable.randomizable,
             visible_when=tuple(
                 ControlCondition(key=key, equals=value)
                 for key, value in sorted(variable.visible_when.items())

@@ -346,6 +346,8 @@ class ControlDefinitionResponse(BaseModel):
     step: int | float | None
     unit: str | None
     sensitive: bool
+    read_only: bool
+    randomizable: bool
     visible_when: list[ControlConditionResponse]
     enabled_when: list[ControlConditionResponse]
 
@@ -494,6 +496,8 @@ class ProviderResponse(BaseModel):
                         step=definition.step,
                         unit=definition.unit,
                         sensitive=definition.sensitive,
+                        read_only=definition.read_only,
+                        randomizable=definition.randomizable,
                         visible_when=[
                             ControlConditionResponse(
                                 key=item.key,
@@ -1592,6 +1596,8 @@ def _variable_definitions(
                 "step",
                 "unit",
                 "sensitive",
+                "read_only",
+                "randomizable",
                 "visible_when",
                 "enabled_when",
             }
@@ -1615,6 +1621,8 @@ def _variable_definitions(
                     step=item.get("step"),
                     unit=item.get("unit"),
                     sensitive=item.get("sensitive", False),
+                    read_only=item.get("read_only", False),
+                    randomizable=item.get("randomizable", False),
                     visible_when=item.get("visible_when", {}),
                     enabled_when=item.get("enabled_when", {}),
                 )
@@ -2426,6 +2434,7 @@ def create_app(
         )
 
     def validate_profile_payload(payload: StudioProfilePayload) -> dict[str, Any]:
+        submitted_variables = dict(payload.variables)
         if VOICE_PROFILE_VARIABLE in payload.variables:
             raise HTTPException(
                 status_code=422,
@@ -2444,7 +2453,12 @@ def create_app(
         if payload.voice_profile_id:
             voice_profile = require_voice_profile(payload.voice_profile_id)
             try:
-                resolve_voice_profile(payload.resource_id, voice_profile, payload.variables)
+                _, submitted_variables = resolve_voice_profile(
+                    payload.resource_id,
+                    voice_profile,
+                    submitted_variables,
+                )
+                submitted_variables.pop(VOICE_PROFILE_VARIABLE, None)
             except ValueError as error:
                 raise HTTPException(status_code=422, detail=str(error)) from error
         try:
@@ -2475,7 +2489,7 @@ def create_app(
             capabilities = selected_provider.info.capabilities
             normalized_variables = validate_control_values(
                 capabilities.control_definitions,
-                payload.variables,
+                submitted_variables,
                 allow_unknown=capabilities.allows_undeclared_variables,
             )
         except UnknownProviderError as error:

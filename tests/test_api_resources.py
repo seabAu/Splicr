@@ -102,6 +102,8 @@ def test_advanced_variable_metadata_round_trips_and_is_validated() -> None:
         maximum=2,
         step=0.05,
         unit="ratio",
+        read_only=True,
+        randomizable=False,
         visible_when={"sampling_enabled": True},
         enabled_when={"expert_mode": True},
     )
@@ -115,6 +117,8 @@ def test_advanced_variable_metadata_round_trips_and_is_validated() -> None:
     assert saved.maximum == 2
     assert saved.step == 0.05
     assert saved.unit == "ratio"
+    assert saved.read_only is True
+    assert saved.randomizable is False
     assert dict(saved.visible_when) == {"sampling_enabled": True}
     assert dict(saved.enabled_when) == {"expert_mode": True}
 
@@ -124,6 +128,12 @@ def test_advanced_variable_metadata_round_trips_and_is_validated() -> None:
             kind=VariableType.NUMBER,
             default=-1,
             minimum=0,
+        )
+    with pytest.raises(ValueError, match="randomizable variables must be integers"):
+        ApiVariableDefinition(
+            "temperature",
+            kind=VariableType.NUMBER,
+            randomizable=True,
         )
 
 

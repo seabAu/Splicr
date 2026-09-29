@@ -157,6 +157,8 @@ class ControlDefinition:
     step: int | float | None = None
     unit: str | None = None
     sensitive: bool = False
+    read_only: bool = False
+    randomizable: bool = False
     visible_when: tuple[ControlCondition, ...] = ()
     enabled_when: tuple[ControlCondition, ...] = ()
 
@@ -170,8 +172,11 @@ class ControlDefinition:
             raise ValueError("control group cannot be blank")
         if len(self.description) > 2_000:
             raise ValueError("control description cannot exceed 2000 characters")
-        if not isinstance(self.required, bool) or not isinstance(self.sensitive, bool):
-            raise TypeError("control required and sensitive flags must be booleans")
+        if any(
+            not isinstance(value, bool)
+            for value in (self.required, self.sensitive, self.read_only, self.randomizable)
+        ):
+            raise TypeError("control flags must be booleans")
         if self.default is not None and not _matches_control_type(
             self.default, self.value_type
         ):
@@ -186,6 +191,8 @@ class ControlDefinition:
                 raise ValueError(f"default for {self.key} must be one of its choices")
         if self.sensitive and (self.default is not None or self.choices):
             raise ValueError("sensitive controls cannot declare defaults or choices")
+        if self.randomizable and self.value_type is not ControlValueType.INTEGER:
+            raise ValueError("randomizable controls must be integers")
         numeric_metadata = (self.minimum, self.maximum, self.step)
         if any(value is not None for value in numeric_metadata):
             if self.value_type not in {ControlValueType.INTEGER, ControlValueType.NUMBER}:

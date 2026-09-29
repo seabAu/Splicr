@@ -318,6 +318,8 @@ class ApiVariableDefinition:
     step: int | float | None = None
     unit: str | None = None
     sensitive: bool = False
+    read_only: bool = False
+    randomizable: bool = False
     visible_when: Mapping[str, JsonValue] = field(default_factory=dict)
     enabled_when: Mapping[str, JsonValue] = field(default_factory=dict)
 
@@ -330,8 +332,11 @@ class ApiVariableDefinition:
         if len(self.description) > 2_000:
             raise ValueError("variable description cannot exceed 2000 characters")
         _non_empty(self.group, "variable group")
-        if not isinstance(self.required, bool) or not isinstance(self.sensitive, bool):
-            raise TypeError("variable required and sensitive flags must be booleans")
+        if any(
+            not isinstance(value, bool)
+            for value in (self.required, self.sensitive, self.read_only, self.randomizable)
+        ):
+            raise TypeError("variable flags must be booleans")
         default = _freeze_json(self.default, path=f"variable {self.name} default")
         if isinstance(self.choices, (str, bytes, bytearray)) or not isinstance(
             self.choices, Sequence
@@ -353,6 +358,8 @@ class ApiVariableDefinition:
             raise ValueError(f"default for {self.name} must be one of its choices")
         if self.sensitive and (default is not None or choices):
             raise ValueError("sensitive variables cannot declare defaults or choices")
+        if self.randomizable and self.kind is not VariableType.INTEGER:
+            raise ValueError("randomizable variables must be integers")
         numeric_metadata = (self.minimum, self.maximum, self.step)
         if any(value is not None for value in numeric_metadata):
             if self.kind not in {VariableType.INTEGER, VariableType.NUMBER}:
@@ -756,6 +763,8 @@ class ApiResourceSpec:
                     "step": variable.step,
                     "unit": variable.unit,
                     "sensitive": variable.sensitive,
+                    "read_only": variable.read_only,
+                    "randomizable": variable.randomizable,
                     "visible_when": _thaw_json(variable.visible_when),
                     "enabled_when": _thaw_json(variable.enabled_when),
                 }
@@ -1018,6 +1027,8 @@ def _variable_from_dict(value: Mapping[str, Any]) -> ApiVariableDefinition:
             "step",
             "unit",
             "sensitive",
+            "read_only",
+            "randomizable",
             "visible_when",
             "enabled_when",
         },
@@ -1037,6 +1048,8 @@ def _variable_from_dict(value: Mapping[str, Any]) -> ApiVariableDefinition:
         step=value.get("step"),
         unit=value.get("unit"),
         sensitive=value.get("sensitive", False),
+        read_only=value.get("read_only", False),
+        randomizable=value.get("randomizable", False),
         visible_when=_mapping(value.get("visible_when", {}), "variable visible_when"),
         enabled_when=_mapping(value.get("enabled_when", {}), "variable enabled_when"),
     )

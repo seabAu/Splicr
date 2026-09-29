@@ -199,6 +199,8 @@ def test_resource_control_definitions_are_exposed_with_ui_metadata(tmp_path) -> 
             "step": 0.05,
             "unit": "ratio",
             "visible_when": {"sampling_enabled": True},
+            "read_only": False,
+            "randomizable": False,
         }
     ]
 
@@ -232,6 +234,8 @@ def test_resource_control_definitions_are_exposed_with_ui_metadata(tmp_path) -> 
     assert control["visible_when"] == [
         {"key": "sampling_enabled", "equals": True}
     ]
+    assert control["read_only"] is False
+    assert control["randomizable"] is False
 
 
 def settings_database_bytes(store: SqliteApiResourceStore) -> bytes:
