@@ -87,6 +87,21 @@ export const api = {
   providers: () => request("/v1/providers"),
   projects: () => request("/v1/studio/projects"),
   project: (id) => request(`/v1/studio/projects/${encodeURIComponent(id)}`),
+  batches: () => request("/v1/studio/batches"),
+  batch: (id) => request(`/v1/studio/batches/${encodeURIComponent(id)}`),
+  createBatch: (payload) =>
+    request("/v1/studio/batches", { method: "POST", body: JSON.stringify(payload) }),
+  reorderBatch: (id, itemIds) =>
+    request(`/v1/studio/batches/${encodeURIComponent(id)}/order`, {
+      method: "PUT",
+      body: JSON.stringify({ item_ids: itemIds }),
+    }),
+  removeBatchItem: (id, itemId) =>
+    request(`/v1/studio/batches/${encodeURIComponent(id)}/items/${encodeURIComponent(itemId)}`, {
+      method: "DELETE",
+    }),
+  batchAction: (id, action) =>
+    request(`/v1/studio/batches/${encodeURIComponent(id)}/${action}`, { method: "POST" }),
   components: () => request("/v1/studio/components"),
   configureEngineComponent: (id, pythonPath) =>
     request(`/v1/studio/components/engines/${encodeURIComponent(id)}`, {

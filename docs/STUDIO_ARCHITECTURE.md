@@ -123,6 +123,17 @@ once and a completed WAV is linked once. Identical polls are no-ops. The synthes
 unaware of Studio UI persistence, and an indexing failure cannot turn an already-queued synthesis
 into an apparent submission failure.
 
+Multi-document work is coordinated by additive `studio_batch_queues` and `studio_batch_items`
+tables. Queue creation freezes each selected Project source and hash, saved profile snapshot,
+resolved voice settings, provider/resource revision, and synthesis chunk plan into a prepared but
+not-yet-dispatched speech job. A single coordinator dispatches one item at a time; SynthesisService
+recognizes its internal ownership marker and does not independently requeue batch jobs after a
+restart. The coordinator adopts the marked job instead, preserving checkpoints and preventing
+duplicate synthesis. Item failures do not stop later work, while current-item and remaining-queue
+pause/cancel scopes remain distinct. Completed batch jobs are imported as new immutable
+RenderPlans/Takes on their original Library projects, using the next project revision and retaining
+separate downloadable artifacts.
+
 The same command can scan a supplied Narrator `narrator_data` directory. Its library entries become
 Studio projects with stable identifiers and retained source/config/output paths. Pronunciations and
 whole-word substitutions are copied additively into Studio's language store, without overwriting a
@@ -169,6 +180,11 @@ write-only API key whose temporary clear-text view hides itself. The global erro
 durable redacted event store, shows unread badges and unobtrusive toasts, and inspects complete
 request/response/exception/context records. React-side 5xx and network failures are reported to the
 same store without copying request bodies that may contain credentials.
+
+Library also owns the progressive batch surface: document multi-select, one visible saved-profile
+choice, durable queue history, aggregate progress/counts, per-item errors and downloads, and
+not-started-only ordering/removal. Advanced engine values stay inside the selected profile instead
+of duplicating Narrate's large provider-specific control form in the queue composer.
 
 The established SPLICR UI remains at `/` as a transition surface while the remaining Narrator
 workspaces are migrated. Vite source lives in `studio-web/`; hashed production assets are packaged

@@ -65,6 +65,105 @@ test("every Studio workspace renders without browser errors", async ({ page }) =
   expect(runtimeErrors).toEqual([]);
 });
 
+test("Library batch queues persist frozen work and surface skipped items", async ({ page }) => {
+  const runtimeErrors = captureRuntimeErrors(page);
+  const createProject = async (name, text) => {
+    const created = await page.request.post("/v1/speech/jobs", {
+      data: { text, provider: "fake", project_name: name, source_name: `${name}.md` },
+    });
+    expect(created.ok()).toBeTruthy();
+    const id = (await created.json()).id;
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      const response = await page.request.get(`/v1/speech/jobs/${id}`);
+      const job = await response.json();
+      if (job.status === "completed") {
+        const projects = await (await page.request.get("/v1/studio/projects")).json();
+        return projects.find((project) => project.name === name).id;
+      }
+      await page.waitForTimeout(20);
+    }
+    throw new Error(`Project seed job ${id} did not finish`);
+  };
+
+  const alphaId = await createProject("Batch alpha", "The first browser batch document.");
+  const betaId = await createProject("Batch beta", "The second browser batch document.");
+  const profileResponse = await page.request.post("/v1/profiles", {
+    data: {
+      name: "Browser batch profile",
+      resource_id: "fake",
+      text: "Profile placeholder.",
+      model: "fake-model",
+      voice: "fake-voice",
+      controls: {
+        tone: "neutral", pace: "normal", vocal_style: "natural", nonverbal_frequency: "never",
+      },
+      split_strategy: "semantic",
+      chunk_target_mode: "automatic",
+      remove_numeric_citations: false,
+      variables: { acceptance_slow: true },
+    },
+  });
+  expect(profileResponse.ok()).toBeTruthy();
+  const profileId = (await profileResponse.json()).id;
+
+  const navigation = page.getByRole("navigation", { name: "Studio workspaces" });
+  await navigation.getByRole("button", { name: "Library", exact: true }).click();
+  await page.getByRole("button", { name: "Add Batch alpha to batch" }).click();
+  await page.getByRole("button", { name: "Add Batch beta to batch" }).click();
+  await page.getByLabel("Queue name").fill("Browser durable queue");
+  await page.getByLabel("Render profile").selectOption(profileId);
+  await page.getByRole("button", { name: "Queue 2" }).click();
+  await expect(page.getByRole("heading", { name: "Browser durable queue" })).toBeVisible();
+  await expect(page.locator(".batch-progress")).toBeVisible();
+  await page.getByRole("button", { name: "Pause after current" }).click();
+  await expect(page.getByRole("button", { name: "Resume queue" })).toBeVisible();
+  await page.getByRole("button", { name: "Resume queue" }).click();
+  await expect(page.locator(".batch-summary").getByText("2 completed")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("link", { name: "Download Batch alpha" })).toBeVisible();
+
+  await page.reload();
+  await navigation.getByRole("button", { name: "Library", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Browser durable queue" })).toBeVisible();
+  await expect(page.locator(".batch-summary").getByText("2 completed")).toBeVisible();
+
+  const failingProfileResponse = await page.request.post("/v1/profiles", {
+    data: {
+      name: "Browser failing profile",
+      resource_id: "fake",
+      text: "Failure profile placeholder.",
+      model: "fake-model",
+      voice: "fake-voice",
+      controls: {
+        tone: "neutral", pace: "normal", vocal_style: "natural", nonverbal_frequency: "never",
+      },
+      split_strategy: "semantic",
+      chunk_target_mode: "automatic",
+      remove_numeric_citations: false,
+      variables: { acceptance_fail: true },
+    },
+  });
+  expect(failingProfileResponse.ok()).toBeTruthy();
+  const failingProfileId = (await failingProfileResponse.json()).id;
+  const mixed = await page.request.post("/v1/studio/batches", {
+    data: {
+      name: "Browser mixed-result queue",
+      items: [
+        { project_id: alphaId, profile_id: failingProfileId },
+        { project_id: betaId, profile_id: profileId },
+      ],
+    },
+  });
+  expect(mixed.ok()).toBeTruthy();
+  await page.reload();
+  await navigation.getByRole("button", { name: "Library", exact: true }).click();
+  await page.getByLabel("History").selectOption((await mixed.json()).id);
+  await expect(page.locator(".batch-summary").getByText("1 failed")).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator(".batch-summary").getByText("1 completed")).toBeVisible();
+  await expect(page.locator(".batch-items").getByText(/acceptance batch failure/).first()).toBeVisible();
+
+  expect(runtimeErrors).toEqual([]);
+});
+
 test("a document can be planned, directed, rendered, played, and reopened", async ({ page }) => {
   const runtimeErrors = captureRuntimeErrors(page);
   const source = page.getByPlaceholder(/Paste the document you want to hear/);

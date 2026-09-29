@@ -65,6 +65,7 @@ from .dialogue_jobs import (
     SqliteDialogueScriptJobStore,
 )
 from .domain import (
+    BATCH_ITEM_VARIABLE,
     SEGMENT_OPTIONS_VARIABLE,
     ChunkStatus,
     ControlValueType,
@@ -76,6 +77,7 @@ from .domain import (
     JobNotFoundError,
     JobRecord,
     JobStatus,
+    JsonValue,
     NonverbalFrequency,
     ProviderError,
     ProviderInfo,
@@ -117,6 +119,18 @@ from .studio.audiogram import (
     FfmpegAudiogramRenderer,
     InvalidAudiogramJobStateError,
     estimate_render_seconds,
+)
+from .studio.batch import (
+    BatchItem,
+    BatchItemDraft,
+    BatchItemSpec,
+    BatchItemStatus,
+    BatchQueue,
+    BatchQueueNotFoundError,
+    BatchQueueService,
+    BatchQueueStatus,
+    BatchQueueStore,
+    InvalidBatchStateError,
 )
 from .studio.chat import ChatCompletionError, OpenAiChatCompleter
 from .studio.components import (
@@ -1267,6 +1281,84 @@ class StudioProjectSummaryResponse(BaseModel):
 
 class StudioProjectResponse(StudioProjectSummaryResponse):
     source_text: str
+
+
+class BatchQueueItemPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    project_id: str = Field(min_length=1, max_length=64)
+    profile_id: str = Field(min_length=1, max_length=64)
+
+
+class BatchQueueCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(default="Narration batch", min_length=1, max_length=240)
+    items: list[BatchQueueItemPayload] = Field(min_length=1, max_length=100)
+
+
+class BatchQueueReorderRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    item_ids: list[str] = Field(min_length=1, max_length=100)
+
+
+class BatchItemResponse(BaseModel):
+    id: str
+    position: int
+    project_id: str
+    project_name: str
+    profile_id: str
+    profile_name: str
+    status: BatchItemStatus
+    job_id: str | None
+    take_id: str | None
+    source_sha256: str | None
+    provider_name: str | None
+    resource_revision: int | None
+    model: str | None
+    voice: str | None
+    error_code: str | None
+    error_detail: str | None
+    created_at: str
+    updated_at: str
+
+    @classmethod
+    def from_domain(cls, item: BatchItem) -> "BatchItemResponse":
+        spec = item.spec
+        return cls(
+            id=item.id,
+            position=item.position,
+            project_id=item.project_id,
+            project_name=item.project_name,
+            profile_id=item.profile_id,
+            profile_name=item.profile_name,
+            status=item.status,
+            job_id=item.job_id,
+            take_id=item.take_id,
+            source_sha256=spec.source_sha256 if spec else None,
+            provider_name=spec.provider_name if spec else None,
+            resource_revision=spec.resource_revision if spec else None,
+            model=spec.model if spec else None,
+            voice=spec.voice if spec else None,
+            error_code=item.error_code,
+            error_detail=item.error_detail,
+            created_at=item.created_at,
+            updated_at=item.updated_at,
+        )
+
+
+class BatchQueueResponse(BaseModel):
+    id: str
+    name: str
+    status: BatchQueueStatus
+    progress: float
+    counts: dict[str, int]
+    pause_after_current: bool
+    cancel_remaining: bool
+    items: list[BatchItemResponse]
+    created_at: str
+    updated_at: str
 
 
 class TimelineAudioArtifactResponse(BaseModel):
@@ -2442,6 +2534,7 @@ def create_app(
     conversion_service: ConversionJobService | None = None,
     publishing_service: PublishingService | None = None,
     voice_design_service: VoiceDesignJobService | None = None,
+    batch_queue_service: BatchQueueService | None = None,
 ) -> FastAPI:
     base_settings = settings or Settings.from_env()
     components = ComponentManager(base_settings)
@@ -2451,6 +2544,11 @@ def create_app(
     profiles.initialize()
     studio = SqliteStudioStore(resolved_settings.database_path)
     studio.initialize()
+    batches = batch_queue_service or BatchQueueService(
+        store=BatchQueueStore(resolved_settings.database_path),
+        synthesis=synthesis,
+    )
+    batches.store.initialize()
     voice_designs = voice_design_service or VoiceDesignJobService(
         store=VoiceDesignJobStore(resolved_settings.database_path),
         studio_store=studio,
@@ -2568,7 +2666,11 @@ def create_app(
                         try:
                             await conversions.start()
                             try:
-                                yield
+                                await batches.start()
+                                try:
+                                    yield
+                                finally:
+                                    await batches.stop()
                             finally:
                                 await conversions.stop()
                         finally:
@@ -2596,6 +2698,7 @@ def create_app(
     application.state.finishing_service = finishing
     application.state.audiogram_service = audiograms
     application.state.conversion_service = conversions
+    application.state.batch_queue_service = batches
     application.state.publishing_service = publishing
     application.state.voice_design_service = voice_designs
     application.state.component_manager = components
@@ -2627,9 +2730,24 @@ def create_app(
         project_name: str | None = None,
         source_name: str | None = None,
         take_label: str = "Narration take",
-    ) -> None:
+        target_project_id: str | None = None,
+    ) -> str | None:
+        if target_project_id is None:
+            marker = job.variables.get(BATCH_ITEM_VARIABLE)
+            item_id = marker.get("item_id") if isinstance(marker, Mapping) else None
+            if isinstance(item_id, str):
+                try:
+                    batch_item = batches.store.get_item(item_id)
+                except LookupError:
+                    batch_item = None
+                if batch_item is not None:
+                    target_project_id = batch_item.project_id
+                    project_name = batch_item.project_name
+                    take_label = f"Batch · {batch_item.profile_name}"
+                    if batch_item.spec is not None:
+                        source_name = batch_item.spec.source_name
         try:
-            import_splicr_job(
+            imported = import_splicr_job(
                 job_id=job.id,
                 job_store=synthesis.store,
                 job_storage=synthesis.storage,
@@ -2642,11 +2760,14 @@ def create_app(
                     else None
                 ),
                 take_label=take_label,
+                target_project_id=target_project_id,
             )
+            return imported.take_id
         except Exception:
             # A queued synthesis must not be reported as failed merely because the
             # secondary Studio index could not be refreshed. Later reads retry it.
             logger.exception("Failed to synchronize job %s into Studio", job.id)
+            return None
 
     def job_response(
         job: JobRecord,
@@ -2668,6 +2789,66 @@ def create_app(
         ):
             return response.model_copy(update={"error_event_id": None})
         return response
+
+    def batch_queue_response(queue: BatchQueue) -> BatchQueueResponse:
+        processed = sum(
+            item.status
+            in {
+                BatchItemStatus.COMPLETED,
+                BatchItemStatus.FAILED,
+                BatchItemStatus.SKIPPED,
+                BatchItemStatus.CANCELLED,
+            }
+            for item in queue.items
+        )
+        current_fraction = 0.0
+        current = next(
+            (item for item in queue.items if item.status is BatchItemStatus.RUNNING),
+            None,
+        )
+        if current and current.job_id:
+            try:
+                job = synthesis.get_job(current.job_id)
+                if job.total_chunks:
+                    current_fraction = min(1.0, job.completed_chunks / job.total_chunks)
+            except JobNotFoundError:
+                pass
+        total = len(queue.items)
+        progress = (processed + current_fraction) / total if total else 1.0
+        return BatchQueueResponse(
+            id=queue.id,
+            name=queue.name,
+            status=queue.status,
+            progress=progress,
+            counts=queue.counts,
+            pause_after_current=queue.pause_after_current,
+            cancel_remaining=queue.cancel_remaining,
+            items=[BatchItemResponse.from_domain(item) for item in queue.items],
+            created_at=queue.created_at,
+            updated_at=queue.updated_at,
+        )
+
+    def sync_batch_job(job: JobRecord) -> str | None:
+        marker = job.variables.get(BATCH_ITEM_VARIABLE)
+        if not isinstance(marker, Mapping):
+            return sync_studio_job(job)
+        item_id = marker.get("item_id")
+        if not isinstance(item_id, str):
+            return sync_studio_job(job)
+        try:
+            item = batches.store.get_item(item_id)
+        except LookupError:
+            return sync_studio_job(job)
+        spec = item.spec
+        return sync_studio_job(
+            job,
+            project_name=item.project_name,
+            source_name=spec.source_name if spec else None,
+            take_label=f"Batch · {item.profile_name}",
+            target_project_id=item.project_id,
+        )
+
+    batches.on_job_completed = sync_batch_job
 
     def require_resource_store() -> SqliteApiResourceStore:
         if resource_store is None:
@@ -3010,6 +3191,126 @@ def create_app(
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
 
+    def freeze_batch_item(payload: BatchQueueItemPayload) -> BatchItemDraft:
+        try:
+            project = studio.get_project(payload.project_id)
+        except KeyError as error:
+            return BatchItemDraft(
+                project_id=payload.project_id,
+                project_name=payload.project_id,
+                profile_id=payload.profile_id,
+                profile_name=payload.profile_id,
+                spec=None,
+                error_code="missing_source",
+                error_detail=str(error),
+            )
+        try:
+            profile = profiles.get(payload.profile_id)
+        except ProfileNotFoundError as error:
+            return BatchItemDraft(
+                project_id=project.id,
+                project_name=project.name,
+                profile_id=payload.profile_id,
+                profile_name=payload.profile_id,
+                spec=None,
+                error_code="invalid_profile",
+                error_detail=str(error),
+            )
+        if not project.source_text.strip():
+            return BatchItemDraft(
+                project_id=project.id,
+                project_name=project.name,
+                profile_id=profile.id,
+                profile_name=profile.name,
+                spec=None,
+                error_code="missing_source",
+                error_detail="The selected project contains no source text",
+            )
+        request = CreateJobRequest(
+            text=project.source_text,
+            resource_id=profile.resource_id,
+            resource_revision=profile.resource_revision,
+            model=profile.model,
+            voice=profile.voice,
+            voice_profile_id=profile.voice_profile_id,
+            instructions=profile.instructions,
+            controls=DeliveryControlsPayload.from_domain(profile.controls),
+            variables=profile.variables,
+            split_strategy=profile.split_strategy,
+            chunk_target_mode=profile.chunk_target_mode,
+            chunk_target_value=profile.chunk_target_value,
+            remove_numeric_citations=profile.remove_numeric_citations,
+            project_name=project.name,
+            source_name=project.source_name,
+            export_name=project.name,
+        )
+        try:
+            model, voice, variables = resolved_voice_request(request)
+        except HTTPException as error:
+            return BatchItemDraft(
+                project_id=project.id,
+                project_name=project.name,
+                profile_id=profile.id,
+                profile_name=profile.name,
+                spec=None,
+                error_code="invalid_profile",
+                error_detail=str(error.detail),
+            )
+        revision = profile.resource_revision
+        if revision is None:
+            resolver = getattr(synthesis.providers, "current_revision", None)
+            if resolver is not None:
+                current_revision = resolver(profile.resource_id)
+                revision = int(current_revision) if current_revision is not None else None
+        controls_payload = DeliveryControlsPayload.from_domain(profile.controls).model_dump(
+            mode="json"
+        )
+        profile_snapshot: dict[str, JsonValue] = {
+            "id": profile.id,
+            "name": profile.name,
+            "resource_id": profile.resource_id,
+            "resource_revision": revision,
+            "model": model,
+            "voice": voice,
+            "voice_profile_id": profile.voice_profile_id,
+            "instructions": profile.instructions,
+            "controls": _plain_control_value(controls_payload),
+            "variables": _plain_control_value(variables),
+            "split_strategy": profile.split_strategy.value,
+            "chunk_target_mode": profile.chunk_target_mode.value,
+            "chunk_target_value": profile.chunk_target_value,
+            "remove_numeric_citations": profile.remove_numeric_citations,
+        }
+        spec = BatchItemSpec(
+            project_id=project.id,
+            project_name=project.name,
+            source_name=project.source_name,
+            source_text=project.source_text,
+            source_sha256=hashlib.sha256(project.source_text.encode("utf-8")).hexdigest(),
+            profile_id=profile.id,
+            profile_name=profile.name,
+            profile_snapshot=profile_snapshot,
+            provider_name=profile.resource_id,
+            resource_revision=revision,
+            model=model,
+            voice=voice,
+            instructions=profile.instructions,
+            controls=profile.controls,
+            variables=variables,
+            split_strategy=profile.split_strategy,
+            chunk_target_mode=profile.chunk_target_mode,
+            chunk_target_value=profile.chunk_target_value,
+            remove_numeric_citations=profile.remove_numeric_citations,
+            export_stem=project.name,
+        )
+        return BatchItemDraft(
+            project_id=project.id,
+            project_name=project.name,
+            profile_id=profile.id,
+            profile_name=profile.name,
+            spec=spec,
+        )
+
     def resolved_dialogue_speaker(
         resource_id: str,
         speaker: DialogueSpeakerPayload,
@@ -3326,6 +3627,132 @@ def create_app(
             take_count=len(studio.list_takes(project.id)),
         )
         return StudioProjectResponse(**summary.model_dump(), source_text=project.source_text)
+
+    def require_batch_queue(queue_id: str) -> BatchQueue:
+        try:
+            return batches.get(queue_id)
+        except BatchQueueNotFoundError as error:
+            raise HTTPException(status_code=404, detail="Batch queue not found") from error
+
+    @application.get(
+        "/v1/studio/batches",
+        response_model=list[BatchQueueResponse],
+        tags=["studio"],
+    )
+    async def list_batch_queues(
+        response: Response,
+        limit: int = Query(default=100, ge=1, le=500),
+    ) -> list[BatchQueueResponse]:
+        response.headers["Cache-Control"] = "no-store"
+        return [batch_queue_response(queue) for queue in batches.list(limit=limit)]
+
+    @application.post(
+        "/v1/studio/batches",
+        response_model=BatchQueueResponse,
+        status_code=status.HTTP_201_CREATED,
+        tags=["studio"],
+    )
+    async def create_batch_queue(payload: BatchQueueCreateRequest) -> BatchQueueResponse:
+        drafts = [freeze_batch_item(item) for item in payload.items]
+        queue = await batches.submit(payload.name, drafts)
+        return batch_queue_response(queue)
+
+    @application.get(
+        "/v1/studio/batches/{queue_id}",
+        response_model=BatchQueueResponse,
+        tags=["studio"],
+    )
+    async def get_batch_queue(queue_id: str, response: Response) -> BatchQueueResponse:
+        response.headers["Cache-Control"] = "no-store"
+        return batch_queue_response(require_batch_queue(queue_id))
+
+    @application.put(
+        "/v1/studio/batches/{queue_id}/order",
+        response_model=BatchQueueResponse,
+        tags=["studio"],
+    )
+    async def reorder_batch_queue(
+        queue_id: str, payload: BatchQueueReorderRequest
+    ) -> BatchQueueResponse:
+        require_batch_queue(queue_id)
+        try:
+            queue = batches.reorder(queue_id, payload.item_ids)
+        except (InvalidBatchStateError, ValueError) as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        return batch_queue_response(queue)
+
+    @application.delete(
+        "/v1/studio/batches/{queue_id}/items/{item_id}",
+        response_model=BatchQueueResponse,
+        tags=["studio"],
+    )
+    async def remove_batch_item(queue_id: str, item_id: str) -> BatchQueueResponse:
+        require_batch_queue(queue_id)
+        try:
+            queue = await batches.remove(queue_id, item_id)
+        except (InvalidBatchStateError, LookupError) as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        return batch_queue_response(queue)
+
+    @application.post(
+        "/v1/studio/batches/{queue_id}/pause-current",
+        response_model=BatchQueueResponse,
+        tags=["studio"],
+    )
+    async def pause_current_batch_item(queue_id: str) -> BatchQueueResponse:
+        require_batch_queue(queue_id)
+        try:
+            return batch_queue_response(await batches.pause_current(queue_id))
+        except (InvalidBatchStateError, InvalidJobStateError) as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+
+    @application.post(
+        "/v1/studio/batches/{queue_id}/pause-remaining",
+        response_model=BatchQueueResponse,
+        tags=["studio"],
+    )
+    async def pause_remaining_batch_items(queue_id: str) -> BatchQueueResponse:
+        require_batch_queue(queue_id)
+        return batch_queue_response(await batches.pause_remaining(queue_id))
+
+    @application.post(
+        "/v1/studio/batches/{queue_id}/resume",
+        response_model=BatchQueueResponse,
+        tags=["studio"],
+    )
+    async def resume_batch_queue(queue_id: str) -> BatchQueueResponse:
+        require_batch_queue(queue_id)
+        try:
+            return batch_queue_response(await batches.resume(queue_id))
+        except (InvalidBatchStateError, InvalidJobStateError) as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+
+    @application.post(
+        "/v1/studio/batches/{queue_id}/cancel-current",
+        response_model=BatchQueueResponse,
+        tags=["studio"],
+    )
+    async def cancel_current_batch_item(queue_id: str) -> BatchQueueResponse:
+        require_batch_queue(queue_id)
+        return batch_queue_response(await batches.cancel_current(queue_id))
+
+    @application.post(
+        "/v1/studio/batches/{queue_id}/cancel-remaining",
+        response_model=BatchQueueResponse,
+        tags=["studio"],
+    )
+    async def cancel_remaining_batch_items(queue_id: str) -> BatchQueueResponse:
+        require_batch_queue(queue_id)
+        return batch_queue_response(await batches.cancel_remaining(queue_id))
+
+    @application.post(
+        "/v1/studio/batches/{queue_id}/cancel",
+        response_model=BatchQueueResponse,
+        tags=["studio"],
+    )
+    async def cancel_batch_queue(queue_id: str) -> BatchQueueResponse:
+        require_batch_queue(queue_id)
+        return batch_queue_response(await batches.cancel_all(queue_id))
 
     def finished_audio_artifact(
         source_job_id: str, artifact_id: str

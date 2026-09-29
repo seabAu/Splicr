@@ -539,6 +539,7 @@ def import_splicr_job(
     source_name: str | None = None,
     source_media_type: str | None = None,
     take_label: str | None = None,
+    target_project_id: str | None = None,
 ) -> ImportedJob:
     """Import or resynchronize one legacy SPLICR job without altering it."""
 
@@ -554,13 +555,14 @@ def import_splicr_job(
     )
     project_record = studio_store.get_import_record(_SOURCE_SYSTEM, job.id, "project")
     project_id = (
-        project_record.entity_id
-        if project_record is not None
-        else _stable_id(job.id, "project")
+        target_project_id
+        or (project_record.entity_id if project_record is not None else None)
+        or _stable_id(job.id, "project")
     )
-    existing_project = (
-        studio_store.get_project(project_id) if project_record is not None else None
-    )
+    try:
+        existing_project = studio_store.get_project(project_id)
+    except KeyError:
+        existing_project = None
     project_metadata: dict[str, JsonValue] = {
         **(dict(existing_project.metadata) if existing_project is not None else {}),
         "legacy_source_system": _SOURCE_SYSTEM,
@@ -664,10 +666,16 @@ def import_splicr_job(
                     "warnings",
                 )
             }
+        existing_revisions = studio_store.list_render_plans(project_id)
+        revision = (
+            max(existing.revision for existing in existing_revisions) + 1
+            if existing_revisions
+            else 1
+        )
         plan = RenderPlan(
             id=plan_id,
             project_id=project_id,
-            revision=1,
+            revision=revision,
             segments=segments,
             metadata=plan_metadata,
             created_at=job.created_at,

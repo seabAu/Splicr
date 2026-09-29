@@ -11,6 +11,7 @@ from typing import Mapping, Protocol, TypeAlias
 
 JsonValue: TypeAlias = None | bool | int | float | str | list["JsonValue"] | dict[str, "JsonValue"]
 SEGMENT_OPTIONS_VARIABLE = "__splicr_segment_options"
+BATCH_ITEM_VARIABLE = "__splicr_batch_item__"
 INTERNAL_VARIABLE_PREFIX = "__splicr_"
 _CONTROL_KEY_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")
 

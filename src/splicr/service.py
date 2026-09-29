@@ -28,6 +28,7 @@ from .diagnostics import (
 )
 from .domain import (
     AudioChunk,
+    BATCH_ITEM_VARIABLE,
     CANONICAL_AUDIO_FORMAT,
     ChunkRecord,
     ChunkStatus,
@@ -202,8 +203,19 @@ class SynthesisService:
         self.store.initialize()
         self.storage.initialize()
         for job_id in self.store.requeue_interrupted():
-            self._queue.put_nowait(job_id)
+            job = self.store.get_job(job_id)
+            if BATCH_ITEM_VARIABLE not in job.variables:
+                self._queue.put_nowait(job_id)
         self._worker = asyncio.create_task(self._worker_loop(), name="splicr-synthesis-worker")
+
+    async def enqueue_job(self, job_id: str) -> JobRecord:
+        """Enqueue a previously prepared job owned by an external coordinator."""
+
+        job = self.store.get_job(job_id)
+        if job.status is not JobStatus.QUEUED:
+            raise InvalidJobStateError(f"cannot enqueue a {job.status.value} job")
+        await self._queue.put(job_id)
+        return job
 
     async def stop(self) -> None:
         if self._worker is None:
@@ -230,6 +242,8 @@ class SynthesisService:
         chunk_target_value: int | None = None,
         remove_numeric_citations: bool = False,
         export_stem: str | None = None,
+        internal_variables: Mapping[str, JsonValue] | None = None,
+        enqueue: bool = True,
     ) -> JobRecord:
         prepared_text = preprocess_text(
             text,
@@ -278,6 +292,9 @@ class SynthesisService:
         )
         job_id = uuid.uuid4().hex
 
+        persisted_variables = dict(options.variables)
+        if internal_variables:
+            persisted_variables.update(internal_variables)
         self.storage.write_source(job_id, prepared_text)
         self.storage.write_plan(job_id, plan)
         try:
@@ -293,7 +310,7 @@ class SynthesisService:
                     if resource_revision is not None
                     else self._current_provider_revision(info.name)
                 ),
-                variables=options.variables,
+                variables=persisted_variables,
                 chunks=(chunk.text for chunk in plan.chunks),
                 export_stem=export_stem,
             )
@@ -301,7 +318,8 @@ class SynthesisService:
             logger.exception("Failed to persist job %s", job_id)
             raise
 
-        await self._queue.put(job_id)
+        if enqueue:
+            await self._queue.put(job_id)
         return self.store.get_job(job_id)
 
     async def submit_segments(
@@ -1021,6 +1039,7 @@ class SynthesisService:
             )
             retry_policy = self._retry_policy_for_job(job.provider, job.resource_revision)
             default_variables = dict(job.variables)
+            default_variables.pop(BATCH_ITEM_VARIABLE, None)
             raw_sentence_revision = default_variables.pop(SENTENCE_REVISION_VARIABLE, None)
             raw_segment_options = default_variables.pop(SEGMENT_OPTIONS_VARIABLE, None)
             options = SynthesisOptions(

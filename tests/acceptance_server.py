@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import atexit
 import json
 import os
@@ -14,7 +15,12 @@ import uvicorn
 
 from splicr.api import create_app
 from splicr.config import Settings
-from splicr.domain import ControlCondition, ControlDefinition, ControlValueType
+from splicr.domain import (
+    ControlCondition,
+    ControlDefinition,
+    ControlValueType,
+    ProviderError,
+)
 from splicr.providers import ProviderRegistry
 from splicr.service import SynthesisService
 from splicr.studio import SqliteStudioStore
@@ -26,6 +32,15 @@ from splicr.studio.voice_design import (
     VoiceDesignResult,
 )
 from tests.fakes import RecordingProvider
+
+
+class AcceptanceRecordingProvider(RecordingProvider):
+    async def synthesize(self, text, options):
+        if options.variables.get("acceptance_slow"):
+            await asyncio.sleep(0.2)
+        if options.variables.get("acceptance_fail"):
+            raise ProviderError("acceptance batch failure", retryable=False, status_code=400)
+        return await super().synthesize(text, options)
 
 
 class AcceptanceVoiceDesignRunner:
@@ -83,7 +98,7 @@ def _settings() -> Settings:
 
 def application():
     settings = _settings()
-    primary = RecordingProvider(
+    primary = AcceptanceRecordingProvider(
         control_definitions=(
             ControlDefinition(
                 key="temperature",
@@ -119,6 +134,22 @@ def application():
                 description="Balance loudness before the take is assembled.",
                 group="Output",
                 default=True,
+            ),
+            ControlDefinition(
+                key="acceptance_slow",
+                value_type=ControlValueType.BOOLEAN,
+                label="Acceptance slow render",
+                description="Deterministic browser-test delay.",
+                group="Acceptance",
+                default=False,
+            ),
+            ControlDefinition(
+                key="acceptance_fail",
+                value_type=ControlValueType.BOOLEAN,
+                label="Acceptance failure",
+                description="Deterministic browser-test provider failure.",
+                group="Acceptance",
+                default=False,
             ),
         ),
         allows_undeclared_variables=False,

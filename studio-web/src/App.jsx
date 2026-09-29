@@ -358,19 +358,57 @@ function RecentJobs({ jobs, currentId, onSelect }) {
 
 function LibraryWorkspace({ onOpen }) {
   const [projects, setProjects] = useState([]);
+  const [profiles, setProfiles] = useState([]);
+  const [batches, setBatches] = useState([]);
+  const [selectedProjects, setSelectedProjects] = useState([]);
+  const [profileId, setProfileId] = useState("");
+  const [batchName, setBatchName] = useState("Narration batch");
+  const [activeBatchId, setActiveBatchId] = useState("");
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
+  const [working, setWorking] = useState("");
   const [error, setError] = useState("");
 
   const refresh = async () => {
     setLoading(true);
     setError("");
-    try { setProjects(await api.projects()); }
+    try {
+      const [nextProjects, nextProfiles, nextBatches] = await Promise.all([
+        api.projects(), api.profiles(), api.batches(),
+      ]);
+      setProjects(nextProjects);
+      setProfiles(nextProfiles);
+      setBatches(nextBatches);
+      setProfileId((current) => current || nextProfiles[0]?.id || "");
+      setActiveBatchId((current) => current || nextBatches[0]?.id || "");
+    }
     catch (reason) { setError(reason.message); }
     finally { setLoading(false); }
   };
 
   useEffect(() => { refresh(); }, []);
+  const activeBatch = batches.find((batch) => batch.id === activeBatchId) || batches[0] || null;
+  const batchIsLive = activeBatch && ["preparing", "queued", "running", "paused"].includes(activeBatch.status);
+  useEffect(() => {
+    if (!batchIsLive) return undefined;
+    let stopped = false;
+    const poll = async () => {
+      try {
+        const updated = await api.batch(activeBatch.id);
+        if (stopped) return;
+        setBatches((current) => [updated, ...current.filter((item) => item.id !== updated.id)]);
+        if (["completed", "cancelled"].includes(updated.status)) {
+          const nextProjects = await api.projects();
+          if (!stopped) setProjects(nextProjects);
+        }
+      } catch (reason) {
+        if (!stopped) setError(reason.message);
+      }
+    };
+    const timer = window.setInterval(poll, 750);
+    poll();
+    return () => { stopped = true; window.clearInterval(timer); };
+  }, [activeBatch?.id, batchIsLive]);
   const visible = projects.filter((project) => {
     const haystack = `${project.name} ${project.source_name || ""} ${project.source_preview}`.toLowerCase();
     return haystack.includes(query.trim().toLowerCase());
@@ -382,6 +420,64 @@ function LibraryWorkspace({ onOpen }) {
     catch (reason) { setError(reason.message); }
   };
 
+  const toggleProject = (projectId) => {
+    setSelectedProjects((current) => current.includes(projectId)
+      ? current.filter((id) => id !== projectId)
+      : [...current, projectId]);
+  };
+
+  const createBatch = async () => {
+    if (!selectedProjects.length || !profileId) return;
+    setWorking("create");
+    setError("");
+    try {
+      const created = await api.createBatch({
+        name: batchName.trim() || "Narration batch",
+        items: selectedProjects.map((project_id) => ({ project_id, profile_id: profileId })),
+      });
+      setBatches((current) => [created, ...current.filter((item) => item.id !== created.id)]);
+      setActiveBatchId(created.id);
+      setSelectedProjects([]);
+    } catch (reason) { setError(reason.message); }
+    finally { setWorking(""); }
+  };
+
+  const runBatchAction = async (action) => {
+    if (!activeBatch) return;
+    setWorking(action);
+    setError("");
+    try {
+      const updated = await api.batchAction(activeBatch.id, action);
+      setBatches((current) => [updated, ...current.filter((item) => item.id !== updated.id)]);
+    } catch (reason) { setError(reason.message); }
+    finally { setWorking(""); }
+  };
+
+  const reorderItem = async (itemId, offset) => {
+    if (!activeBatch) return;
+    const ids = activeBatch.items.map((item) => item.id);
+    const index = ids.indexOf(itemId);
+    const destination = index + offset;
+    if (index < 0 || destination < 0 || destination >= ids.length) return;
+    [ids[index], ids[destination]] = [ids[destination], ids[index]];
+    setWorking(itemId);
+    try {
+      const updated = await api.reorderBatch(activeBatch.id, ids);
+      setBatches((current) => [updated, ...current.filter((item) => item.id !== updated.id)]);
+    } catch (reason) { setError(reason.message); }
+    finally { setWorking(""); }
+  };
+
+  const removeItem = async (itemId) => {
+    if (!activeBatch) return;
+    setWorking(itemId);
+    try {
+      const updated = await api.removeBatchItem(activeBatch.id, itemId);
+      setBatches((current) => [updated, ...current.filter((item) => item.id !== updated.id)]);
+    } catch (reason) { setError(reason.message); }
+    finally { setWorking(""); }
+  };
+
   return (
     <main className="library-workspace">
       <header className="workspace-header">
@@ -391,8 +487,58 @@ function LibraryWorkspace({ onOpen }) {
       {error && <div className="inline-error" role="alert">{error}</div>}
       <section className="library-toolbar">
         <label><Search size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search projects…" /></label>
-        <span>{visible.length} of {projects.length} projects</span>
+        <span>{selectedProjects.length ? `${selectedProjects.length} selected · ` : ""}{visible.length} of {projects.length} projects</span>
       </section>
+      <section className="batch-composer" aria-labelledby="batch-composer-title">
+        <div>
+          <p className="eyebrow">Batch render</p>
+          <h2 id="batch-composer-title">Queue several documents with one frozen profile.</h2>
+          <p>Each item keeps its own document revision, profile settings, provider revision, and render plan—even if you edit the originals later.</p>
+        </div>
+        <label><span>Queue name</span><input value={batchName} onChange={(event) => setBatchName(event.target.value)} /></label>
+        <label><span>Render profile</span><select value={profileId} onChange={(event) => setProfileId(event.target.value)}><option value="">Choose a saved profile</option>{profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}</select></label>
+        <button className="primary-button" disabled={!selectedProjects.length || !profileId || working === "create"} onClick={createBatch}><Play size={15} />Queue {selectedProjects.length || "selected"}</button>
+      </section>
+      {!profiles.length && !loading && <div className="inline-note">Save a render profile in Narrate before creating a batch. Profiles freeze the engine, voice, delivery controls, and advanced parameters for reproducible work.</div>}
+      {batches.length > 0 && (
+        <section className="batch-monitor" aria-live="polite">
+          <div className="batch-monitor-heading">
+            <div><p className="eyebrow">Durable queue</p><h2>{activeBatch?.name}</h2></div>
+            <label><span>History</span><select value={activeBatch?.id || ""} onChange={(event) => setActiveBatchId(event.target.value)}>{batches.map((batch) => <option key={batch.id} value={batch.id}>{batch.name} · {statusLabel(batch.status)}</option>)}</select></label>
+          </div>
+          {activeBatch && <>
+            <div className="batch-progress"><div style={{ width: `${Math.round(activeBatch.progress * 100)}%` }} /><span>{Math.round(activeBatch.progress * 100)}%</span></div>
+            <div className="batch-summary">
+              <strong className={`status-${activeBatch.status}`}>{statusLabel(activeBatch.status)}</strong>
+              <span>{activeBatch.counts.completed} completed</span><span>{activeBatch.counts.failed} failed</span><span>{activeBatch.counts.skipped} skipped</span><span>{activeBatch.counts.cancelled} cancelled</span>
+            </div>
+            <div className="batch-actions">
+              {activeBatch.status === "paused" ? <button className="secondary-button" disabled={Boolean(working)} onClick={() => runBatchAction("resume")}><Play size={14} />Resume queue</button> : <>
+                <button className="secondary-button" disabled={Boolean(working) || !["queued", "running"].includes(activeBatch.status)} onClick={() => runBatchAction("pause-current")}><Pause size={14} />Pause current + queue</button>
+                <button className="secondary-button" disabled={Boolean(working) || !["queued", "running"].includes(activeBatch.status)} onClick={() => runBatchAction("pause-remaining")}><Pause size={14} />Pause after current</button>
+              </>}
+              <button className="secondary-button danger" disabled={Boolean(working) || activeBatch.status !== "running"} onClick={() => runBatchAction("cancel-current")}><Square size={13} />Cancel current</button>
+              <button className="secondary-button danger" disabled={Boolean(working) || !["queued", "running", "paused"].includes(activeBatch.status)} onClick={() => runBatchAction("cancel-remaining")}><X size={14} />Cancel remaining</button>
+            </div>
+            <ol className="batch-items">
+              {activeBatch.items.map((item, index) => {
+                const editable = ["pending", "ready"].includes(item.status);
+                const previousEditable = index > 0 && ["pending", "ready"].includes(activeBatch.items[index - 1].status);
+                const nextEditable = index < activeBatch.items.length - 1 && ["pending", "ready"].includes(activeBatch.items[index + 1].status);
+                return <li key={item.id}>
+                  <span className={`job-dot status-${item.status}`} />
+                  <div><strong>{item.project_name}</strong><small>{item.profile_name} · {item.provider_name || "unresolved"}{item.error_detail ? ` · ${item.error_detail}` : ""}</small></div>
+                  <i>{statusLabel(item.status)}</i>
+                  <div className="batch-item-actions">
+                    {item.status === "completed" && item.job_id && <a className="icon-button" href={`/v1/speech/jobs/${encodeURIComponent(item.job_id)}/audio`} download aria-label={`Download ${item.project_name}`}><Download size={14} /></a>}
+                    {editable && <><button className="icon-button" disabled={Boolean(working) || !previousEditable} onClick={() => reorderItem(item.id, -1)} aria-label={`Move ${item.project_name} earlier`}>↑</button><button className="icon-button" disabled={Boolean(working) || !nextEditable} onClick={() => reorderItem(item.id, 1)} aria-label={`Move ${item.project_name} later`}>↓</button><button className="icon-button" disabled={Boolean(working)} onClick={() => removeItem(item.id)} aria-label={`Remove ${item.project_name}`}><X size={14} /></button></>}
+                  </div>
+                </li>;
+              })}
+            </ol>
+          </>}
+        </section>
+      )}
       {loading && <section className="library-empty"><RefreshCw className="spin" size={24} /><p>Loading Studio projects…</p></section>}
       {!loading && projects.length === 0 && (
         <section className="library-empty">
@@ -410,7 +556,7 @@ function LibraryWorkspace({ onOpen }) {
             return (
               <article className="project-card" key={project.id}>
                 <div className="project-card-heading">
-                  <span><FileText size={20} /></span>
+                  <button className={`project-select ${selectedProjects.includes(project.id) ? "selected" : ""}`} disabled={!project.source_chars} onClick={() => toggleProject(project.id)} aria-pressed={selectedProjects.includes(project.id)} aria-label={`${selectedProjects.includes(project.id) ? "Remove" : "Add"} ${project.name} ${selectedProjects.includes(project.id) ? "from" : "to"} batch`}><FileText size={20} /></button>
                   <div><p>{origin.replaceAll("-", " ")}</p><h2>{project.name}</h2></div>
                   <i>{statusLabel(status)}</i>
                 </div>

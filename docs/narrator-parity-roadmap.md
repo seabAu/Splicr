@@ -45,6 +45,12 @@ Controls belong in three layers:
 3. **Focused workspaces:** Timeline, Voice Studio, Pronunciation, Convert, Audiogram, Publish,
    Dialogue, Components, and Library own tasks that are not part of starting a normal narration.
 
+No preserved Narrator setting may disappear merely because the old native window exposed too many
+widgets at once. Every meaningful value must have one of four explicit dispositions: an essential
+control, a typed provider-generated advanced control, a focused-workspace control, or a documented
+replacement/deferment in the parity inventory. Profiles and RenderPlans—not React component
+state—remain the canonical representation of those values.
+
 ### Architectural invariants
 
 - [x] FastAPI transport remains thin; domain and service code own behavior.
@@ -83,6 +89,24 @@ Controls belong in three layers:
 - [`ui-control-parity.json`](ui-control-parity.json): machine-readable destination/status ledger.
 - [`ui-control-parity.md`](ui-control-parity.md): current parity summary and acceptance commands.
 
+### Handover future-work disposition
+
+The handover does contain both future-development ideas and unfinished web-UI notes. They are
+normalized here so the native and unfinished web interfaces do not become competing backlogs:
+
+| Handover thread | Studio disposition |
+| --- | --- |
+| Local web frontend over extracted Python services | Completed merger baseline; React/Vite is packaged by FastAPI. |
+| Schema-driven render settings and the dense native control surface | Typed advanced controls plus focused workspaces; field coverage is machine-checked. |
+| Optional components and engines visible before installation | Components workspace and local-engine onboarding; real install acceptance remains Milestone 9. |
+| Queue/batch render | Completed in Milestone 6 with frozen per-item jobs and Library controls. |
+| Sentence/timeline repair | Milestone 5; automated coverage complete, audible live seam check remains. |
+| Audio transcription and guessed chapters | Milestone 7. |
+| Still backgrounds, polar layouts, transparency, and safe expressions | Milestone 8. |
+| Installer/proper-app hardening | Portable/installer baseline exists; clean-VM install/upgrade evidence remains Milestone 9. |
+| Remaining component CSS-to-Tailwind cleanup | Non-blocking UI maintenance; browser behavior and accessibility, not framework purity, are the gate. |
+| Word surgery, richer sentence operations, draggable pivots, gradients, TTS formulas, public site | Preserved under **Deferred ideas** below. |
+
 ## Completed merger baseline
 
 - [x] Preserve Narrator under `legacy/narrator` without tracking environments, weights, generated
@@ -116,7 +140,7 @@ human-readable work queue, including broader capabilities that were not render-s
 | SRT/VTT export and burned captions | Covered | Publish / Audiogram | 4 |
 | Intro/outro assets and crossfade | Covered | Timeline / Publish | 5 |
 | Sentence-level regeneration and splice | Covered; audible live-engine seam check pending | Timeline | 5 |
-| Multi-document durable queue | Gap | Narrate / Library | 6 |
+| Multi-document durable queue | Covered | Narrate / Library | 6 |
 | Audio transcription and guessed chapters | Gap | Convert / Publish | 7 |
 | Still-image audiogram background | Gap | Audiogram | 8 |
 | Polar/transparent/formula audiograms | Gap | Audiogram | 8 |
@@ -291,18 +315,20 @@ Edge TTS was Narrator's zero-setup online fallback. It is not currently a merged
 
 ## Milestone 6 — durable multi-document queue
 
-- [ ] Add multi-select queue creation from imported documents and Library projects.
-- [ ] Freeze a separate profile, provider/resource revision, source revision, and render plan per
+- [x] Add multi-select queue creation from imported documents and Library projects.
+- [x] Freeze a separate profile, provider/resource revision, source revision, and render plan per
   queue item.
-- [ ] Persist queue order and item status across process restart.
-- [ ] Default to sequential execution to protect local VRAM and remote rate limits.
-- [ ] Continue after one item fails and summarize completed/failed/skipped/cancelled counts.
-- [ ] Distinguish pause/cancel current item from pause/cancel remaining queue.
-- [ ] Allow reordering/removal only for items that have not started.
-- [ ] Surface missing source, missing engine, invalid saved profile, and deleted resource revisions as
+- [x] Persist queue order and item status across process restart.
+- [x] Default to sequential execution to protect local VRAM and remote rate limits.
+- [x] Continue after one item fails and summarize completed/failed/skipped/cancelled counts.
+- [x] Distinguish pause/cancel current item from pause/cancel remaining queue.
+- [x] Allow reordering/removal only for items that have not started.
+- [x] Surface missing source, missing engine, invalid saved profile, and deleted resource revisions as
   explicit skip/failure reasons.
-- [ ] Ensure every completed take remains separately editable, publishable, and downloadable.
-- [ ] Browser-test creation, progress, one-item failure, restart, resume, and final summary.
+- [x] Ensure every completed take remains separately editable, publishable, and downloadable.
+- [x] Browser-test creation, progress, one-item failure, reload persistence, resume, and final
+  summary; pair it with a process-restart SQLite/service test so browser and backend evidence cover
+  both halves of restart behavior.
 
 ## Milestone 7 — audio transcription utility
 
@@ -460,15 +486,22 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   explicit transcription fallback, frozen provider settings, safe trim/level/crossfade processing,
   byte-identical PCM outside the replaced span, shifted sentence/subtitle timing, durable recovery,
   immutable source checkpoints, derived-take provenance, and the visible chunk-level fallback.
+- [x] 2026-09-29 — Milestone 6 durable queue gate passed: Ruff, the complete Python suite (three
+  opt-in live checks skipped), eight frontend unit tests, the Vite production build, and four
+  Chromium journeys. SQLite/service coverage proves frozen per-item plans, sequential dispatch,
+  failure continuation, process-restart adoption without duplicate synthesis, pause/resume,
+  current-versus-remaining cancellation, and not-started-only reorder/remove. Browser coverage
+  proves Library multi-select creation, visible progress, pause-after-current/resume, reload
+  persistence, one-item provider failure followed by success, final counts, and per-item download.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
 ## Current work pointer
 
-- **Active milestone:** Milestones 2/3/5 live acceptance closeout plus Milestone 6 — durable
-  multi-document queue.
-- **Next implementation slice:** add a durable queue entity over frozen document RenderPlans, then
-  expose sequential creation/progress/reordering controls across Narrate and Library. Real Qwen,
+- **Active milestone:** Milestones 2/3/5 live acceptance closeout plus Milestone 7 — durable audio
+  transcription.
+- **Next implementation slice:** add the provider-neutral transcription boundary, optional
+  faster-whisper component, durable timing artifacts, and Convert/Publish controls. Real Qwen,
   Edge, and audible sentence-seam acceptance remains ready when configured environments are
   available.
 - **Known unrelated worktree item:** `LICENSE.txt` is untracked and not part of this roadmap unless
@@ -521,3 +554,11 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   durable checkpoint, preserve source bytes outside the old sentence span, shift later timing and
   subtitle cues, and retain immutable-source provenance in the derived job/RenderPlan/Take. The
   remaining acceptance item is a human audible seam check with a configured real timed engine.
+- **2026-09-29:** Completed Milestone 6. Library now creates persistent multi-document queues from
+  saved projects and profiles; every item freezes its source hash/text, resolved voice/settings,
+  provider revision, and precomputed synthesis plan. A coordinator owns sequential dispatch,
+  restart adoption, current-versus-remaining pause/cancel scopes, not-started-only reorder/remove,
+  failure continuation, and terminal counts. Completed jobs are indexed as separate takes on their
+  original Library projects. Full Ruff/Python/frontend/build gates and four Chromium journeys pass;
+  the batch journey covers creation, progress, pause/resume, reload persistence, mixed failure
+  continuation, summary, and per-item download.
