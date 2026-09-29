@@ -175,6 +175,8 @@ export function TimelineWorkspace({ onNavigate }) {
   const [timeline, setTimeline] = useState(null);
   const [subtitles, setSubtitles] = useState(null);
   const [selectedIndex, setSelectedIndex] = useState(null);
+  const [selectedSentenceIndex, setSelectedSentenceIndex] = useState(null);
+  const [editScope, setEditScope] = useState("chunk");
   const [selection, setSelection] = useState({ start: 0, end: 0 });
   const [editText, setEditText] = useState("");
   const [selectionAudio, setSelectionAudio] = useState("");
@@ -224,9 +226,18 @@ export function TimelineWorkspace({ onNavigate }) {
         setTimeline(loaded);
         setSubtitles(subtitleTimeline);
         const first = loaded.segments[0] || null;
+        const firstSentence = first?.sentences?.[0] || null;
         setSelectedIndex(first?.index ?? null);
-        setEditText(first?.text || "");
-        setSelection(first ? { start: first.start, end: first.end } : { start: 0, end: 0 });
+        setSelectedSentenceIndex(firstSentence?.index ?? null);
+        setEditScope(firstSentence ? "sentence" : "chunk");
+        setEditText(firstSentence?.text || first?.text || "");
+        setSelection(
+          firstSentence
+            ? { start: firstSentence.start, end: firstSentence.end }
+            : first
+              ? { start: first.start, end: first.end }
+              : { start: 0, end: 0 },
+        );
         setSelectionAudio("");
       })
       .catch((reason) => {
@@ -257,13 +268,38 @@ export function TimelineWorkspace({ onNavigate }) {
   }, [revisionJob?.id, revisionJob?.status]);
 
   const selected = timeline?.segments.find((item) => item.index === selectedIndex) || null;
+  const selectedSentence = selected?.sentences?.find(
+    (item) => item.index === selectedSentenceIndex,
+  ) || null;
   const selectedTake = takes.find((item) => item.id === takeId) || null;
   const selectSegment = (segment, preserveSelection = false) => {
+    const sentence = segment.sentences?.[0] || null;
     setSelectedIndex(segment.index);
-    setEditText(segment.text);
+    setSelectedSentenceIndex(sentence?.index ?? null);
+    setEditScope(sentence ? "sentence" : "chunk");
+    setEditText(sentence?.text || segment.text);
     if (!preserveSelection) {
-      setSelection({ start: segment.start, end: segment.end });
+      setSelection(
+        sentence
+          ? { start: sentence.start, end: sentence.end }
+          : { start: segment.start, end: segment.end },
+      );
     }
+    setSelectionAudio("");
+  };
+  const selectSentence = (sentence) => {
+    setSelectedSentenceIndex(sentence.index);
+    setEditScope("sentence");
+    setEditText(sentence.text);
+    setSelection({ start: sentence.start, end: sentence.end });
+    setSelectionAudio("");
+  };
+  const selectChunkScope = () => {
+    if (!selected) return;
+    setSelectedSentenceIndex(null);
+    setEditScope("chunk");
+    setEditText(selected.text);
+    setSelection({ start: selected.start, end: selected.end });
     setSelectionAudio("");
   };
   const playSelection = () => {
@@ -278,7 +314,14 @@ export function TimelineWorkspace({ onNavigate }) {
     setError("");
     try {
       setRevisionJob(
-        await api.reviseTimelineSegment(timeline.job_id, selectedIndex, editText),
+        editScope === "sentence" && selectedSentence
+          ? await api.reviseTimelineSentence(
+            timeline.job_id,
+            selectedIndex,
+            selectedSentence.index,
+            editText,
+          )
+          : await api.reviseTimelineSegment(timeline.job_id, selectedIndex, editText),
       );
     } catch (reason) {
       setError(reason.message);
@@ -369,31 +412,80 @@ export function TimelineWorkspace({ onNavigate }) {
             <div className="surface timeline-editor-card">
               <div className="section-heading compact">
                 <div>
-                  <p className="eyebrow">Selected checkpoint</p>
-                  <h2>{selected ? `Segment ${selected.index + 1}` : "Select a segment"}</h2>
+                  <p className="eyebrow">
+                    {editScope === "sentence" ? "Sentence-level repair" : "Selected checkpoint"}
+                  </p>
+                  <h2>
+                    {selectedSentence
+                      ? `Segment ${selected.index + 1} · Sentence ${selectedSentence.index + 1}`
+                      : selected
+                        ? `Segment ${selected.index + 1}`
+                        : "Select a segment"}
+                  </h2>
                 </div>
                 {selected && <span>{selected.speaker || selected.voice_id} · {selected.engine_id}</span>}
               </div>
+              {selected && (
+                <div className="timeline-edit-scope" role="group" aria-label="Revision scope">
+                  <button
+                    type="button"
+                    className={editScope === "chunk" ? "active" : ""}
+                    onClick={selectChunkScope}
+                  >
+                    Whole chunk
+                  </button>
+                  {selected.sentences.map((sentence) => (
+                    <button
+                      type="button"
+                      key={sentence.index}
+                      className={
+                        editScope === "sentence" && sentence.index === selectedSentenceIndex
+                          ? "active"
+                          : ""
+                      }
+                      onClick={() => selectSentence(sentence)}
+                    >
+                      Sentence {sentence.index + 1}
+                      <small>{sentence.timing_source} · {sentence.confidence}</small>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {selected && !selected.sentence_revision_available && (
+                <p className="timeline-sentence-fallback">
+                  {selected.sentence_revision_fallback}
+                </p>
+              )}
               <textarea
                 className="timeline-text-editor"
                 value={editText}
                 onChange={(event) => setEditText(event.target.value)}
                 disabled={!selected}
-                aria-label="Selected segment transcript"
+                aria-label={
+                  editScope === "sentence"
+                    ? "Selected sentence transcript"
+                    : "Selected segment transcript"
+                }
               />
               <div className="timeline-edit-footer">
                 <p>
-                  A revision creates a new take. Every unchanged audio checkpoint is reused; only
-                  this segment is synthesized again.
+                  {editScope === "sentence"
+                    ? "A new take will synthesize only this sentence, level-match it, and crossfade it into an immutable copy of the original checkpoint."
+                    : "A revision creates a new take. Every unchanged audio checkpoint is reused; only this segment is synthesized again."}
                 </p>
                 <button
                   className="primary-button"
                   type="button"
                   onClick={revise}
-                  disabled={!selected || !editText.trim() || editText === selected.text || !!busy}
+                  disabled={
+                    !selected
+                    || !editText.trim()
+                    || editText === (selectedSentence?.text || selected.text)
+                    || !!busy
+                  }
                 >
                   {busy === "revise" ? <LoaderCircle className="spin" size={16} /> : <Scissors size={16} />}
-                  Create revised take
+                  {editScope === "sentence" ? "Repair sentence in new take" : "Create revised take"}
                 </button>
               </div>
               {revisionJob && (

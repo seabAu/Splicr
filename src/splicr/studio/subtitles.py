@@ -325,8 +325,14 @@ def _engine_cues(
     next_index: int,
 ) -> tuple[SubtitleCue, ...]:
     raw = chunk.metadata.get("timings")
+    timing_source = SubtitleTimingSource.ENGINE
+    timing_confidence = SubtitleTimingConfidence.EXACT
     if not isinstance(raw, list):
-        return ()
+        raw = chunk.metadata.get("transcription_timings")
+        timing_source = SubtitleTimingSource.TRANSCRIPTION
+        timing_confidence = SubtitleTimingConfidence.ESTIMATED
+        if not isinstance(raw, list):
+            return ()
     candidates: list[tuple[float, float, str]] = []
     for item in raw:
         if not isinstance(item, Mapping):
@@ -360,8 +366,8 @@ def _engine_cues(
                 start=chunk_start + start,
                 end=chunk_start + end,
                 speaker=speaker,
-                confidence=SubtitleTimingConfidence.EXACT,
-                source=SubtitleTimingSource.ENGINE,
+                confidence=timing_confidence,
+                source=timing_source,
             )
         )
         local_cursor = end

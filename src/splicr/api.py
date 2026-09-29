@@ -185,7 +185,13 @@ from .studio.voice_design import (
     VoiceDesignJobStore,
     VoiceDesignUnavailableError,
 )
-from .studio.timeline import JobTimeline, TimelineSegment, build_job_timeline, wav_span_bytes
+from .studio.timeline import (
+    JobTimeline,
+    TimelineSegment,
+    TimelineSentenceSpan,
+    build_job_timeline,
+    wav_span_bytes,
+)
 from .studio.voice_resolution import (
     VOICE_PROFILE_VARIABLE,
     model_for_voice_profile,
@@ -1298,6 +1304,25 @@ class TimelineTakeResponse(BaseModel):
         )
 
 
+class TimelineSentenceSpanResponse(BaseModel):
+    index: int
+    text: str
+    text_start: int
+    text_end: int
+    start: float
+    end: float
+    duration: float
+    timing_source: str
+    confidence: str
+    reliable: bool
+
+    @classmethod
+    def from_domain(
+        cls, sentence: TimelineSentenceSpan
+    ) -> "TimelineSentenceSpanResponse":
+        return cls(**asdict(sentence))
+
+
 class TimelineSegmentResponse(BaseModel):
     index: int
     text: str
@@ -1309,10 +1334,30 @@ class TimelineSegmentResponse(BaseModel):
     engine_id: str
     voice_id: str
     speaker: str | None
+    sentences: list[TimelineSentenceSpanResponse]
+    sentence_revision_available: bool
+    sentence_revision_fallback: str | None
 
     @classmethod
     def from_domain(cls, segment: TimelineSegment) -> "TimelineSegmentResponse":
-        return cls(**asdict(segment))
+        return cls(
+            index=segment.index,
+            text=segment.text,
+            start=segment.start,
+            end=segment.end,
+            duration=segment.duration,
+            byte_count=segment.byte_count,
+            word_count=segment.word_count,
+            engine_id=segment.engine_id,
+            voice_id=segment.voice_id,
+            speaker=segment.speaker,
+            sentences=[
+                TimelineSentenceSpanResponse.from_domain(sentence)
+                for sentence in segment.sentences
+            ],
+            sentence_revision_available=segment.sentence_revision_available,
+            sentence_revision_fallback=segment.sentence_revision_fallback,
+        )
 
 
 class TimelineResponse(BaseModel):
@@ -1350,6 +1395,10 @@ class TimelineRevisionRequest(BaseModel):
         if not value.strip():
             raise ValueError("text must not be blank")
         return value
+
+
+class TimelineSentenceRevisionRequest(TimelineRevisionRequest):
+    crossfade_ms: float = Field(default=30.0, ge=0, le=250)
 
 
 class SubtitleCueResponse(BaseModel):
@@ -3450,6 +3499,36 @@ def create_app(
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
         return job_response(revised, take_label="Timeline revision")
+
+    @application.post(
+        "/v1/studio/timeline/jobs/{job_id}/segments/{segment_index}/sentences/{sentence_index}/revise",
+        response_model=JobResponse,
+        status_code=status.HTTP_202_ACCEPTED,
+        tags=["studio"],
+    )
+    async def revise_timeline_sentence(
+        job_id: str,
+        segment_index: int,
+        sentence_index: int,
+        request: TimelineSentenceRevisionRequest,
+    ) -> JobResponse:
+        try:
+            revised = await synthesis.revise_sentence(
+                source_job_id=job_id,
+                chunk_index=segment_index,
+                sentence_index=sentence_index,
+                text=request.text,
+                crossfade_ms=request.crossfade_ms,
+            )
+        except JobNotFoundError as error:
+            raise HTTPException(status_code=404, detail="job not found") from error
+        except InvalidJobStateError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        except UnknownProviderError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        return job_response(revised, take_label="Sentence revision")
 
     @application.get(
         "/v1/studio/subtitles/jobs/{job_id}",

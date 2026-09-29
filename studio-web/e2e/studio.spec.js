@@ -166,6 +166,8 @@ test("a document can be planned, directed, rendered, played, and reopened", asyn
   await expect(
     page.getByLabel("Audio waveform with synthesis segment boundaries"),
   ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Whole chunk" })).toBeVisible();
+  await expect(page.getByText(/Reliable sentence timing is unavailable/)).toBeVisible();
 
   await navigation.getByRole("button", { name: "Publish", exact: true }).click();
   await page.locator("details.publishing-finishing > summary").click();

@@ -11,6 +11,7 @@ import random
 import shutil
 import uuid
 from dataclasses import asdict, replace
+from functools import partial
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
@@ -26,6 +27,7 @@ from .diagnostics import (
     sanitize_url,
 )
 from .domain import (
+    AudioChunk,
     CANONICAL_AUDIO_FORMAT,
     ChunkRecord,
     ChunkStatus,
@@ -64,6 +66,13 @@ from .studio.engines import (
     EngineSession,
     EngineSessionContext,
     engine_adapter_for_provider,
+)
+from .studio.sentence_revision import (
+    SENTENCE_REVISION_VARIABLE,
+    merge_revision_metadata,
+    pcm_duration_seconds,
+    sentence_spans,
+    splice_sentence_audio,
 )
 
 
@@ -534,6 +543,168 @@ class SynthesisService:
         await self._queue.put(job_id)
         return self.store.get_job(job_id)
 
+    async def revise_sentence(
+        self,
+        *,
+        source_job_id: str,
+        chunk_index: int,
+        sentence_index: int,
+        text: str,
+        crossfade_ms: float = 30.0,
+    ) -> JobRecord:
+        """Create a derived take by replacing one reliably timed sentence."""
+
+        source_job = self.store.get_job(source_job_id)
+        if source_job.status is not JobStatus.COMPLETED:
+            raise InvalidJobStateError("only completed takes can be edited")
+        chunks = self.store.chunks_for_job(source_job_id)
+        if chunk_index < 0 or chunk_index >= len(chunks):
+            raise ValueError("timeline segment index is out of range")
+        if not 0 <= crossfade_ms <= 250:
+            raise ValueError("crossfade_ms must be between 0 and 250")
+
+        source_chunk = chunks[chunk_index]
+        if source_chunk.status is not ChunkStatus.COMPLETED or not source_chunk.pcm_path:
+            raise InvalidJobStateError("the source take has an incomplete audio checkpoint")
+        source_path = Path(source_chunk.pcm_path)
+        self.storage.validate_chunk(source_path, CANONICAL_AUDIO_FORMAT)
+        source_pcm = source_path.read_bytes()
+        spans = sentence_spans(
+            source_chunk.text,
+            source_chunk.metadata,
+            pcm_duration_seconds(source_pcm),
+        )
+        if not spans:
+            raise ValueError(
+                "sentence timing is unavailable or unreliable; use chunk-level regeneration"
+            )
+        if sentence_index < 0 or sentence_index >= len(spans):
+            raise ValueError("timeline sentence index is out of range")
+        selected_span = spans[sentence_index]
+
+        replacement = preprocess_text(text).text
+        if not replacement.strip():
+            raise ValueError("replacement text must not be blank")
+        replacement, _ = apply_substitutions(
+            replacement,
+            self.customizations.substitutions(),
+        )
+
+        default_variables = dict(source_job.variables)
+        default_variables.pop(SENTENCE_REVISION_VARIABLE, None)
+        raw_segment_options = default_variables.pop(SEGMENT_OPTIONS_VARIABLE, None)
+        if raw_segment_options is None:
+            selected_options = SynthesisOptions(
+                model=source_job.model,
+                voice=source_job.voice,
+                instructions=source_job.instructions,
+                controls=source_job.controls,
+                variables=default_variables,
+            )
+        else:
+            if (
+                not isinstance(raw_segment_options, list)
+                or len(raw_segment_options) != len(chunks)
+            ):
+                raise ValueError(
+                    "persisted segment options do not match the job's chunk count"
+                )
+            selected_options, _ = _options_from_segment_payload(
+                raw_segment_options[chunk_index]
+            )
+
+        provider, selected_options, policy = self._prepare_request(
+            text=replacement,
+            provider_name=source_job.provider,
+            model=selected_options.model,
+            voice=selected_options.voice,
+            instructions=selected_options.instructions,
+            controls=selected_options.controls,
+            variables=selected_options.variables,
+            resource_revision=source_job.resource_revision,
+        )
+        replacement = annotate_nonverbal_cues(
+            replacement,
+            selected_options.controls.nonverbal_frequency,
+            provider.info.capabilities.nonverbal_cues,
+        )
+        replacement_plan = plan_chunks(replacement, policy, SplitStrategy.SEMANTIC)
+        if len(replacement_plan.chunks) != 1:
+            raise ValueError(
+                "replacement text exceeds one synthesis chunk; shorten this sentence edit"
+            )
+        replacement = replacement_plan.chunks[0].text
+
+        for chunk in chunks:
+            if chunk.status is not ChunkStatus.COMPLETED or not chunk.pcm_path:
+                raise InvalidJobStateError(
+                    "the source take has an incomplete audio checkpoint"
+                )
+            self.storage.validate_chunk(Path(chunk.pcm_path), CANONICAL_AUDIO_FORMAT)
+
+        revised_chunk_text = (
+            source_chunk.text[: selected_span.text_start]
+            + replacement
+            + source_chunk.text[selected_span.text_end :]
+        )
+        revised_texts = [
+            revised_chunk_text if chunk.index == chunk_index else chunk.text
+            for chunk in chunks
+        ]
+        revised_source = "\n\n".join(revised_texts)
+        if len(revised_source.encode("utf-8")) > self.settings.max_source_bytes:
+            raise ValueError("revised take exceeds the configured source byte limit")
+        if word_count(revised_source) > self.settings.max_source_words:
+            raise ValueError("revised take exceeds the configured source word limit")
+
+        variables = dict(source_job.variables)
+        variables[SENTENCE_REVISION_VARIABLE] = {
+            "source_job_id": source_job_id,
+            "chunk_index": chunk_index,
+            "sentence_index": sentence_index,
+            "replacement_text": replacement,
+            "crossfade_ms": crossfade_ms,
+            "timing_source": selected_span.timing_source,
+            "timing_confidence": selected_span.confidence,
+        }
+        job_id = uuid.uuid4().hex
+        self.storage.write_source(job_id, revised_source)
+        self.store.create_job_with_chunks(
+            job_id=job_id,
+            provider=source_job.provider,
+            model=source_job.model,
+            voice=source_job.voice,
+            instructions=source_job.instructions,
+            controls=source_job.controls,
+            resource_revision=source_job.resource_revision,
+            variables=variables,
+            chunks=revised_texts,
+            export_stem=source_job.export_stem,
+        )
+        try:
+            for chunk in chunks:
+                if chunk.index == chunk_index:
+                    continue
+                source = Path(chunk.pcm_path or "")
+                destination = self.storage.chunk_path(job_id, chunk.index)
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                try:
+                    os.link(source, destination)
+                except OSError:
+                    shutil.copy2(source, destination)
+                self.store.mark_chunk_completed(
+                    job_id,
+                    chunk.index,
+                    str(destination.resolve()),
+                    chunk.metadata,
+                )
+        except Exception as error:
+            self.store.mark_job_failed(job_id, f"could not stage unchanged checkpoints: {error}")
+            raise
+
+        await self._queue.put(job_id)
+        return self.store.get_job(job_id)
+
     def preview(
         self,
         *,
@@ -850,6 +1021,7 @@ class SynthesisService:
             )
             retry_policy = self._retry_policy_for_job(job.provider, job.resource_revision)
             default_variables = dict(job.variables)
+            raw_sentence_revision = default_variables.pop(SENTENCE_REVISION_VARIABLE, None)
             raw_segment_options = default_variables.pop(SEGMENT_OPTIONS_VARIABLE, None)
             options = SynthesisOptions(
                 model=job.model,
@@ -912,11 +1084,23 @@ class SynthesisService:
                         except (FileNotFoundError, ValueError):
                             pass
                         else:
+                            checkpoint_metadata = chunk.metadata
+                            if (
+                                raw_sentence_revision is not None
+                                and chunk.index
+                                == self._sentence_revision_chunk_index(raw_sentence_revision)
+                            ):
+                                checkpoint_metadata = (
+                                    self._sentence_revision_checkpoint_metadata(
+                                        raw_sentence_revision,
+                                        checkpoint,
+                                    )
+                                )
                             self.store.mark_chunk_completed(
                                 job_id,
                                 chunk.index,
                                 str(checkpoint.resolve()),
-                                chunk.metadata,
+                                checkpoint_metadata,
                             )
                             admitted_pcm_bytes = candidate_pcm_bytes
                             continue
@@ -925,15 +1109,30 @@ class SynthesisService:
                         session = await session_stack.enter_async_context(
                             engine.open_session(session_context)
                         )
+                    synthesis_text = chunk.text
+                    audio_transform: Callable[[AudioChunk], AudioChunk] | None = None
+                    if raw_sentence_revision is not None:
+                        revision_chunk = self._sentence_revision_chunk_index(
+                            raw_sentence_revision
+                        )
+                        if chunk.index == revision_chunk:
+                            synthesis_text = self._sentence_revision_text(
+                                raw_sentence_revision
+                            )
+                            audio_transform = partial(
+                                self._splice_sentence_revision,
+                                raw_sentence_revision,
+                            )
                     await self._synthesize_chunk(
                         job_id,
                         chunk.index,
-                        chunk.text,
+                        synthesis_text,
                         engine,
                         session,
                         chunk_options,
                         prior_attempts,
                         retry_policy,
+                        audio_transform,
                     )
                     admitted_pcm_bytes = self._admit_checkpoint(
                         self.storage.chunk_path(job_id, chunk.index), admitted_pcm_bytes
@@ -1144,6 +1343,161 @@ class SynthesisService:
             )
         return projected_size
 
+    @staticmethod
+    def _sentence_revision_chunk_index(payload: object) -> int:
+        if not isinstance(payload, Mapping):
+            raise ValueError("persisted sentence revision plan is invalid")
+        value = payload.get("chunk_index")
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise ValueError("persisted sentence revision chunk index is invalid")
+        return value
+
+    @staticmethod
+    def _sentence_revision_text(payload: object) -> str:
+        if not isinstance(payload, Mapping):
+            raise ValueError("persisted sentence revision plan is invalid")
+        value = payload.get("replacement_text")
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError("persisted sentence replacement text is invalid")
+        return value
+
+    def _splice_sentence_revision(
+        self,
+        payload: object,
+        replacement: AudioChunk,
+    ) -> AudioChunk:
+        if not isinstance(payload, Mapping):
+            raise ValueError("persisted sentence revision plan is invalid")
+        source_job_id = payload.get("source_job_id")
+        sentence_index = payload.get("sentence_index")
+        crossfade_ms = payload.get("crossfade_ms", 30.0)
+        if not isinstance(source_job_id, str) or not source_job_id:
+            raise ValueError("persisted sentence revision source is invalid")
+        if (
+            isinstance(sentence_index, bool)
+            or not isinstance(sentence_index, int)
+            or sentence_index < 0
+        ):
+            raise ValueError("persisted sentence revision index is invalid")
+        if (
+            isinstance(crossfade_ms, bool)
+            or not isinstance(crossfade_ms, (int, float))
+            or not 0 <= float(crossfade_ms) <= 250
+        ):
+            raise ValueError("persisted sentence revision crossfade is invalid")
+        chunk_index = self._sentence_revision_chunk_index(payload)
+        replacement_text = self._sentence_revision_text(payload)
+        source_chunks = self.store.chunks_for_job(source_job_id)
+        if chunk_index >= len(source_chunks):
+            raise ValueError("persisted sentence revision source chunk is missing")
+        source_chunk = source_chunks[chunk_index]
+        if source_chunk.status is not ChunkStatus.COMPLETED or not source_chunk.pcm_path:
+            raise ValueError("persisted sentence revision source checkpoint is incomplete")
+        source_path = Path(source_chunk.pcm_path)
+        self.storage.validate_chunk(source_path, CANONICAL_AUDIO_FORMAT)
+        source_pcm = source_path.read_bytes()
+        spans = sentence_spans(
+            source_chunk.text,
+            source_chunk.metadata,
+            pcm_duration_seconds(source_pcm),
+        )
+        if sentence_index >= len(spans):
+            raise ValueError("persisted sentence timing is no longer available")
+        span = spans[sentence_index]
+        expected_source = payload.get("timing_source")
+        expected_confidence = payload.get("timing_confidence")
+        if span.timing_source != expected_source or span.confidence != expected_confidence:
+            raise ValueError("persisted sentence timing provenance changed")
+        revised = splice_sentence_audio(
+            source_pcm=source_pcm,
+            replacement=replacement,
+            span=span,
+            replacement_text=replacement_text,
+            crossfade_ms=float(crossfade_ms),
+        )
+        return merge_revision_metadata(
+            source_metadata=source_chunk.metadata,
+            revised_audio=revised,
+            span=span,
+            replacement_text=replacement_text,
+            source_job_id=source_job_id,
+            chunk_index=chunk_index,
+        )
+
+    def _sentence_revision_checkpoint_metadata(
+        self,
+        payload: object,
+        checkpoint: Path,
+    ) -> Mapping[str, JsonValue]:
+        if not isinstance(payload, Mapping):
+            raise ValueError("persisted sentence revision plan is invalid")
+        source_job_id = payload.get("source_job_id")
+        sentence_index = payload.get("sentence_index")
+        if not isinstance(source_job_id, str) or not source_job_id:
+            raise ValueError("persisted sentence revision source is invalid")
+        if (
+            isinstance(sentence_index, bool)
+            or not isinstance(sentence_index, int)
+            or sentence_index < 0
+        ):
+            raise ValueError("persisted sentence revision index is invalid")
+        chunk_index = self._sentence_revision_chunk_index(payload)
+        source_chunks = self.store.chunks_for_job(source_job_id)
+        if chunk_index >= len(source_chunks):
+            raise ValueError("persisted sentence revision source chunk is missing")
+        source_chunk = source_chunks[chunk_index]
+        if source_chunk.status is not ChunkStatus.COMPLETED or not source_chunk.pcm_path:
+            raise ValueError("persisted sentence revision source checkpoint is incomplete")
+        source_path = Path(source_chunk.pcm_path)
+        self.storage.validate_chunk(source_path, CANONICAL_AUDIO_FORMAT)
+        source_pcm = source_path.read_bytes()
+        spans = sentence_spans(
+            source_chunk.text,
+            source_chunk.metadata,
+            pcm_duration_seconds(source_pcm),
+        )
+        if sentence_index >= len(spans):
+            raise ValueError("persisted sentence timing is no longer available")
+        span = spans[sentence_index]
+        replacement_duration = (
+            pcm_duration_seconds(checkpoint.read_bytes())
+            - pcm_duration_seconds(source_pcm)
+            + span.duration
+        )
+        if replacement_duration <= 0:
+            raise ValueError("recovered sentence replacement duration is invalid")
+        crossfade_ms = payload.get("crossfade_ms", 30.0)
+        if isinstance(crossfade_ms, bool) or not isinstance(crossfade_ms, (int, float)):
+            raise ValueError("persisted sentence revision crossfade is invalid")
+        requested_fade = round(
+            float(crossfade_ms) * CANONICAL_AUDIO_FORMAT.sample_rate / 1000
+        )
+        crossfade_frames = min(
+            requested_fade,
+            round(span.duration * CANONICAL_AUDIO_FORMAT.sample_rate) // 2,
+            round(replacement_duration * CANONICAL_AUDIO_FORMAT.sample_rate) // 2,
+        )
+        recovered = AudioChunk(
+            pcm=checkpoint.read_bytes(),
+            metadata={
+                "sentence_revision": {
+                    "replacement_duration": replacement_duration,
+                    "duration_delta": replacement_duration - span.duration,
+                    "crossfade_frames": crossfade_frames,
+                    "gain_db": None,
+                    "recovered_from_checkpoint": True,
+                }
+            },
+        )
+        return merge_revision_metadata(
+            source_metadata=source_chunk.metadata,
+            revised_audio=recovered,
+            span=span,
+            replacement_text=self._sentence_revision_text(payload),
+            source_job_id=source_job_id,
+            chunk_index=chunk_index,
+        ).metadata
+
     async def _synthesize_chunk(
         self,
         job_id: str,
@@ -1154,6 +1508,7 @@ class SynthesisService:
         options: SynthesisOptions,
         prior_attempts: int,
         retry_policy=None,
+        audio_transform: Callable[[AudioChunk], AudioChunk] | None = None,
     ) -> None:
         max_attempts = (
             retry_policy.max_attempts if retry_policy is not None else self.settings.max_attempts
@@ -1216,6 +1571,8 @@ class SynthesisService:
                         retryable=False,
                         origin="service",
                     )
+                if audio_transform is not None:
+                    audio = audio_transform(audio)
                 checkpoint = self.storage.chunk_path(job_id, index)
                 existing_size = checkpoint.stat().st_size if checkpoint.is_file() else 0
                 projected_size = (

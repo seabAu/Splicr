@@ -114,8 +114,8 @@ human-readable work queue, including broader capabilities that were not render-s
 | Export filename | Covered | Narrate / Library | 4 |
 | Checkpoint/chunk export | Covered | Timeline / Library | 4 |
 | SRT/VTT export and burned captions | Covered | Publish / Audiogram | 4 |
-| Intro/outro assets and crossfade | Gap | Timeline / Publish | 5 |
-| Sentence-level regeneration and splice | Partial: chunk-level only | Timeline | 5 |
+| Intro/outro assets and crossfade | Covered | Timeline / Publish | 5 |
+| Sentence-level regeneration and splice | Covered; audible live-engine seam check pending | Timeline | 5 |
 | Multi-document durable queue | Gap | Narrate / Library | 6 |
 | Audio transcription and guessed chapters | Gap | Convert / Publish | 7 |
 | Still-image audiogram background | Gap | Audiogram | 8 |
@@ -276,16 +276,18 @@ Edge TTS was Narrator's zero-setup online fallback. It is not currently a merged
 
 ### Sentence-level regeneration
 
-- [ ] Extend Timeline's chunk model with sentence spans and timing provenance.
-- [ ] Use exact engine timing where available; allow transcription-derived timing as an explicit
+- [x] Extend Timeline's chunk model with sentence spans and timing provenance.
+- [x] Use exact engine timing where available; allow transcription-derived timing as an explicit
   lower-confidence fallback.
-- [ ] Regenerate a sentence with the original frozen engine/profile/advanced-control snapshot.
-- [ ] Trim, level-match within a safe bound, and crossfade the replacement non-destructively.
-- [ ] Preserve original take/checkpoints and create a new derived Take with provenance.
-- [ ] Shift subsequent spans and regenerate subtitles/chapters after a duration change.
-- [ ] Fall back to chunk-level regeneration when sentence timing is unavailable or unreliable.
-- [ ] Verify bytes/audio outside the replaced span remain unchanged where the format permits exact
-  comparison; also perform an audible real-engine seam check.
+- [x] Regenerate a sentence with the original frozen engine/profile/advanced-control snapshot.
+- [x] Trim, level-match within a safe bound, and crossfade the replacement non-destructively.
+- [x] Preserve original take/checkpoints and create a new derived Take with provenance.
+- [x] Shift subsequent spans and regenerate subtitles/chapters after a duration change.
+- [x] Fall back to chunk-level regeneration when sentence timing is unavailable or unreliable.
+- [x] Verify bytes/audio outside the replaced span remain unchanged where the format permits exact
+  comparison.
+- [ ] Perform an audible real-engine seam check with sentence-timed Edge output and retain the
+  generated acceptance artifact outside source control.
 
 ## Milestone 6 — durable multi-document queue
 
@@ -447,16 +449,27 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   checkpoint fallback, speaker-preserving UTF-8 SRT/WebVTT, monotonic millisecond cues, partial-take
   export, immutable hash/provenance metadata, source-audio preservation, and MP4/WebM caption
   filter/codec combinations.
+- [x] 2026-09-29 — Milestone 5 intro/outro gate passed: Ruff, the complete Python suite (three
+  opt-in live checks skipped), eight frontend unit tests, the Vite production build, and three
+  Chromium journeys. Real FFmpeg coverage includes intro/outro combinations, safe crossfade
+  clamps, optional loudness normalization, restart/error recovery, exact offsets, and shifted
+  Timeline/caption/chapter navigation without altering source checkpoints.
+- [x] 2026-09-29 — Milestone 5 sentence-editing implementation gate passed: Ruff, the complete
+  Python suite (three opt-in live checks skipped), eight frontend unit tests, the Vite production
+  build, and three Chromium journeys. Coverage proves engine sentence and grouped-word timing,
+  explicit transcription fallback, frozen provider settings, safe trim/level/crossfade processing,
+  byte-identical PCM outside the replaced span, shifted sentence/subtitle timing, durable recovery,
+  immutable source checkpoints, derived-take provenance, and the visible chunk-level fallback.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
 ## Current work pointer
 
-- **Active milestone:** Milestones 2/3 live acceptance closeout plus Milestone 5 — non-destructive
-  finishing and sentence editing.
-- **Next implementation slice:** refine Timeline's immutable chunk revisions into sentence-level
-  spans and derived splice takes, falling back to the existing chunk revision whenever timing is
-  insufficient. Real Qwen and Edge acceptance remains ready when configured environments are
+- **Active milestone:** Milestones 2/3/5 live acceptance closeout plus Milestone 6 — durable
+  multi-document queue.
+- **Next implementation slice:** add a durable queue entity over frozen document RenderPlans, then
+  expose sequential creation/progress/reordering controls across Narrate and Library. Real Qwen,
+  Edge, and audible sentence-seam acceptance remains ready when configured environments are
   available.
 - **Known unrelated worktree item:** `LICENSE.txt` is untracked and not part of this roadmap unless
   deliberately adopted later.
@@ -501,3 +514,10 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   remain unchanged; shifted captions, chapters, Timeline segments, waveform, span playback, and
   publishing selections all resolve against the same finished artifact. Real FFmpeg combinations,
   restart/error behavior, API integration, and the progressive Publish workflow are covered.
+- **2026-09-29:** Completed the mocked/automated sentence-editing portion of Milestone 5. Timeline
+  now exposes reliable engine or transcription sentence spans, defaults to narrowly scoped repair,
+  and clearly falls back to whole-chunk regeneration without guessing. Replacements reuse the
+  original frozen provider revision and controls, are trimmed/level-matched/crossfaded into a new
+  durable checkpoint, preserve source bytes outside the old sentence span, shift later timing and
+  subtitle cues, and retain immutable-source provenance in the derived job/RenderPlan/Take. The
+  remaining acceptance item is a human audible seam check with a configured real timed engine.

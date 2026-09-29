@@ -180,6 +180,11 @@ export const api = {
       `/v1/studio/timeline/jobs/${encodeURIComponent(id)}/segments/${segmentIndex}/revise`,
       { method: "POST", body: JSON.stringify({ text }) },
     ),
+  reviseTimelineSentence: (id, segmentIndex, sentenceIndex, text, crossfadeMs = 30) =>
+    request(
+      `/v1/studio/timeline/jobs/${encodeURIComponent(id)}/segments/${segmentIndex}/sentences/${sentenceIndex}/revise`,
+      { method: "POST", body: JSON.stringify({ text, crossfade_ms: crossfadeMs }) },
+    ),
   subtitleTimeline: (id, audioArtifactId = "") =>
     request(`/v1/studio/subtitles/jobs/${encodeURIComponent(id)}${audioArtifactId ? `?audio_artifact_id=${encodeURIComponent(audioArtifactId)}` : ""}`),
   exportJobSubtitles: (id, format, audioArtifactId = "") =>

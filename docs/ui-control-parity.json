@@ -30,7 +30,7 @@
     {"key": "intro_crossfade", "status": "covered", "workspace": "Publish", "control": "Stepped crossfade slider with persisted safe effective fades and intro offset"}
   ],
   "broader_native_capabilities": [
-    {"capability": "Sentence-level regeneration and splice", "status": "gap", "workspace": "Timeline", "next_step": "Refine chunk-level revisions into sentence spans where engines provide reliable timing."},
+    {"capability": "Sentence-level regeneration and splice", "status": "covered", "workspace": "Timeline", "control": "Reliable engine/transcription sentence spans, derived repair takes, safe trim/level/crossfade, shifted timings, and explicit whole-chunk fallback", "evidence": "Automated PCM/provenance/restart/API/UI coverage passes; an audible real-engine seam check remains in the living roadmap."},
     {"capability": "Word pronunciation inspection", "status": "covered", "workspace": "Pronunciation", "control": "Dictionary lookup, override preview, substitutions"},
     {"capability": "Batch document queue", "status": "gap", "workspace": "Narrate / Library", "next_step": "Add multi-document queue creation over the existing durable job service."},
     {"capability": "Engine model parameters", "status": "covered", "workspace": "Narrate", "control": "Schema-generated Advanced engine controls with typed defaults, bounds, conditions, profile persistence, and resume-safe RenderPlan values"},

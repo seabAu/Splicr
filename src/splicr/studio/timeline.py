@@ -22,6 +22,22 @@ from splicr.domain import (
 from splicr.storage import LocalJobStorage
 from splicr.store import SqliteJobStore
 
+from .sentence_revision import sentence_spans
+
+
+@dataclass(frozen=True, slots=True)
+class TimelineSentenceSpan:
+    index: int
+    text: str
+    text_start: int
+    text_end: int
+    start: float
+    end: float
+    duration: float
+    timing_source: str
+    confidence: str
+    reliable: bool
+
 
 @dataclass(frozen=True, slots=True)
 class TimelineSegment:
@@ -35,6 +51,9 @@ class TimelineSegment:
     engine_id: str
     voice_id: str
     speaker: str | None = None
+    sentences: tuple[TimelineSentenceSpan, ...] = ()
+    sentence_revision_available: bool = False
+    sentence_revision_fallback: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,6 +95,22 @@ def build_job_timeline(
         voice = str(settings.get("voice") or job.voice)
         speaker_value = settings.get("speaker")
         speaker = str(speaker_value) if speaker_value else None
+        timed_sentences = sentence_spans(chunk.text, chunk.metadata, duration)
+        sentences = tuple(
+            TimelineSentenceSpan(
+                index=sentence.index,
+                text=sentence.text,
+                text_start=sentence.text_start,
+                text_end=sentence.text_end,
+                start=cursor + sentence.start,
+                end=cursor + sentence.end,
+                duration=sentence.duration,
+                timing_source=sentence.timing_source,
+                confidence=sentence.confidence,
+                reliable=sentence.reliable,
+            )
+            for sentence in timed_sentences
+        )
         segments.append(
             TimelineSegment(
                 index=chunk.index,
@@ -88,6 +123,13 @@ def build_job_timeline(
                 engine_id=job.provider,
                 voice_id=voice,
                 speaker=speaker,
+                sentences=sentences,
+                sentence_revision_available=bool(sentences),
+                sentence_revision_fallback=(
+                    None
+                    if sentences
+                    else "Reliable sentence timing is unavailable; regenerate this whole chunk."
+                ),
             )
         )
         cursor += duration
