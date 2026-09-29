@@ -14,6 +14,7 @@ from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
+from .artifacts import CheckpointExport, CheckpointExporter
 from .chunking import ChunkPolicy, word_count
 from .config import Settings
 from .delivery import annotate_nonverbal_cues
@@ -219,6 +220,7 @@ class SynthesisService:
         chunk_target_mode: ChunkTargetMode = ChunkTargetMode.AUTOMATIC,
         chunk_target_value: int | None = None,
         remove_numeric_citations: bool = False,
+        export_stem: str | None = None,
     ) -> JobRecord:
         prepared_text = preprocess_text(
             text,
@@ -284,6 +286,7 @@ class SynthesisService:
                 ),
                 variables=options.variables,
                 chunks=(chunk.text for chunk in plan.chunks),
+                export_stem=export_stem,
             )
         except Exception:
             logger.exception("Failed to persist job %s", job_id)
@@ -301,6 +304,7 @@ class SynthesisService:
         source_text: str | None = None,
         split_strategy: SplitStrategy = SplitStrategy.SEMANTIC,
         remove_numeric_citations: bool = False,
+        export_stem: str | None = None,
     ) -> JobRecord:
         """Submit ordered, independently voiced segments as one resumable audio job."""
 
@@ -399,6 +403,7 @@ class SynthesisService:
                 ),
                 variables=job_variables,
                 chunks=chunk_texts,
+                export_stem=export_stem,
             )
         except Exception:
             logger.exception("Failed to persist segmented job %s", job_id)
@@ -503,6 +508,7 @@ class SynthesisService:
             resource_revision=source_job.resource_revision,
             variables=source_job.variables,
             chunks=revised_texts,
+            export_stem=source_job.export_stem,
         )
         try:
             for chunk in chunks:
@@ -718,6 +724,17 @@ class SynthesisService:
         if not path.is_file():
             raise FileNotFoundError(f"completed job output is missing: {job_id}")
         return path
+
+    async def checkpoint_export(self, job_id: str) -> CheckpointExport:
+        """Export an immutable snapshot of completed PCM checkpoints as WAV copies."""
+
+        job = self.store.get_job(job_id)
+        chunks = self.store.chunks_for_job(job_id)
+        return await asyncio.to_thread(
+            CheckpointExporter(self.storage).export,
+            job,
+            chunks,
+        )
 
     async def retry(self, job_id: str) -> JobRecord:
         return await self.resume(job_id)

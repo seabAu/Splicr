@@ -7,6 +7,7 @@ import uuid
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
+from .artifacts import collision_export_stem, sanitize_export_stem
 from .chunking import utf8_size, word_count
 from .domain import (
     ChunkRecord,
@@ -29,7 +30,7 @@ from .domain import (
 
 _CONTROLS_SCHEMA_VERSION = 1
 _ERROR_SCHEMA_VERSION = 1
-_DATABASE_SCHEMA_VERSION = 5
+_DATABASE_SCHEMA_VERSION = 6
 _ERROR_EVENT_RETENTION_LIMIT = 500
 
 
@@ -168,6 +169,7 @@ class SqliteJobStore:
                     error TEXT,
                     error_json TEXT,
                     output_path TEXT,
+                    export_stem TEXT NOT NULL DEFAULT 'splicr-export',
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL
                 );
@@ -243,6 +245,33 @@ class SqliteJobStore:
                 connection.execute(
                     "ALTER TABLE jobs ADD COLUMN variables_json TEXT NOT NULL DEFAULT '{}'"
                 )
+            if "export_stem" not in columns:
+                connection.execute(
+                    "ALTER TABLE jobs ADD COLUMN export_stem TEXT NOT NULL DEFAULT ''"
+                )
+            used_export_stems: set[str] = set()
+            for row in connection.execute(
+                "SELECT id, export_stem FROM jobs ORDER BY created_at, id"
+            ).fetchall():
+                current = str(row["export_stem"] or "").strip()
+                base = sanitize_export_stem(
+                    current,
+                    fallback=f"splicr-{str(row['id'])[:8]}",
+                )
+                ordinal = 1
+                candidate = collision_export_stem(base, ordinal)
+                while candidate.casefold() in used_export_stems:
+                    ordinal += 1
+                    candidate = collision_export_stem(base, ordinal)
+                used_export_stems.add(candidate.casefold())
+                if candidate != current:
+                    connection.execute(
+                        "UPDATE jobs SET export_stem = ? WHERE id = ?",
+                        (candidate, row["id"]),
+                    )
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS jobs_export_stem_idx ON jobs(export_stem)"
+            )
             chunk_columns = {
                 str(row["name"])
                 for row in connection.execute("PRAGMA table_info(chunks)").fetchall()
@@ -485,16 +514,22 @@ class SqliteJobStore:
         controls: DeliveryControls | None = None,
         resource_revision: int | None = None,
         variables: Mapping[str, Any] | None = None,
+        export_stem: str | None = None,
     ) -> JobRecord:
         now = utc_now()
         with self._lock, self._connect() as connection:
+            allocated_export_stem = self._allocate_export_stem(
+                connection,
+                export_stem,
+                job_id,
+            )
             connection.execute(
                 """
                 INSERT INTO jobs (
                     id, status, provider, model, voice, instructions, controls_json,
                     resource_revision, variables_json, total_chunks, completed_chunks,
-                    created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?)
+                    export_stem, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?)
                 """,
                 (
                     job_id,
@@ -506,6 +541,7 @@ class SqliteJobStore:
                     _encode_controls(controls or DeliveryControls()),
                     resource_revision,
                     _encode_variables(variables),
+                    allocated_export_stem,
                     now,
                     now,
                 ),
@@ -524,19 +560,25 @@ class SqliteJobStore:
         resource_revision: int | None = None,
         variables: Mapping[str, Any] | None = None,
         chunks: Iterable[str],
+        export_stem: str | None = None,
     ) -> JobRecord:
         chunk_list = list(chunks)
         if not chunk_list:
             raise ValueError("a job must have at least one chunk")
         now = utc_now()
         with self._lock, self._connect() as connection:
+            allocated_export_stem = self._allocate_export_stem(
+                connection,
+                export_stem,
+                job_id,
+            )
             connection.execute(
                 """
                 INSERT INTO jobs (
                     id, status, provider, model, voice, instructions, controls_json,
                     resource_revision, variables_json, total_chunks, completed_chunks,
-                    created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
+                    export_stem, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)
                 """,
                 (
                     job_id,
@@ -549,6 +591,7 @@ class SqliteJobStore:
                     resource_revision,
                     _encode_variables(variables),
                     len(chunk_list),
+                    allocated_export_stem,
                     now,
                     now,
                 ),
@@ -936,7 +979,28 @@ class SqliteJobStore:
             updated_at=row["updated_at"],
             resource_revision=row["resource_revision"],
             variables=_decode_variables(row["variables_json"]),
+            export_stem=row["export_stem"],
         )
+
+    @staticmethod
+    def _allocate_export_stem(
+        connection: sqlite3.Connection,
+        requested: str | None,
+        job_id: str,
+    ) -> str:
+        fallback = f"splicr-{job_id[:8]}"
+        base = sanitize_export_stem(requested, fallback=fallback)
+        existing = {
+            str(row[0]).casefold()
+            for row in connection.execute("SELECT export_stem FROM jobs").fetchall()
+            if row[0]
+        }
+        ordinal = 1
+        candidate = collision_export_stem(base, ordinal)
+        while candidate.casefold() in existing:
+            ordinal += 1
+            candidate = collision_export_stem(base, ordinal)
+        return candidate
 
     @staticmethod
     def _chunk_from_row(row: sqlite3.Row) -> ChunkRecord:

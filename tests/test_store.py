@@ -115,7 +115,45 @@ def test_initialize_migrates_legacy_jobs_without_losing_progress(tmp_path) -> No
     assert "resource_revision" in columns
     assert "variables_json" in columns
     assert "metadata_json" in chunk_columns
-    assert version == 5
+    assert version == 6
+    assert job.export_stem == "splicr-legacy"
+
+
+def test_export_stems_are_portable_and_collision_safe(tmp_path) -> None:
+    store = SqliteJobStore(tmp_path / "jobs.sqlite3")
+    store.initialize()
+
+    first = store.create_job_with_chunks(
+        job_id="first-job",
+        provider="fake",
+        model="model",
+        voice="voice",
+        instructions=None,
+        chunks=["one"],
+        export_stem="Résumé",
+    )
+    second = store.create_job_with_chunks(
+        job_id="second-job",
+        provider="fake",
+        model="model",
+        voice="voice",
+        instructions=None,
+        chunks=["two"],
+        export_stem="résumé",
+    )
+    reserved = store.create_job_with_chunks(
+        job_id="reserved-job",
+        provider="fake",
+        model="model",
+        voice="voice",
+        instructions=None,
+        chunks=["three"],
+        export_stem="CON",
+    )
+
+    assert first.export_stem == "Résumé"
+    assert second.export_stem == "résumé-2"
+    assert reserved.export_stem == "CON-audio"
 
 
 def test_paused_error_round_trips_and_survives_restart_requeue(tmp_path) -> None:

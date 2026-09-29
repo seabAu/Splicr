@@ -114,13 +114,17 @@ test("a document can be planned, directed, rendered, played, and reopened", asyn
   await expect(page.getByLabel("Target mode")).toHaveValue("characters");
   await expect(page.getByLabel("Target characters")).toHaveValue("80");
   await expect(page.getByText("4 customized")).toBeVisible();
+  await page.getByLabel("Export filename").fill("Acceptance: narration?");
 
   await page.getByRole("button", { name: "Preview chunks" }).click();
   await expect(page.getByRole("heading", { name: /planned chunks/ })).toBeVisible();
   await expect(page.getByLabel("Planned document chunks")).toBeVisible();
 
   await page.getByRole("button", { name: "Start new take" }).click();
-  await expect(page.getByRole("link", { name: "Download WAV" })).toBeVisible();
+  const masterDownload = page.getByRole("link", { name: "Download master WAV" });
+  await expect(masterDownload).toBeVisible();
+  await expect(masterDownload).toHaveAttribute("download", "Acceptance- narration-.wav");
+  await expect(page.getByRole("link", { name: "Export checkpoint WAVs + manifest" })).toBeVisible();
   await expect(page.getByLabel("Synthesis progress")).toHaveAttribute("value", "1");
   await expect(page.locator("audio")).toHaveAttribute(
     "src",
@@ -149,7 +153,7 @@ test("Voice Studio designs a durable identity and generates another take", async
   await navigation.getByRole("button", { name: "Voice studio", exact: true }).click();
 
   await page.getByRole("button", { name: "Designed voice" }).click();
-  await page.getByLabel("Name").fill("Acceptance designed voice");
+  await page.getByLabel("Name", { exact: true }).fill("Acceptance designed voice");
   await page.getByLabel("Voice description").fill(
     "A calm, measured documentary narrator with a warm alto register",
   );
@@ -163,7 +167,7 @@ test("Voice Studio designs a durable identity and generates another take", async
 
   await page.getByRole("button", { name: "Generate another take" }).click();
   await expect(page.getByRole("spinbutton", { name: "Take", exact: true })).toHaveValue("2");
-  await expect(page.getByLabel("Name")).toHaveValue("Acceptance designed voice · take 2");
+  await expect(page.getByLabel("Name", { exact: true })).toHaveValue("Acceptance designed voice · take 2");
   await page.getByRole("button", { name: "Design voice" }).click();
   await expect(
     page.getByRole("heading", { name: "Acceptance designed voice · take 2" }),

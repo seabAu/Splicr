@@ -285,7 +285,13 @@ function JobCard({ job, onAction, onRefresh }) {
       {(job.audio_url || job.partial_audio_url) && (
         <div className="player-card">
           <audio controls preload="metadata" src={`${job.audio_url || job.partial_audio_url}?v=${encodeURIComponent(job.updated_at)}`} />
-          {job.audio_url && <a href={job.audio_url} download><Download size={16} />Download WAV</a>}
+          {job.audio_url && <a href={job.audio_url} download={job.download_filename}><Download size={16} />Download master WAV</a>}
+          {job.checkpoint_export_url && (
+            <a href={job.checkpoint_export_url} download>
+              <Download size={16} />
+              {job.status === "completed" ? "Export checkpoint WAVs + manifest" : "Export completed checkpoints (partial)"}
+            </a>
+          )}
         </div>
       )}
       <div className="job-actions">
@@ -431,6 +437,7 @@ function NarrateWorkspace({ active, projectToLoad }) {
     chunk_target_mode: "automatic",
     chunk_target_value: null,
     remove_numeric_citations: false,
+    export_name: "",
     controls: { tone: "neutral", pace: "normal", vocal_style: "natural", nonverbal_frequency: "never" },
     variables: {},
     resource_revision: null,
@@ -547,7 +554,11 @@ function NarrateWorkspace({ active, projectToLoad }) {
 
   useEffect(() => {
     if (!projectToLoad) return;
-    setForm((current) => ({ ...current, text: projectToLoad.source_text || "" }));
+    setForm((current) => ({
+      ...current,
+      text: projectToLoad.source_text || "",
+      export_name: projectToLoad.name || "",
+    }));
     setSourceName(projectToLoad.source_name || projectToLoad.name);
     setProjectName(projectToLoad.name);
     setPreview(null);
@@ -618,6 +629,7 @@ function NarrateWorkspace({ active, projectToLoad }) {
     voice: form.voice || null,
     voice_profile_id: form.voice_profile_id || null,
     instructions: directorNotesSupported ? form.instructions.trim() || null : null,
+    export_name: form.export_name.trim() || null,
     project_name: projectName.trim() || null,
     source_name: sourceName.trim() || null,
   });
@@ -656,6 +668,7 @@ function NarrateWorkspace({ active, projectToLoad }) {
       chunk_target_value: profile.chunk_target_value ?? null,
       remove_numeric_citations: profile.remove_numeric_citations,
       variables: profile.variables || {},
+      export_name: profile.name,
     }));
     setSourceName(`${profile.name} profile`);
     setProjectName(profile.name);
@@ -678,9 +691,10 @@ function NarrateWorkspace({ active, projectToLoad }) {
     if (!file) return;
     const imported = await run("import", () => api.importDocument(file));
     if (imported) {
-      patchForm({ text: imported.text });
+      const documentName = imported.metadata.title || imported.filename.replace(/\.[^.]+$/, "");
+      patchForm({ text: imported.text, export_name: documentName });
       setSourceName(imported.filename);
-      setProjectName(imported.metadata.title || imported.filename.replace(/\.[^.]+$/, ""));
+      setProjectName(documentName);
     }
   };
 
@@ -839,6 +853,16 @@ function NarrateWorkspace({ active, projectToLoad }) {
               onChange={(variables) => patchForm({ variables })}
               onValidityChange={setAdvancedControlsValid}
             />
+            <div className="control-grid two output-controls">
+              <Control label="Export filename" help="The app sanitizes reserved characters and keeps the internal take ID unchanged.">
+                <input
+                  value={form.export_name}
+                  maxLength="240"
+                  onChange={(event) => patchForm({ export_name: event.target.value })}
+                  placeholder={projectName || "My narration"}
+                />
+              </Control>
+            </div>
             <div className="render-row">
               <span><Sparkles size={16} />Chunks are checkpointed locally and resume safely.</span>
               <button className="primary-button" disabled={!form.text.trim() || !form.provider || (requiresVoiceProfile && !form.voice_profile_id) || !advancedControlsValid || !!busy} onClick={startJob}>{busy === "start" ? "Starting…" : "Start new take"}<ChevronRight size={17} /></button>

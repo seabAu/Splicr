@@ -168,7 +168,7 @@ def test_initialize_migrates_v3_and_decodes_job_error_without_event_id(tmp_path)
         }
         version = connection.execute("PRAGMA user_version").fetchone()[0]
     assert {"jobs", "chunks", "error_events", "error_event_meta"} <= tables
-    assert version == 5
+    assert version == 6
 
 
 def test_unread_dedupe_keeps_id_and_refreshes_sequence_and_latest_details(tmp_path) -> None:

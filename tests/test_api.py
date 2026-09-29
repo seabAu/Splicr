@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import io
+import json
 import time
+import zipfile
 
 from fastapi.testclient import TestClient
 
@@ -26,7 +29,11 @@ def test_job_lifecycle_and_audio_download(tmp_path) -> None:
     with TestClient(create_app(settings=settings, service=service)) as client:
         response = client.post(
             "/v1/speech/jobs",
-            json={"text": "Hello from the API.", "provider": "fake"},
+            json={
+                "text": "Hello from the API.",
+                "provider": "fake",
+                "export_name": "My: Résumé?",
+            },
         )
         assert response.status_code == 202
         job_id = response.json()["id"]
@@ -43,10 +50,25 @@ def test_job_lifecycle_and_audio_download(tmp_path) -> None:
         body = status_response.json()
         assert body["progress"] == 1.0
         assert body["audio_url"] == f"/v1/speech/jobs/{job_id}/audio"
+        assert body["export_stem"] == "My- Résumé-"
+        assert body["download_filename"] == "My- Résumé-.wav"
+        assert body["checkpoint_export_url"].endswith("/checkpoints")
         audio = client.get(body["audio_url"])
         assert audio.status_code == 200
         assert audio.headers["content-type"] == "audio/wav"
+        assert "My-%20R%C3%A9sum%C3%A9-.wav" in audio.headers["content-disposition"]
         assert audio.content.startswith(b"RIFF")
+
+        checkpoints = client.get(body["checkpoint_export_url"])
+        assert checkpoints.status_code == 200
+        assert checkpoints.headers["content-type"] == "application/zip"
+        assert checkpoints.headers["x-splicr-partial"] == "false"
+        with zipfile.ZipFile(io.BytesIO(checkpoints.content)) as archive:
+            manifest_name = "My- Résumé--checkpoints.json"
+            manifest = json.loads(archive.read(manifest_name))
+            assert manifest["job_id"] == job_id
+            assert manifest["partial"] is False
+            assert manifest["is_finished_master"] is False
 
 
 def test_unknown_provider_and_blank_text_are_validation_errors(tmp_path) -> None:

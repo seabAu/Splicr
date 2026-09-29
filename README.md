@@ -23,6 +23,9 @@ Despite the source document's use of “transcription,” this service performs 
 - Provider-specific chunk limits layered over the conservative 3,800-byte/350-word defaults
 - Sequential provider calls, provider-specific pacing, and exponential backoff with jitter
 - Durable SQLite job/chunk state and raw PCM checkpoints for restart-safe resumption
+- Friendly Unicode export names with portable sanitization and stable collision suffixes; completed
+  checkpoints can be downloaded as individual WAV copies plus a provenance manifest from active,
+  paused, failed, cancelled, or completed jobs without being mislabeled as a finished master
 - One supervised local subprocess per active local-engine job, with startup/request timeouts,
   graceful shutdown, cancellation cleanup, structured diagnostics, and no copied environments
 - Canonical mono, signed 16-bit, 24 kHz PCM and a single final WAV container

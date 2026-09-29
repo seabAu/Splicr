@@ -249,6 +249,12 @@ class CreateJobRequest(BaseModel):
     )
     project_name: str | None = Field(default=None, min_length=1, max_length=240)
     source_name: str | None = Field(default=None, min_length=1, max_length=500)
+    export_name: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=240,
+        description="Friendly filename stem; the immutable job ID remains unchanged",
+    )
 
     @field_validator("text")
     @classmethod
@@ -316,6 +322,7 @@ class DialogueRenderRequest(BaseModel):
     remove_numeric_citations: bool = False
     project_name: str | None = Field(default=None, min_length=1, max_length=240)
     source_name: str | None = Field(default=None, min_length=1, max_length=500)
+    export_name: str | None = Field(default=None, min_length=1, max_length=240)
 
     @model_validator(mode="after")
     def resource_identity_must_agree(self) -> "DialogueRenderRequest":
@@ -912,6 +919,9 @@ class JobResponse(BaseModel):
     error_event_id: str | None
     audio_url: str | None
     partial_audio_url: str | None
+    checkpoint_export_url: str | None
+    export_stem: str
+    download_filename: str
     current_char: int
     total_chars: int
     current_chunk_index: int | None
@@ -962,6 +972,13 @@ class JobResponse(BaseModel):
                 if job.completed_chunks > 0 and job.status is not JobStatus.COMPLETED
                 else None
             ),
+            checkpoint_export_url=(
+                f"/v1/speech/jobs/{job.id}/checkpoints"
+                if job.completed_chunks > 0
+                else None
+            ),
+            export_stem=job.export_stem,
+            download_filename=f"{job.export_stem}.wav",
             current_char=int(detail.get("current_char") or 0),
             total_chars=int(detail.get("total_chars") or 0),
             current_chunk_index=(
@@ -4495,6 +4512,10 @@ def create_app(
     async def create_dialogue_job(request: DialogueRenderRequest) -> JobResponse:
         segments = dialogue_segments(request)
         source_text = request.source_text or request.transcript_text()
+        suggested_name = request.project_name or _suggest_project_name(
+            source_text,
+            request.source_name,
+        )
         try:
             job = await synthesis.submit_segments(
                 segments=segments,
@@ -4503,6 +4524,7 @@ def create_app(
                 source_text=source_text,
                 split_strategy=request.split_strategy,
                 remove_numeric_citations=request.remove_numeric_citations,
+                export_stem=request.export_name or suggested_name,
             )
         except UnknownProviderError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
@@ -4510,10 +4532,7 @@ def create_app(
             raise HTTPException(status_code=422, detail=str(error)) from error
         return job_response(
             job,
-            project_name=(
-                request.project_name
-                or _suggest_project_name(source_text, request.source_name)
-            ),
+            project_name=suggested_name,
             source_name=request.source_name,
             take_label="Dialogue take",
         )
@@ -4526,6 +4545,10 @@ def create_app(
     )
     async def create_job(request: CreateJobRequest) -> JobResponse:
         model, voice, variables = resolved_voice_request(request)
+        suggested_name = request.project_name or _suggest_project_name(
+            request.text,
+            request.source_name,
+        )
         try:
             job = await synthesis.submit(
                 text=request.text,
@@ -4540,6 +4563,7 @@ def create_app(
                 chunk_target_mode=request.chunk_target_mode,
                 chunk_target_value=request.chunk_target_value,
                 remove_numeric_citations=request.remove_numeric_citations,
+                export_stem=request.export_name or suggested_name,
             )
         except UnknownProviderError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
@@ -4547,10 +4571,7 @@ def create_app(
             raise HTTPException(status_code=422, detail=str(error)) from error
         return job_response(
             job,
-            project_name=(
-                request.project_name
-                or _suggest_project_name(request.text, request.source_name)
-            ),
+            project_name=suggested_name,
             source_name=request.source_name,
         )
 
@@ -4627,6 +4648,7 @@ def create_app(
     @application.get("/v1/speech/jobs/{job_id}/partial-audio", tags=["speech jobs"])
     async def get_partial_audio(job_id: str) -> FileResponse:
         try:
+            job = synthesis.get_job(job_id)
             path = await synthesis.partial_output_path(job_id)
         except JobNotFoundError as error:
             raise HTTPException(status_code=404, detail="job not found") from error
@@ -4635,13 +4657,36 @@ def create_app(
         return FileResponse(
             path,
             media_type="audio/wav",
-            filename=f"splicr-{job_id}-partial.wav",
+            filename=f"{job.export_stem}-partial.wav",
             headers={"X-SPLICR-Partial": "true"},
+        )
+
+    @application.get(
+        "/v1/speech/jobs/{job_id}/checkpoints",
+        tags=["speech jobs"],
+    )
+    async def get_checkpoint_export(job_id: str) -> FileResponse:
+        try:
+            artifact = await synthesis.checkpoint_export(job_id)
+        except JobNotFoundError as error:
+            raise HTTPException(status_code=404, detail="job not found") from error
+        except (ValueError, FileNotFoundError) as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        return FileResponse(
+            artifact.path,
+            media_type="application/zip",
+            filename=artifact.filename,
+            headers={
+                "X-SPLICR-Partial": "true" if artifact.partial else "false",
+                "X-SPLICR-Exported-Chunks": str(artifact.exported_chunks),
+                "X-SPLICR-Missing-Chunks": str(artifact.missing_chunks),
+            },
         )
 
     @application.get("/v1/speech/jobs/{job_id}/audio", tags=["speech jobs"])
     async def get_audio(job_id: str) -> FileResponse:
         try:
+            job = synthesis.get_job(job_id)
             path: Path = synthesis.output_path(job_id)
         except JobNotFoundError as error:
             raise HTTPException(status_code=404, detail="job not found") from error
@@ -4652,7 +4697,7 @@ def create_app(
         return FileResponse(
             path,
             media_type="audio/wav",
-            filename=f"splicr-{job_id}.wav",
+            filename=f"{job.export_stem}.wav",
         )
 
     register_auth(application, settings=resolved_settings, manager=auth_manager)

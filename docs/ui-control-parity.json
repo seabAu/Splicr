@@ -19,7 +19,7 @@
     {"key": "bit_depth", "status": "covered", "workspace": "Convert", "control": "Bit-depth selector"},
     {"key": "quality_pct", "status": "covered", "workspace": "Convert", "control": "Quality/compression slider"},
     {"key": "use_subfolders", "status": "intentional_replacement", "workspace": "Library", "control": "Project/Take/Artifact hierarchy", "rationale": "Managed artifact ownership replaces user-maintained output subfolders."},
-    {"key": "keep_chunks", "status": "gap", "workspace": "Timeline", "control": "Internal durable checkpoints", "next_step": "Add a checkpoint/chunk export action while keeping internal checkpoint retention automatic."},
+    {"key": "keep_chunks", "status": "covered", "workspace": "Narrate / Dialogue", "control": "Automatic durable checkpoints plus WAV-and-manifest checkpoint export"},
     {"key": "make_video", "status": "covered", "workspace": "Audiogram", "control": "Preview and full video render"},
     {"key": "editing_wav", "status": "covered", "workspace": "Convert", "control": "WAV output"},
     {"key": "editing_wav_rate", "status": "covered", "workspace": "Convert", "control": "Sample-rate selector"},

@@ -240,12 +240,12 @@ Edge TTS was Narrator's zero-setup online fallback. It is not currently a merged
 
 ### Artifact naming and chunk export
 
-- [ ] Add a user-facing export filename/stem while retaining immutable internal artifact IDs.
-- [ ] Sanitize platform-reserved names and characters and apply a deterministic collision policy.
-- [ ] Add **Export completed chunks/checkpoints** as WAV files plus a manifest; export copies only.
-- [ ] Permit checkpoint export from paused/failed/cancelled jobs without presenting it as a finished
+- [x] Add a user-facing export filename/stem while retaining immutable internal artifact IDs.
+- [x] Sanitize platform-reserved names and characters and apply a deterministic collision policy.
+- [x] Add **Export completed chunks/checkpoints** as WAV files plus a manifest; export copies only.
+- [x] Permit checkpoint export from paused/failed/cancelled jobs without presenting it as a finished
   master.
-- [ ] Test ordering, missing checkpoints, Unicode names, collisions, and interrupted export cleanup.
+- [x] Test ordering, missing checkpoints, Unicode names, collisions, and interrupted export cleanup.
 
 ### Subtitle timeline
 
@@ -435,16 +435,22 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   Chromium journeys. Edge coverage uses faithful `Communicate.stream()`/voice/error fakes,
   validates FFmpeg normalization and timing transport, persists chunk metadata through schema v5,
   and includes an opt-in live online-service contract test.
+- [x] 2026-09-29 — Milestone 4 artifact-naming/checkpoint-export gate passed: Ruff, the complete
+  Python suite (three opt-in live checks skipped), eight frontend unit tests, the production Vite
+  build, and three Chromium journeys. Coverage proves portable Unicode names, Windows-reserved
+  names, deterministic case-insensitive collisions, ordered WAV copies, missing checkpoints,
+  paused/failed/cancelled partial manifests, source-checkpoint immutability, and interrupted-export
+  cleanup.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
 ## Current work pointer
 
-- **Active milestone:** Milestones 2/3 live acceptance closeout, then Milestone 4 — naming,
-  checkpoints, subtitles, and captions.
-- **Next implementation slice:** run the opt-in real Qwen and Edge checks when configured
-  environments are available; otherwise begin export naming and checkpoint export without changing
-  stable internal artifact identities.
+- **Active milestone:** Milestones 2/3 live acceptance closeout plus Milestone 4 — subtitle timelines
+  and caption delivery.
+- **Next implementation slice:** define the shared subtitle cue model and generate exact engine cues
+  when timing metadata exists, with clearly labeled checkpoint estimates as the fallback. Real Qwen
+  and Edge acceptance remains ready when configured environments are available.
 - **Known unrelated worktree item:** `LICENSE.txt` is untracked and not part of this roadmap unless
   deliberately adopted later.
 
@@ -472,3 +478,8 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   FFmpeg normalization, structured transport failures, and durable word/sentence timing metadata.
   Added the reusable local-engine onboarding checklist and opt-in live Edge contract test; the real
   online-service run remains an explicit acceptance item.
+- **2026-09-29:** Completed Milestone 4 artifact naming and checkpoint export. Jobs now retain a
+  collision-safe portable export stem separately from immutable IDs; Narrate and Dialogue expose
+  friendly filenames and checkpoint ZIP downloads. Atomic exports contain ordered canonical WAV
+  copies and a UTF-8 provenance manifest, remain explicitly non-master/partial when appropriate,
+  and tolerate missing checkpoints without altering resumable source PCM.

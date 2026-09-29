@@ -512,6 +512,7 @@ class JobRecord:
     updated_at: str
     resource_revision: int | None = None
     variables: Mapping[str, JsonValue] = field(default_factory=dict)
+    export_stem: str = "splicr-export"
 
 
 @dataclass(frozen=True, slots=True)

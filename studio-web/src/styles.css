@@ -628,6 +628,9 @@ button:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important
 .dialogue-current-line { margin: 10px 0 0; color: var(--muted); font-size: 0.69rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dialogue-job-actions { display: flex; gap: 7px; margin-top: 12px; }
 .dialogue-player { width: 100%; height: 40px; margin-top: 12px; }
+.dialogue-player-stack { display: grid; gap: 6px; }
+.dialogue-player-stack a { color: var(--accent); font-size: 0.68rem; }
+.output-controls { margin-top: 12px; }
 
 @media (max-width: 1080px) {
   .dialogue-project-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }

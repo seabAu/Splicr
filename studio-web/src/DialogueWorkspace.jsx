@@ -403,6 +403,7 @@ export function DialogueWorkspace({ active }) {
   const payload = () => ({
     provider: provider?.name,
     project_name: projectName.trim() || "Untitled dialogue",
+    export_name: projectName.trim() || "Untitled dialogue",
     turns: turns.map((turn) => ({ ...turn, text: turn.text.trim() })),
     person1: speakerPayload(person1),
     person2: speakerPayload(person2),
@@ -678,7 +679,15 @@ export function DialogueWorkspace({ active }) {
               {!TERMINAL.has(job.status) && <button className="secondary-button small danger" onClick={() => actOnJob("cancel")}>Cancel</button>}
             </div>
             {(job.audio_url || job.partial_audio_url) && (
-              <audio className="dialogue-player" controls preload="metadata" src={job.audio_url || job.partial_audio_url} />
+              <div className="dialogue-player-stack">
+                <audio className="dialogue-player" controls preload="metadata" src={job.audio_url || job.partial_audio_url} />
+                {job.audio_url && <a href={job.audio_url} download={job.download_filename}>Download master WAV</a>}
+                {job.checkpoint_export_url && (
+                  <a href={job.checkpoint_export_url} download>
+                    {job.status === "completed" ? "Export checkpoint WAVs + manifest" : "Export completed checkpoints (partial)"}
+                  </a>
+                )}
+              </div>
             )}
           </div>
         )}

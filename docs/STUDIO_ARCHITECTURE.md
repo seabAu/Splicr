@@ -86,6 +86,13 @@ hierarchy without changing
 legacy job tables. Foreign keys enforce project/plan/take ownership, render-plan rows are
 insert-only, and take artifact identifiers are derived from artifact rows rather than duplicated.
 
+Speech jobs also persist a portable, user-facing export stem independently of their immutable job
+ID. Allocation is case-insensitive and deterministic (`name`, `name-2`, …), while internal storage
+continues to use the job ID. A checkpoint export is an atomic point-in-time ZIP of WAV-wrapped PCM
+copies plus a UTF-8 manifest; it never rewrites source checkpoints and always declares that it is
+not a finished master. Missing or incomplete checkpoints remain explicit manifest entries, so
+paused, failed, and cancelled work can be recovered without overstating completion.
+
 `splicr migrate-studio` converts every existing SPLICR job into a deterministic Project, immutable
 Render Plan, and Take, then links a completed WAV as an Artifact when it exists. Import mappings
 and fingerprints make reruns idempotent while still allowing take status to catch up with a legacy

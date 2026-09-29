@@ -181,10 +181,15 @@ def test_error_pauses_job_and_exposes_resumable_partial_audio(tmp_path) -> None:
         assert paused["error_detail"] == "bad request"
         assert paused["current_char"] > 0
         assert paused["partial_audio_url"].endswith("/partial-audio")
+        assert paused["checkpoint_export_url"].endswith("/checkpoints")
         partial = client.get(paused["partial_audio_url"])
         assert partial.status_code == 200
         assert partial.content.startswith(b"RIFF")
         assert partial.headers["x-splicr-partial"] == "true"
+        checkpoints = client.get(paused["checkpoint_export_url"])
+        assert checkpoints.status_code == 200
+        assert checkpoints.headers["x-splicr-partial"] == "true"
+        assert checkpoints.headers["x-splicr-exported-chunks"] == "1"
 
         provider.fail_text = None
         resumed = client.post(f"/v1/speech/jobs/{submitted['id']}/resume")
