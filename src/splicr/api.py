@@ -10,6 +10,7 @@ import os
 import re
 import shutil
 import wave
+from collections.abc import Mapping
 from contextlib import asynccontextmanager
 from dataclasses import asdict, replace
 from pathlib import Path
@@ -66,6 +67,7 @@ from .dialogue_jobs import (
 from .domain import (
     SEGMENT_OPTIONS_VARIABLE,
     ChunkStatus,
+    ControlValueType,
     ControlMode,
     DeliveryControls,
     ErrorEventDraft,
@@ -82,6 +84,7 @@ from .domain import (
     TonePreset,
     UnknownProviderError,
     VocalStyle,
+    validate_control_values,
     utc_now,
 )
 from .document_import import DocumentImportError, import_document
@@ -160,6 +163,14 @@ from .ui import register_ui
 
 
 logger = logging.getLogger(__name__)
+
+
+def _plain_control_value(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return {key: _plain_control_value(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_plain_control_value(item) for item in value]
+    return value
 
 
 def _suggest_project_name(text: str, source_name: str | None) -> str:
@@ -316,6 +327,29 @@ class VoiceOptionResponse(BaseModel):
     traits: list[str]
 
 
+class ControlConditionResponse(BaseModel):
+    key: str
+    equals: Any
+
+
+class ControlDefinitionResponse(BaseModel):
+    key: str
+    value_type: ControlValueType
+    label: str | None
+    description: str
+    group: str
+    required: bool
+    default: Any
+    choices: list[Any]
+    minimum: int | float | None
+    maximum: int | float | None
+    step: int | float | None
+    unit: str | None
+    sensitive: bool
+    visible_when: list[ControlConditionResponse]
+    enabled_when: list[ControlConditionResponse]
+
+
 class VoiceProfileResponse(BaseModel):
     id: str
     label: str
@@ -381,6 +415,8 @@ class ProviderCapabilitiesResponse(BaseModel):
     nonverbal_modes: list[ControlMode]
     nonverbal_cues: list[str]
     supports_custom_instructions: bool
+    control_definitions: list[ControlDefinitionResponse]
+    allows_undeclared_variables: bool
 
 
 class ProviderResponse(BaseModel):
@@ -443,6 +479,39 @@ class ProviderResponse(BaseModel):
                 nonverbal_modes=list(capabilities.nonverbal_modes or (ControlMode.UNSUPPORTED,)),
                 nonverbal_cues=list(capabilities.nonverbal_cues),
                 supports_custom_instructions=capabilities.supports_custom_instructions,
+                control_definitions=[
+                    ControlDefinitionResponse(
+                        key=definition.key,
+                        value_type=definition.value_type,
+                        label=definition.label,
+                        description=definition.description,
+                        group=definition.group,
+                        required=definition.required,
+                        default=_plain_control_value(definition.default),
+                        choices=[_plain_control_value(choice) for choice in definition.choices],
+                        minimum=definition.minimum,
+                        maximum=definition.maximum,
+                        step=definition.step,
+                        unit=definition.unit,
+                        sensitive=definition.sensitive,
+                        visible_when=[
+                            ControlConditionResponse(
+                                key=item.key,
+                                equals=_plain_control_value(item.equals),
+                            )
+                            for item in definition.visible_when
+                        ],
+                        enabled_when=[
+                            ControlConditionResponse(
+                                key=item.key,
+                                equals=_plain_control_value(item.equals),
+                            )
+                            for item in definition.enabled_when
+                        ],
+                    )
+                    for definition in capabilities.control_definitions
+                ],
+                allows_undeclared_variables=capabilities.allows_undeclared_variables,
             ),
         )
 
@@ -1514,9 +1583,17 @@ def _variable_definitions(
                 "kind",
                 "label",
                 "description",
+                "group",
                 "required",
                 "default",
                 "choices",
+                "minimum",
+                "maximum",
+                "step",
+                "unit",
+                "sensitive",
+                "visible_when",
+                "enabled_when",
             }
             unknown = set(item) - allowed
             if unknown:
@@ -1529,9 +1606,17 @@ def _variable_definitions(
                     kind=VariableType(item.get("kind", VariableType.STRING.value)),
                     label=item.get("label"),
                     description=item.get("description", ""),
+                    group=item.get("group", "General"),
                     required=item.get("required", False),
                     default=item.get("default"),
                     choices=tuple(item.get("choices", ())),
+                    minimum=item.get("minimum"),
+                    maximum=item.get("maximum"),
+                    step=item.get("step"),
+                    unit=item.get("unit"),
+                    sensitive=item.get("sensitive", False),
+                    visible_when=item.get("visible_when", {}),
+                    enabled_when=item.get("enabled_when", {}),
                 )
             )
         return tuple(definitions)
@@ -2340,7 +2425,7 @@ def create_app(
             job=linked_job,
         )
 
-    def validate_profile_payload(payload: StudioProfilePayload) -> None:
+    def validate_profile_payload(payload: StudioProfilePayload) -> dict[str, Any]:
         if VOICE_PROFILE_VARIABLE in payload.variables:
             raise HTTPException(
                 status_code=422,
@@ -2363,6 +2448,7 @@ def create_app(
             except ValueError as error:
                 raise HTTPException(status_code=422, detail=str(error)) from error
         try:
+            selected_provider = None
             if resource_store is not None:
                 resource = (
                     resource_store.get(payload.resource_id, payload.resource_revision)
@@ -2375,11 +2461,28 @@ def create_app(
                             f"unknown TTS provider revision: "
                             f"{payload.resource_id}@{payload.resource_revision}"
                         )
-                    synthesis.providers.get(payload.resource_id)
+                    selected_provider = synthesis.providers.get(payload.resource_id)
+                else:
+                    revision_resolver = getattr(synthesis.providers, "get_revision", None)
+                    selected_provider = (
+                        revision_resolver(payload.resource_id, payload.resource_revision)
+                        if payload.resource_revision is not None
+                        and revision_resolver is not None
+                        else synthesis.providers.get(payload.resource_id)
+                    )
             else:
-                synthesis.providers.get(payload.resource_id)
+                selected_provider = synthesis.providers.get(payload.resource_id)
+            capabilities = selected_provider.info.capabilities
+            normalized_variables = validate_control_values(
+                capabilities.control_definitions,
+                payload.variables,
+                allow_unknown=capabilities.allows_undeclared_variables,
+            )
         except UnknownProviderError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
+        except (TypeError, ValueError) as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        return normalized_variables
 
     def profile_resource_revision(payload: StudioProfilePayload) -> int | None:
         if payload.resource_revision is not None:
@@ -4007,7 +4110,7 @@ def create_app(
         tags=["studio profiles"],
     )
     async def create_profile(payload: StudioProfilePayload) -> StudioProfileResponse:
-        validate_profile_payload(payload)
+        normalized_variables = validate_profile_payload(payload)
         revision = profile_resource_revision(payload)
         profile = profiles.create(
             name=payload.name,
@@ -4021,7 +4124,7 @@ def create_app(
             controls=payload.controls.to_domain(),
             split_strategy=payload.split_strategy,
             remove_numeric_citations=payload.remove_numeric_citations,
-            variables=payload.variables,
+            variables=normalized_variables,
             job_id=payload.job_id,
         )
         return profile_response(profile)
@@ -4046,7 +4149,7 @@ def create_app(
         profile_id: str,
         payload: StudioProfilePayload,
     ) -> StudioProfileResponse:
-        validate_profile_payload(payload)
+        normalized_variables = validate_profile_payload(payload)
         try:
             profile = profiles.update(
                 profile_id,
@@ -4061,7 +4164,7 @@ def create_app(
                 controls=payload.controls.to_domain(),
                 split_strategy=payload.split_strategy,
                 remove_numeric_citations=payload.remove_numeric_citations,
-                variables=payload.variables,
+                variables=normalized_variables,
                 job_id=payload.job_id,
             )
         except ProfileNotFoundError as error:

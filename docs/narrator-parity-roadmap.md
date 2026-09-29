@@ -52,13 +52,13 @@ Controls belong in three layers:
 - [x] All synthesis output normalizes to mono signed 16-bit PCM at 24 kHz before assembly.
 - [x] Completed chunks are durable checkpoints and resume does not resynthesize them.
 - [x] A partial or failed artifact is never presented as a completed result.
-- [ ] Every newly exposed value is validated server-side and frozen into the immutable RenderPlan,
+- [x] Every newly exposed value is validated server-side and frozen into the immutable RenderPlan,
   job, and chunk options used for resume.
 - [ ] Provider/engine secrets and private paths never enter logs, error reports, exported profiles,
   browser storage, or GitHub Actions artifacts.
 - [ ] New long-running utilities use durable jobs with progress, cancellation, restart recovery,
   structured errors, and atomic final outputs.
-- [ ] All advanced controls remain keyboard accessible, have labels/help text, and do not rely on
+- [x] All advanced controls remain keyboard accessible, have labels/help text, and do not rely on
   color alone.
 
 ### Intentional replacements already accepted
@@ -128,41 +128,41 @@ This is the enabling layer. Do not add one-off Qwen-only form state before this 
 
 ### Contract and persistence
 
-- [ ] Define a provider-neutral `ControlDefinition` contract with stable key, label, description,
+- [x] Define a provider-neutral `ControlDefinition` contract with stable key, label, description,
   group, value type, default, required flag, and optional enum/range/step/unit metadata.
-- [ ] Support at least boolean, integer, decimal, text, enum, and secret-free structured values.
-- [ ] Support conditional visibility/enabling without allowing arbitrary code in a schema.
-- [ ] Extend provider capability responses with their control definitions and current defaults.
-- [ ] Adapt configurable API-resource `variable_definitions` to the same public control contract
+- [x] Support at least boolean, integer, decimal, text, enum, and secret-free structured values.
+- [x] Support conditional visibility/enabling without allowing arbitrary code in a schema.
+- [x] Extend provider capability responses with their control definitions and current defaults.
+- [x] Adapt configurable API-resource `variable_definitions` to the same public control contract
   rather than maintaining a second renderer.
-- [ ] Validate submitted values against the frozen resource revision/provider schema.
-- [ ] Reject unknown keys by default; permit explicitly declared pass-through objects only for the
+- [x] Validate submitted values against the frozen resource revision/provider schema.
+- [x] Reject unknown keys by default; permit explicitly declared pass-through objects only for the
   existing expert custom-resource editor.
-- [ ] Freeze validated values into Studio profiles, RenderPlans, jobs, per-segment overrides, and
+- [x] Freeze validated values into Studio profiles, RenderPlans, jobs, per-segment overrides, and
   resumable chunk options.
-- [ ] Preserve old profiles/jobs with a versioned migration or backward-compatible empty control
+- [x] Preserve old profiles/jobs with a versioned migration or backward-compatible empty control
   set.
-- [ ] Redact any value marked sensitive at API, diagnostics, profile-export, and error boundaries.
+- [x] Redact any value marked sensitive at API, diagnostics, profile-export, and error boundaries.
 
 ### Studio UI
 
-- [ ] Add an **Advanced engine controls** disclosure beneath the essential narration controls.
-- [ ] Show the number of non-default advanced values while collapsed.
-- [ ] Group controls by Generation, Voice, Pacing, Chunk planning, and Output where applicable.
-- [ ] Render control types from metadata with labels, bounds, units, help text, defaults, and Reset.
-- [ ] Hide unsupported groups rather than showing disabled fictional controls.
-- [ ] Preserve unsaved form state when navigating to another workspace and back.
-- [ ] Make validation errors local to the field while retaining full structured errors in the Error
+- [x] Add an **Advanced engine controls** disclosure beneath the essential narration controls.
+- [x] Show the number of non-default advanced values while collapsed.
+- [x] Group controls by Generation, Voice, Pacing, Chunk planning, and Output where applicable.
+- [x] Render control types from metadata with labels, bounds, units, help text, defaults, and Reset.
+- [x] Hide unsupported groups rather than showing disabled fictional controls.
+- [x] Preserve unsaved form state when navigating to another workspace and back.
+- [x] Make validation errors local to the field while retaining full structured errors in the Error
   Center.
-- [ ] Include advanced values when saving/loading profiles and make the loaded differences visible.
+- [x] Include advanced values when saving/loading profiles and make the loaded differences visible.
 
 ### Acceptance gate
 
-- [ ] Unit-test schema parsing, validation, defaults, bounds, unknown keys, and redaction.
-- [ ] Integration-test persistence through API -> RenderPlan -> job -> chunk -> resume.
-- [ ] Browser-test switching engines, conditional control visibility, reset, profile round-trip, and
+- [x] Unit-test schema parsing, validation, defaults, bounds, unknown keys, and redaction.
+- [x] Integration-test persistence through API -> RenderPlan -> job -> chunk -> resume.
+- [x] Browser-test switching engines, conditional control visibility, reset, profile round-trip, and
   starting a render with non-default values.
-- [ ] Update the parity manifest and mark this milestone complete only after full regression passes.
+- [x] Update the parity manifest and mark this milestone complete only after full regression passes.
 
 ## Milestone 2 — narration controls: Qwen, speed, and chunk planning
 
@@ -404,14 +404,18 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
 - [x] 2026-09-29 — frontend unit tests and Vite production build passed.
 - [x] 2026-09-29 — both Chromium acceptance journeys passed against the real FastAPI transport and
   deterministic TTS provider.
+- [x] 2026-09-29 — Milestone 1 full gate passed: Ruff, the complete Python suite (one opt-in live
+  provider test skipped), seven frontend unit tests, the production Vite build, and two Chromium
+  journeys covering keyboard disclosure, provider switching, conditional fields, local bounds,
+  profile round-trip, checkpoint resume, playback, and Studio reopening.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
 ## Current work pointer
 
-- **Active milestone:** Milestone 1 — typed advanced-engine control foundation.
-- **Next implementation slice:** domain/control schema, API representation, validation, and frozen
-  persistence before building the generated React form.
+- **Active milestone:** Milestone 2 — narration controls: Qwen, speed, and chunk planning.
+- **Next implementation slice:** reconcile Qwen Voice Profile identity with deterministic
+  take/seed controls, then extend the immutable planner with provider-safe target modes.
 - **Known unrelated worktree item:** `LICENSE.txt` is untracked and not part of this roadmap unless
   deliberately adopted later.
 
@@ -420,3 +424,8 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
 - **2026-09-29:** Created the living roadmap from the Narrator handover, render-schema parity audit,
   merged Studio architecture, and browser acceptance baseline. Added previously undercounted Edge
   TTS and audio-transcription gaps and preserved non-blocking future ideas.
+- **2026-09-29:** Completed Milestone 1 with one provider-neutral typed-control contract shared by
+  built-in engines and configurable resources, strict server validation/redaction, immutable
+  persistence, the generated progressive-disclosure Studio panel, profile round-trip, and
+  unit/integration/browser acceptance coverage. Declared Kokoro's existing precise-speed override
+  through the new schema as the first real engine control.

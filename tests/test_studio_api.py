@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 from splicr.api import create_app
 from splicr.config import Settings
+from splicr.domain import ControlDefinition, ControlValueType
 from splicr.providers import ProviderRegistry
 from splicr.service import SynthesisService
 from splicr.studio import ArtifactKind, Project, TakeStatus
@@ -144,6 +145,79 @@ def test_new_synthesis_job_is_live_synced_into_the_studio_library(tmp_path) -> N
     artifacts = app.state.studio_store.list_artifacts(takes[0].id)
     assert len(artifacts) == 1
     assert artifacts[0].kind is ArtifactKind.AUDIO
+
+
+def test_advanced_values_survive_api_plan_chunks_and_resume(tmp_path) -> None:
+    provider = RecordingProvider(
+        fail_text="Fail here.",
+        control_definitions=(
+            ControlDefinition(
+                key="seed",
+                value_type=ControlValueType.INTEGER,
+                default=17,
+                minimum=0,
+            ),
+        ),
+        allows_undeclared_variables=False,
+    )
+    settings = Settings(
+        data_dir=tmp_path,
+        pacing_seconds=0,
+        max_attempts=2,
+        chunk_max_words=2,
+        backoff_base_seconds=0,
+        backoff_max_seconds=0,
+        backoff_jitter_seconds=0,
+    )
+    service = SynthesisService(
+        settings=settings,
+        providers=ProviderRegistry([provider]),
+    )
+    app = create_app(settings=settings, service=service)
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/v1/speech/jobs",
+            json={
+                "text": "First bit. Fail here.",
+                "provider": "fake",
+                "variables": {"seed": 23},
+            },
+        )
+        assert response.status_code == 202
+        job_id = response.json()["id"]
+
+        deadline = time.monotonic() + 3
+        while time.monotonic() < deadline:
+            paused = client.get(f"/v1/speech/jobs/{job_id}").json()
+            if paused["status"] == "paused":
+                break
+            time.sleep(0.01)
+        else:
+            raise AssertionError("job did not pause after the provider failure")
+
+        project = client.get("/v1/studio/projects").json()[0]
+        plan = app.state.studio_store.list_render_plans(project["id"])[0]
+        assert all(segment.settings["variables"] == {"seed": 23} for segment in plan.segments)
+        chunks = service.store.chunks_for_job(job_id)
+        assert chunks[0].status.value == "completed"
+        assert chunks[1].status.value == "failed"
+
+        provider.fail_text = None
+        resumed = client.post(f"/v1/speech/jobs/{job_id}/resume")
+        assert resumed.status_code == 202
+        deadline = time.monotonic() + 3
+        while time.monotonic() < deadline:
+            finished = client.get(f"/v1/speech/jobs/{job_id}").json()
+            if finished["status"] == "completed":
+                break
+            time.sleep(0.01)
+        else:
+            raise AssertionError("resumed job did not complete")
+
+    assert provider.calls == ["First bit.", "Fail here.", "Fail here."]
+    assert all(options.variables == {"seed": 23} for options in provider.options)
+    assert service.get_job(job_id).variables == {"seed": 23}
 
 
 def test_repeated_job_reads_do_not_rewrite_unchanged_studio_imports(tmp_path) -> None:

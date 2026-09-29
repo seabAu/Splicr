@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 from splicr.api import create_app
 from splicr.bootstrap import create_service
 from splicr.config import Settings
+from splicr.domain import ControlDefinition, ControlValueType
 from splicr.providers import ProviderRegistry
 from splicr.service import SynthesisService
 
@@ -97,6 +98,65 @@ def test_profile_rejects_missing_job_link(tmp_path) -> None:
 
     assert response.status_code == 422
     assert response.json()["detail"] == "linked job was not found"
+
+
+def test_profile_freezes_control_defaults_and_rejects_unknown_values(tmp_path) -> None:
+    settings = Settings(data_dir=tmp_path)
+    provider = RecordingProvider(
+        control_definitions=(
+            ControlDefinition(
+                key="seed",
+                value_type=ControlValueType.INTEGER,
+                default=17,
+                minimum=0,
+            ),
+        ),
+        allows_undeclared_variables=False,
+    )
+    service = SynthesisService(settings=settings, providers=ProviderRegistry([provider]))
+
+    with TestClient(create_app(settings=settings, service=service)) as client:
+        created = client.post(
+            "/v1/profiles",
+            json={"name": "Deterministic", "resource_id": "fake"},
+        )
+        rejected = client.post(
+            "/v1/profiles",
+            json={
+                "name": "Unknown controls",
+                "resource_id": "fake",
+                "variables": {"mystery": True},
+            },
+        )
+
+    assert created.status_code == 201
+    assert created.json()["variables"] == {"seed": 17}
+    assert rejected.status_code == 422
+    assert "unknown advanced control" in rejected.json()["detail"]
+
+
+def test_profile_rejects_sensitive_control_without_echoing_its_value(tmp_path) -> None:
+    settings = Settings(data_dir=tmp_path)
+    provider = RecordingProvider(
+        control_definitions=(ControlDefinition(key="access_token", sensitive=True),),
+        allows_undeclared_variables=False,
+    )
+    service = SynthesisService(settings=settings, providers=ProviderRegistry([provider]))
+    secret = "profile-secret-must-not-echo"
+
+    with TestClient(create_app(settings=settings, service=service)) as client:
+        response = client.post(
+            "/v1/profiles",
+            json={
+                "name": "Rejected secret",
+                "resource_id": "fake",
+                "variables": {"access_token": secret},
+            },
+        )
+
+    assert response.status_code == 422
+    assert "secret storage" in response.json()["detail"]
+    assert secret not in response.text
 
 
 def test_profile_accepts_non_resource_local_engine(tmp_path) -> None:

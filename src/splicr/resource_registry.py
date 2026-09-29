@@ -16,7 +16,10 @@ from .api_resources import (
 )
 from .config import Settings
 from .domain import (
+    ControlCondition,
+    ControlDefinition,
     ControlMode,
+    ControlValueType,
     NonverbalFrequency,
     ProviderCapabilities,
     ProviderInfo,
@@ -126,6 +129,33 @@ def _resource_capabilities(spec: ApiResourceSpec) -> ProviderCapabilities:
     if all(voice.id != defaults.default_voice for voice in voices):
         voices.insert(0, VoiceOption(defaults.default_voice))
     capabilities = spec.capabilities
+    control_definitions = tuple(
+        ControlDefinition(
+            key=variable.name,
+            value_type=ControlValueType(variable.kind.value),
+            label=variable.label or variable.name.replace("_", " ").title(),
+            description=variable.description,
+            group=variable.group,
+            required=variable.required,
+            default=variable.default,
+            choices=variable.choices,
+            minimum=variable.minimum,
+            maximum=variable.maximum,
+            step=variable.step,
+            unit=variable.unit,
+            sensitive=variable.sensitive,
+            visible_when=tuple(
+                ControlCondition(key=key, equals=value)
+                for key, value in sorted(variable.visible_when.items())
+            ),
+            enabled_when=tuple(
+                ControlCondition(key=key, equals=value)
+                for key, value in sorted(variable.enabled_when.items())
+            ),
+        )
+        for variable in spec.variables
+        if variable.name not in _RESERVED_VARIABLES
+    )
     return ProviderCapabilities(
         models=model_ids,
         voices=tuple(voices),
@@ -143,6 +173,8 @@ def _resource_capabilities(spec: ApiResourceSpec) -> ProviderCapabilities:
         nonverbal_modes=tuple(ControlMode(value.value) for value in capabilities.nonverbal_modes),
         nonverbal_cues=capabilities.nonverbal_cues,
         supports_custom_instructions=capabilities.supports_custom_instructions,
+        control_definitions=control_definitions,
+        allows_undeclared_variables=False,
     )
 
 

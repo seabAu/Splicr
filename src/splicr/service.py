@@ -28,6 +28,7 @@ from .domain import (
     CANONICAL_AUDIO_FORMAT,
     ChunkRecord,
     ChunkStatus,
+    validate_control_values,
     DeliveryControls,
     ErrorEventDraft,
     JobErrorDetail,
@@ -589,6 +590,11 @@ class SynthesisService:
             raise ValueError(f"instructions exceed the {MAX_INSTRUCTIONS_BYTES}-byte limit")
         selected_controls = controls or DeliveryControls()
         capabilities = info.capabilities
+        selected_variables = validate_control_values(
+            capabilities.control_definitions,
+            variables,
+            allow_unknown=capabilities.allows_undeclared_variables,
+        )
         if normalized_instructions and not capabilities.supports_custom_instructions:
             raise ValueError(f"provider {info.name!r} does not support custom instructions")
         if (
@@ -619,7 +625,7 @@ class SynthesisService:
             voice=selected_voice,
             instructions=normalized_instructions,
             controls=selected_controls,
-            variables=dict(variables or {}),
+            variables=selected_variables,
         )
         policy = ChunkPolicy(
             max_bytes=min(

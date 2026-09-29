@@ -58,6 +58,52 @@ test("a document can be planned, directed, rendered, played, and reopened", asyn
   await page.getByLabel("Non-verbal sounds").fill("1");
   await page.getByLabel("Director's notes").fill("Pause gently after the heading.");
 
+  const advancedDisclosure = page.locator("details.advanced-controls");
+  const advancedSummary = advancedDisclosure.locator("summary");
+  await advancedSummary.focus();
+  await page.keyboard.press("Enter");
+  await expect(advancedDisclosure).toHaveAttribute("open", "");
+  await page.getByLabel("Engine").selectOption("alternate-fake");
+  await expect(page.getByLabel("Clarity")).toBeVisible();
+  await expect(page.getByLabel("Performance variation")).toHaveCount(0);
+  await page.getByLabel("Clarity").fill("8");
+  await expect(page.getByText("1 customized")).toBeVisible();
+
+  await page.getByLabel("Engine").selectOption("fake");
+  await expect(page.getByLabel("Performance variation")).toBeVisible();
+  await expect(page.getByLabel("Clarity")).toHaveCount(0);
+  await expect(page.getByText("Using recommended defaults")).toBeVisible();
+  await page.getByLabel("Performance variation").fill("1.5");
+  await expect(page.getByText("Performance variation must be at most 1.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Start new take" })).toBeDisabled();
+  await page.getByLabel("Performance variation").fill("0.4");
+  await page.getByLabel("Delivery mode").selectOption({ label: "dramatic" });
+  await expect(page.getByLabel("Repeatable seed")).toBeVisible();
+  await page.getByLabel("Repeatable seed").fill("42");
+  await page.getByLabel("Normalize audio").uncheck();
+  await expect(page.getByText("4 customized")).toBeVisible();
+
+  const navigation = page.getByRole("navigation", { name: "Studio workspaces" });
+  await navigation.getByRole("button", { name: "Library", exact: true }).click();
+  await navigation.getByRole("button", { name: "Narrate", exact: true }).click();
+  await expect(page.getByLabel("Repeatable seed")).toHaveValue("42");
+
+  await page.getByRole("button", { name: "Profiles" }).click();
+  const profiles = page.getByRole("dialog", { name: "Profiles" });
+  await profiles.getByLabel("Profile name").fill("Acceptance advanced controls");
+  await profiles.getByRole("button", { name: "Save profile" }).click();
+  await expect(profiles.getByText("Saved Acceptance advanced controls.")).toBeVisible();
+  await profiles.getByRole("button", { name: "Close" }).click();
+
+  await page.getByRole("button", { name: "Reset defaults" }).click();
+  await expect(page.getByText("Using recommended defaults")).toBeVisible();
+  await page.getByRole("button", { name: "Profiles" }).click();
+  const savedProfile = profiles.locator("article").filter({ hasText: "Acceptance advanced controls" });
+  await savedProfile.getByRole("button", { name: "Load" }).click();
+  await expect(page.getByLabel("Performance variation")).toHaveValue("0.4");
+  await expect(page.getByLabel("Repeatable seed")).toHaveValue("42");
+  await expect(page.getByText("4 customized")).toBeVisible();
+
   await page.getByRole("button", { name: "Preview chunks" }).click();
   await expect(page.getByRole("heading", { name: /planned chunks/ })).toBeVisible();
   await expect(page.getByLabel("Planned document chunks")).toBeVisible();
@@ -70,10 +116,9 @@ test("a document can be planned, directed, rendered, played, and reopened", asyn
     /\/v1\/speech\/jobs\/.+\/audio/,
   );
 
-  const navigation = page.getByRole("navigation", { name: "Studio workspaces" });
   await navigation.getByRole("button", { name: "Library", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "Acceptance chapter", exact: true }),
+    page.getByRole("heading", { name: "Acceptance advanced controls", exact: true }),
   ).toBeVisible();
 
   await navigation.getByRole("button", { name: "Timeline", exact: true }).click();

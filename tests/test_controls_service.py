@@ -2,8 +2,12 @@ from __future__ import annotations
 
 import asyncio
 
+import pytest
+
 from splicr.config import Settings
 from splicr.domain import (
+    ControlDefinition,
+    ControlValueType,
     DeliveryControls,
     JobStatus,
     NonverbalFrequency,
@@ -62,6 +66,47 @@ def test_worker_reconstructs_persisted_delivery_controls_for_every_chunk(tmp_pat
             persisted = service.get_job(submitted.id)
             assert persisted.controls == controls
             assert persisted.variables == {"seed": 17, "locale": "en-US"}
+        finally:
+            await service.stop()
+
+    asyncio.run(scenario())
+
+
+def test_advanced_control_defaults_are_frozen_and_invalid_values_fail_before_queueing(
+    tmp_path,
+) -> None:
+    async def scenario() -> None:
+        provider = RecordingProvider(
+            control_definitions=(
+                ControlDefinition(
+                    key="seed",
+                    value_type=ControlValueType.INTEGER,
+                    default=17,
+                    minimum=0,
+                    maximum=100,
+                ),
+            ),
+            allows_undeclared_variables=False,
+        )
+        settings = Settings(data_dir=tmp_path, pacing_seconds=0)
+        service = SynthesisService(settings=settings, providers=ProviderRegistry([provider]))
+        await service.start()
+        try:
+            submitted = await service.submit(text="A short test.", provider_name="fake")
+            assert submitted.variables == {"seed": 17}
+
+            with pytest.raises(ValueError, match="unknown advanced control"):
+                await service.submit(
+                    text="A rejected test.",
+                    provider_name="fake",
+                    variables={"mystery": True},
+                )
+            with pytest.raises(ValueError, match="at most 100"):
+                service.preview(
+                    text="A rejected preview.",
+                    provider_name="fake",
+                    variables={"seed": 101},
+                )
         finally:
             await service.stop()
 

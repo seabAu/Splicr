@@ -309,9 +309,17 @@ class ApiVariableDefinition:
     kind: VariableType = VariableType.STRING
     label: str | None = None
     description: str = ""
+    group: str = "General"
     required: bool = False
     default: JsonValue = None
     choices: tuple[JsonValue, ...] = ()
+    minimum: int | float | None = None
+    maximum: int | float | None = None
+    step: int | float | None = None
+    unit: str | None = None
+    sensitive: bool = False
+    visible_when: Mapping[str, JsonValue] = field(default_factory=dict)
+    enabled_when: Mapping[str, JsonValue] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if not _VARIABLE_NAME_RE.fullmatch(self.name):
@@ -321,8 +329,9 @@ class ApiVariableDefinition:
             _non_empty(self.label, "variable label")
         if len(self.description) > 2_000:
             raise ValueError("variable description cannot exceed 2000 characters")
-        if not isinstance(self.required, bool):
-            raise TypeError("variable required must be a boolean")
+        _non_empty(self.group, "variable group")
+        if not isinstance(self.required, bool) or not isinstance(self.sensitive, bool):
+            raise TypeError("variable required and sensitive flags must be booleans")
         default = _freeze_json(self.default, path=f"variable {self.name} default")
         if isinstance(self.choices, (str, bytes, bytearray)) or not isinstance(
             self.choices, Sequence
@@ -342,6 +351,46 @@ class ApiVariableDefinition:
             raise ValueError(f"choices for {self.name} must be unique")
         if choices and default is not None and _canonical_json(default) not in signatures:
             raise ValueError(f"default for {self.name} must be one of its choices")
+        if self.sensitive and (default is not None or choices):
+            raise ValueError("sensitive variables cannot declare defaults or choices")
+        numeric_metadata = (self.minimum, self.maximum, self.step)
+        if any(value is not None for value in numeric_metadata):
+            if self.kind not in {VariableType.INTEGER, VariableType.NUMBER}:
+                raise ValueError("variable range metadata requires integer or number kind")
+            if any(not _is_finite_number(value) for value in numeric_metadata if value is not None):
+                raise ValueError("variable range metadata must contain finite numbers")
+            if self.minimum is not None and self.maximum is not None:
+                if self.minimum > self.maximum:
+                    raise ValueError("variable minimum cannot exceed maximum")
+            if self.step is not None and self.step <= 0:
+                raise ValueError("variable step must be positive")
+        if self.kind is VariableType.INTEGER and any(
+            value is not None and (isinstance(value, bool) or not isinstance(value, int))
+            for value in numeric_metadata
+        ):
+            raise ValueError("integer variable range metadata must use integers")
+        if self.unit is not None:
+            _non_empty(self.unit, "variable unit", maximum=100)
+        if isinstance(default, (int, float)) and not isinstance(default, bool):
+            if self.minimum is not None and default < self.minimum:
+                raise ValueError(f"default for {self.name} is below its minimum")
+            if self.maximum is not None and default > self.maximum:
+                raise ValueError(f"default for {self.name} exceeds its maximum")
+        for choice in choices:
+            if isinstance(choice, (int, float)) and not isinstance(choice, bool):
+                if self.minimum is not None and choice < self.minimum:
+                    raise ValueError(f"choice for {self.name} is below its minimum")
+                if self.maximum is not None and choice > self.maximum:
+                    raise ValueError(f"choice for {self.name} exceeds its maximum")
+        visible_when = _freeze_object(self.visible_when, f"variable {self.name} visible_when")
+        enabled_when = _freeze_object(self.enabled_when, f"variable {self.name} enabled_when")
+        for condition_key in (*visible_when, *enabled_when):
+            if not _VARIABLE_NAME_RE.fullmatch(condition_key):
+                raise ValueError(f"invalid variable condition key: {condition_key!r}")
+            if condition_key == self.name:
+                raise ValueError("a variable cannot condition itself")
+        object.__setattr__(self, "visible_when", visible_when)
+        object.__setattr__(self, "enabled_when", enabled_when)
 
 
 def _matches_variable_type(value: JsonValue, kind: VariableType) -> bool:
@@ -698,9 +747,17 @@ class ApiResourceSpec:
                     "kind": variable.kind.value,
                     "label": variable.label,
                     "description": variable.description,
+                    "group": variable.group,
                     "required": variable.required,
                     "default": _thaw_json(variable.default),
                     "choices": [_thaw_json(choice) for choice in variable.choices],
+                    "minimum": variable.minimum,
+                    "maximum": variable.maximum,
+                    "step": variable.step,
+                    "unit": variable.unit,
+                    "sensitive": variable.sensitive,
+                    "visible_when": _thaw_json(variable.visible_when),
+                    "enabled_when": _thaw_json(variable.enabled_when),
                 }
                 for variable in self.variables
             ],
@@ -947,7 +1004,23 @@ def _reject_unknown_keys(value: Mapping[str, Any], allowed: set[str], field_name
 def _variable_from_dict(value: Mapping[str, Any]) -> ApiVariableDefinition:
     _reject_unknown_keys(
         value,
-        {"name", "kind", "label", "description", "required", "default", "choices"},
+        {
+            "name",
+            "kind",
+            "label",
+            "description",
+            "group",
+            "required",
+            "default",
+            "choices",
+            "minimum",
+            "maximum",
+            "step",
+            "unit",
+            "sensitive",
+            "visible_when",
+            "enabled_when",
+        },
         "variable",
     )
     return ApiVariableDefinition(
@@ -955,9 +1028,17 @@ def _variable_from_dict(value: Mapping[str, Any]) -> ApiVariableDefinition:
         kind=VariableType(value.get("kind", VariableType.STRING.value)),
         label=value.get("label"),
         description=value.get("description", ""),
+        group=value.get("group", "General"),
         required=value.get("required", False),
         default=value.get("default"),
         choices=tuple(value.get("choices", ())),
+        minimum=value.get("minimum"),
+        maximum=value.get("maximum"),
+        step=value.get("step"),
+        unit=value.get("unit"),
+        sensitive=value.get("sensitive", False),
+        visible_when=_mapping(value.get("visible_when", {}), "variable visible_when"),
+        enabled_when=_mapping(value.get("enabled_when", {}), "variable enabled_when"),
     )
 
 

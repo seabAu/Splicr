@@ -35,6 +35,8 @@ import {
 } from "lucide-react";
 
 import { api } from "./api.js";
+import { AdvancedControls } from "./AdvancedControls.jsx";
+import { reconcileControlValues } from "./advancedControls.js";
 import { AudiogramWorkspace } from "./AudiogramWorkspace.jsx";
 import { ConversionWorkspace } from "./ConversionWorkspace.jsx";
 import { ComponentsWorkspace } from "./ComponentsWorkspace.jsx";
@@ -399,6 +401,7 @@ function NarrateWorkspace({ active, projectToLoad }) {
   const [projectName, setProjectName] = useState("");
   const [profilesOpen, setProfilesOpen] = useState(false);
   const [resourcesOpen, setResourcesOpen] = useState(false);
+  const [advancedControlsValid, setAdvancedControlsValid] = useState(true);
   const [form, setForm] = useState({
     text: "",
     provider: "",
@@ -416,6 +419,7 @@ function NarrateWorkspace({ active, projectToLoad }) {
   const provider = providers.find((item) => item.name === form.provider) || providers[0];
   const stats = useMemo(() => textStats(form.text), [form.text]);
   const capabilities = provider?.capabilities || {};
+  const controlDefinitions = capabilities.control_definitions || [];
   const voiceEngine = provider?.name === "qwen3-local"
     ? "qwen3"
     : provider?.name === "audio8-local"
@@ -536,6 +540,20 @@ function NarrateWorkspace({ active, projectToLoad }) {
       },
     }));
   }, [provider?.name, voiceProfiles.length]);
+
+  useEffect(() => {
+    if (!provider) return;
+    setForm((current) => {
+      const variables = reconcileControlValues(
+        controlDefinitions,
+        current.variables,
+        Boolean(capabilities.allows_undeclared_variables),
+      );
+      return JSON.stringify(variables) === JSON.stringify(current.variables)
+        ? current
+        : { ...current, variables };
+    });
+  }, [provider?.name, provider?.revision, controlDefinitions, capabilities.allows_undeclared_variables]);
 
   useEffect(() => {
     if (!job || TERMINAL.has(job.status) || job.status === "paused") return undefined;
@@ -687,7 +705,7 @@ function NarrateWorkspace({ active, projectToLoad }) {
                 </select>
               </Control>
               <label className="check-control"><input type="checkbox" checked={form.remove_numeric_citations} onChange={(event) => patchForm({ remove_numeric_citations: event.target.checked })} /><span><strong>Remove numeric citations</strong><small>[123] and \[123\]</small></span></label>
-              <button className="secondary-button" disabled={!form.text.trim() || (requiresVoiceProfile && !form.voice_profile_id) || !!busy} onClick={previewChunks}><WandSparkles size={16} />{busy === "preview" ? "Planning…" : "Preview chunks"}</button>
+              <button className="secondary-button" disabled={!form.text.trim() || (requiresVoiceProfile && !form.voice_profile_id) || !advancedControlsValid || !!busy} onClick={previewChunks}><WandSparkles size={16} />{busy === "preview" ? "Planning…" : "Preview chunks"}</button>
             </div>
           </section>
 
@@ -734,9 +752,16 @@ function NarrateWorkspace({ active, projectToLoad }) {
                 />
               </Control>
             </div>
+            <AdvancedControls
+              definitions={controlDefinitions}
+              values={form.variables}
+              context={{ model: form.model, voice: form.voice, voice_profile_id: form.voice_profile_id }}
+              onChange={(variables) => patchForm({ variables })}
+              onValidityChange={setAdvancedControlsValid}
+            />
             <div className="render-row">
               <span><Sparkles size={16} />Chunks are checkpointed locally and resume safely.</span>
-              <button className="primary-button" disabled={!form.text.trim() || !form.provider || (requiresVoiceProfile && !form.voice_profile_id) || !!busy} onClick={startJob}>{busy === "start" ? "Starting…" : "Start new take"}<ChevronRight size={17} /></button>
+              <button className="primary-button" disabled={!form.text.trim() || !form.provider || (requiresVoiceProfile && !form.voice_profile_id) || !advancedControlsValid || !!busy} onClick={startJob}>{busy === "start" ? "Starting…" : "Start new take"}<ChevronRight size={17} /></button>
             </div>
           </section>
         </div>

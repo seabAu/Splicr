@@ -184,6 +184,56 @@ def test_preview_can_pin_an_older_resource_revision(tmp_path) -> None:
     assert len(current.json()["chunks"]) > 1
 
 
+def test_resource_control_definitions_are_exposed_with_ui_metadata(tmp_path) -> None:
+    client, _, _ = _resource_client(tmp_path)
+    variable_definitions = [
+        {
+            "name": "temperature",
+            "kind": "number",
+            "label": "Temperature",
+            "description": "Generation randomness.",
+            "group": "Generation",
+            "default": 0.75,
+            "minimum": 0,
+            "maximum": 2,
+            "step": 0.05,
+            "unit": "ratio",
+            "visible_when": {"sampling_enabled": True},
+        }
+    ]
+
+    with client:
+        response = client.post(
+            "/v1/api-resources",
+            json=_custom_payload(
+                auth_placement="none",
+                auth_name=None,
+                auth_prefix="",
+                headers={},
+                request_template={"text": "{{ text }}", "temperature": "{{ temperature }}"},
+                default_variables=None,
+                variable_definitions=variable_definitions,
+            ),
+        )
+
+    assert response.status_code == 201
+    resource = response.json()
+    saved_definition = resource["variable_definitions"][0]
+    assert {key: saved_definition[key] for key in variable_definitions[0]} == (
+        variable_definitions[0]
+    )
+    control = resource["capabilities"]["control_definitions"][0]
+    assert control["key"] == "temperature"
+    assert control["value_type"] == "number"
+    assert control["group"] == "Generation"
+    assert control["minimum"] == 0
+    assert control["maximum"] == 2
+    assert control["step"] == 0.05
+    assert control["visible_when"] == [
+        {"key": "sampling_enabled", "equals": True}
+    ]
+
+
 def settings_database_bytes(store: SqliteApiResourceStore) -> bytes:
     # SQLite may keep recent data in WAL; neither file may contain a write-only secret.
     content = store.database_path.read_bytes()

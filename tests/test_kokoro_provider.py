@@ -19,6 +19,13 @@ def test_kokoro_provider_builds_isolated_job_scoped_adapter() -> None:
     assert provider.info.name == "kokoro-local"
     assert provider.info.default_voice == "af_heart"
     assert provider.info.capabilities.speech_paces == tuple(SpeechPace)
+    speed = provider.info.capabilities.control_definitions[0]
+    assert (speed.key, speed.minimum, speed.maximum, speed.unit) == (
+        "speed",
+        0.5,
+        2.0,
+        "×",
+    )
     assert adapter.descriptor.transport is EngineTransport.LOCAL_SUBPROCESS
     assert adapter.descriptor.provider_info is provider.info
     assert adapter.spec.command[0] == str(Path(sys.executable).resolve())

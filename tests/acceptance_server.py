@@ -12,6 +12,7 @@ import uvicorn
 
 from splicr.api import create_app
 from splicr.config import Settings
+from splicr.domain import ControlCondition, ControlDefinition, ControlValueType
 from splicr.providers import ProviderRegistry
 from splicr.service import SynthesisService
 from tests.fakes import RecordingProvider
@@ -37,9 +38,63 @@ def _settings() -> Settings:
 
 def application():
     settings = _settings()
+    primary = RecordingProvider(
+        control_definitions=(
+            ControlDefinition(
+                key="temperature",
+                value_type=ControlValueType.NUMBER,
+                label="Performance variation",
+                description="Controls how much delivery can vary between passages.",
+                group="Generation",
+                default=0.7,
+                minimum=0.0,
+                maximum=1.0,
+                step=0.1,
+            ),
+            ControlDefinition(
+                key="delivery_mode",
+                label="Delivery mode",
+                group="Generation",
+                default="natural",
+                choices=("natural", "dramatic"),
+            ),
+            ControlDefinition(
+                key="seed",
+                value_type=ControlValueType.INTEGER,
+                label="Repeatable seed",
+                group="Generation",
+                minimum=0,
+                visible_when=(ControlCondition("delivery_mode", "dramatic"),),
+            ),
+            ControlDefinition(
+                key="normalize_audio",
+                value_type=ControlValueType.BOOLEAN,
+                label="Normalize audio",
+                description="Balance loudness before the take is assembled.",
+                group="Output",
+                default=True,
+            ),
+        ),
+        allows_undeclared_variables=False,
+    )
+    alternate = RecordingProvider(
+        provider_name="alternate-fake",
+        control_definitions=(
+            ControlDefinition(
+                key="clarity",
+                value_type=ControlValueType.INTEGER,
+                label="Clarity",
+                group="Voice",
+                default=5,
+                minimum=1,
+                maximum=10,
+            ),
+        ),
+        allows_undeclared_variables=False,
+    )
     synthesis = SynthesisService(
         settings=settings,
-        providers=ProviderRegistry([RecordingProvider()]),
+        providers=ProviderRegistry([primary, alternate]),
     )
     return create_app(settings=settings, service=synthesis)
 

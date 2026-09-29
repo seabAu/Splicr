@@ -6,6 +6,7 @@ from collections import Counter
 
 from splicr.domain import (
     AudioChunk,
+    ControlDefinition,
     ControlMode,
     NonverbalFrequency,
     ProviderCapabilities,
@@ -26,9 +27,12 @@ class RecordingProvider:
         fail_text: str | None = None,
         transient_failures: int = 0,
         minimum_request_interval_seconds: float | None = None,
+        control_definitions: tuple[ControlDefinition, ...] = (),
+        allows_undeclared_variables: bool = True,
+        provider_name: str = "fake",
     ) -> None:
         self._info = ProviderInfo(
-            name="fake",
+            name=provider_name,
             default_model="fake-model",
             default_voice="fake-voice",
             max_input_bytes=10_000,
@@ -48,6 +52,8 @@ class RecordingProvider:
                 vocal_style_modes=(ControlMode.NATIVE_ENUM,),
                 nonverbal_modes=(ControlMode.INLINE_MARKUP,),
                 nonverbal_cues=("sighs", "laughs"),
+                control_definitions=control_definitions,
+                allows_undeclared_variables=allows_undeclared_variables,
             ),
         )
         self.calls: list[str] = []

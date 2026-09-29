@@ -84,7 +84,15 @@ def _resource(
         variables=(
             ApiVariableDefinition("text", required=True),
             ApiVariableDefinition("voice", required=True),
-            ApiVariableDefinition("locale", default="en-US"),
+            ApiVariableDefinition(
+                "locale",
+                label="Language locale",
+                description="Locale sent to the custom endpoint.",
+                group="Voice",
+                default="en-US",
+                choices=("en-US", "en-GB"),
+                visible_when={"regional": True},
+            ),
         ),
         response=ApiResponseSpec(ResponseMode.JSON_BASE64_PCM, json_pointer="/audio/data"),
         defaults=TtsDefaults(
@@ -131,6 +139,14 @@ def test_generic_resource_maps_endpoint_secret_templates_limits_and_capabilities
     assert provider.info.capabilities.tone_presets == (TonePreset.NEUTRAL, TonePreset.WARM)
     assert provider.info.capabilities.tone_modes == (ControlMode.NATIVE_ENUM,)
     assert provider.info.capabilities.voices[0].traits == ("warm",)
+    control = provider.info.capabilities.control_definitions[0]
+    assert control.key == "locale"
+    assert control.label == "Language locale"
+    assert control.group == "Voice"
+    assert control.choices == ("en-US", "en-GB")
+    assert control.visible_when[0].key == "regional"
+    assert control.visible_when[0].equals is True
+    assert provider.info.capabilities.allows_undeclared_variables is False
     assert provider._api_key == "vault-secret"
     assert provider._trust_env_proxies is True
     assert provider._spec.url == "https://speech.example.test/v1/synthesize"

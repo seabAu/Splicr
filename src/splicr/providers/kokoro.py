@@ -4,7 +4,9 @@ from pathlib import Path
 
 from ..domain import (
     AudioChunk,
+    ControlDefinition,
     ControlMode,
+    ControlValueType,
     ProviderCapabilities,
     ProviderError,
     ProviderInfo,
@@ -104,6 +106,22 @@ class KokoroTtsProvider:
                 speech_paces=tuple(SpeechPace),
                 pace_modes=(ControlMode.NATIVE_SCALAR,),
                 supports_custom_instructions=False,
+                control_definitions=(
+                    ControlDefinition(
+                        key="speed",
+                        value_type=ControlValueType.NUMBER,
+                        label="Precise speed",
+                        description=(
+                            "Optional exact Kokoro rate. When set, this overrides the "
+                            "five-step speaking pace."
+                        ),
+                        group="Pacing",
+                        minimum=0.5,
+                        maximum=2.0,
+                        step=0.01,
+                        unit="×",
+                    ),
+                ),
             ),
         )
 
