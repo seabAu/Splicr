@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 import { api } from "./api.js";
+import { TranscriptionWorkspace } from "./TranscriptionWorkspace.jsx";
 
 const TERMINAL = new Set(["completed", "failed", "cancelled"]);
 const BITRATES = {
@@ -44,6 +45,15 @@ function qualityLabel(spec) {
   const values = BITRATES[spec.output_format];
   const index = Math.min(10, Math.max(0, Math.floor((spec.quality_pct + 5) / 10)));
   return `${values[index]} kbps`;
+}
+
+function UtilityTabs({ active, onChange }) {
+  return (
+    <nav className="audio-utility-tabs" aria-label="Audio utility mode">
+      <button type="button" className={active === "convert" ? "active" : ""} aria-current={active === "convert" ? "page" : undefined} onClick={() => onChange("convert")}>Convert</button>
+      <button type="button" className={active === "transcribe" ? "active" : ""} aria-current={active === "transcribe" ? "page" : undefined} onClick={() => onChange("transcribe")}>Transcribe</button>
+    </nav>
+  );
 }
 
 function ConversionJobCard({ job, onAction }) {
@@ -98,7 +108,7 @@ function ConversionJobCard({ job, onAction }) {
   );
 }
 
-export function ConversionWorkspace() {
+function AudioConversionPanel({ tabs }) {
   const [capabilities, setCapabilities] = useState(null);
   const [sources, setSources] = useState([]);
   const [sourceKey, setSourceKey] = useState("");
@@ -199,6 +209,7 @@ export function ConversionWorkspace() {
         </button>
         <input ref={fileInput} className="visually-hidden" type="file" accept="audio/*,.m4a,.mka,.webm,.mp4,.mov" onChange={(event) => upload(event.target.files?.[0])} />
       </header>
+      {tabs}
 
       {error && <p className="inline-error conversion-error">{error}</p>}
       {capabilities && !capabilities.ffmpeg_available && (
@@ -279,4 +290,12 @@ export function ConversionWorkspace() {
       </div>
     </main>
   );
+}
+
+export function ConversionWorkspace() {
+  const [mode, setMode] = useState("convert");
+  const tabs = <UtilityTabs active={mode} onChange={setMode} />;
+  return mode === "transcribe"
+    ? <TranscriptionWorkspace tabs={tabs} />
+    : <AudioConversionPanel tabs={tabs} />;
 }

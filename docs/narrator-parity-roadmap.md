@@ -101,7 +101,7 @@ normalized here so the native and unfinished web interfaces do not become compet
 | Optional components and engines visible before installation | Components workspace and local-engine onboarding; real install acceptance remains Milestone 9. |
 | Queue/batch render | Completed in Milestone 6 with frozen per-item jobs and Library controls. |
 | Sentence/timeline repair | Milestone 5; automated coverage complete, audible live seam check remains. |
-| Audio transcription and guessed chapters | Milestone 7. |
+| Audio transcription and guessed chapters | Milestone 7 automated parity complete; real faster-whisper acceptance remains. |
 | Still backgrounds, polar layouts, transparency, and safe expressions | Milestone 8. |
 | Installer/proper-app hardening | Portable/installer baseline exists; clean-VM install/upgrade evidence remains Milestone 9. |
 | Remaining component CSS-to-Tailwind cleanup | Non-blocking UI maintenance; browser behavior and accessibility, not framework purity, are the gate. |
@@ -141,7 +141,7 @@ human-readable work queue, including broader capabilities that were not render-s
 | Intro/outro assets and crossfade | Covered | Timeline / Publish | 5 |
 | Sentence-level regeneration and splice | Covered; audible live-engine seam check pending | Timeline | 5 |
 | Multi-document durable queue | Covered | Narrate / Library | 6 |
-| Audio transcription and guessed chapters | Gap | Convert / Publish | 7 |
+| Audio transcription and guessed chapters | Covered; live-model acceptance pending | Convert / Publish | 7 |
 | Still-image audiogram background | Gap | Audiogram | 8 |
 | Polar/transparent/formula audiograms | Gap | Audiogram | 8 |
 | Real provider/model/installer/crash acceptance | Partial | Test/release infrastructure | 9 |
@@ -332,19 +332,21 @@ Edge TTS was Narrator's zero-setup online fallback. It is not currently a merged
 
 ## Milestone 7 — audio transcription utility
 
-- [ ] Add faster-whisper as an optional external/local component, loaded only on demand.
-- [ ] Implement a provider-neutral transcription boundary so other ASR engines can be added later.
-- [ ] Import managed audio and produce a durable transcript with segment and optional word timings.
-- [ ] Regroup short ASR utterances into readable paragraphs.
-- [ ] Export SRT/VTT and optional per-line timestamps.
-- [ ] Generate clearly labelled **guessed** chapter marks from pauses; do not equate them with source
+- [x] Add faster-whisper as an optional external/local component, loaded only on demand.
+- [x] Implement a provider-neutral transcription boundary so other ASR engines can be added later.
+- [x] Import managed audio and produce a durable transcript with segment and optional word timings.
+- [x] Regroup short ASR utterances into readable paragraphs.
+- [x] Export SRT/VTT and optional per-line timestamps.
+- [x] Generate clearly labelled **guessed** chapter marks from pauses; do not equate them with source
   document headings.
-- [ ] Expose model size, language/auto-detect, device, compute type, VAD, and word-timing controls
+- [x] Expose model size, language/auto-detect, device, compute type, VAD, and word-timing controls
   through typed metadata.
-- [ ] Run transcription as a durable job with download/model errors, progress, cancel, restart, and
+- [x] Run transcription as a durable job with download/model errors, progress, cancel, restart, and
   atomic artifacts.
-- [ ] Unit-test against a faithful fake faster-whisper surface and complete a real-model acceptance
-  run on a supported machine.
+- [x] Unit-test against a faithful fake faster-whisper surface and add an opt-in real-model
+  acceptance contract.
+- [ ] Complete the opt-in real-model acceptance run on a supported machine and record its
+  interpreter/model/audio/date/result; mocks and browser fakes cannot close this evidence item.
 
 ## Milestone 8 — advanced audiogram parity
 
@@ -493,17 +495,24 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   current-versus-remaining cancellation, and not-started-only reorder/remove. Browser coverage
   proves Library multi-select creation, visible progress, pause-after-current/resume, reload
   persistence, one-item provider failure followed by success, final counts, and per-item download.
+- [x] 2026-09-29 — Milestone 7 automated transcription gate passed: Ruff, 506 Python tests with
+  four explicit live-environment skips, eight frontend unit tests, the Vite production build, and
+  five Chromium journeys. Coverage includes the faithful faster-whisper 1.2-style surface,
+  provider-neutral normalized timing records, typed options, readable paragraph regrouping,
+  guessed-chapter labelling, SRT/WebVTT, line timestamps, structured model errors, cancellation,
+  atomic outputs, interrupted-process recovery, managed upload, live browser progress/downloads,
+  and reload persistence. The real-model opt-in test remains open by design.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
 ## Current work pointer
 
-- **Active milestone:** Milestones 2/3/5 live acceptance closeout plus Milestone 7 — durable audio
-  transcription.
-- **Next implementation slice:** add the provider-neutral transcription boundary, optional
-  faster-whisper component, durable timing artifacts, and Convert/Publish controls. Real Qwen,
-  Edge, and audible sentence-seam acceptance remains ready when configured environments are
-  available.
+- **Active milestone:** Milestones 2/3/5/7 live acceptance closeout plus Milestone 8 — advanced
+  audiogram parity.
+- **Next implementation slice:** add managed still-image backgrounds and a shared preview/render
+  layout resolver before exposing polar, alpha-overlay, placement, and animation controls. Real
+  Qwen, Edge, faster-whisper, and audible sentence-seam acceptance remains ready when configured
+  environments are available.
 - **Known unrelated worktree item:** `LICENSE.txt` is untracked and not part of this roadmap unless
   deliberately adopted later.
 
@@ -562,3 +571,12 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   original Library projects. Full Ruff/Python/frontend/build gates and four Chromium journeys pass;
   the batch journey covers creation, progress, pause/resume, reload persistence, mixed failure
   continuation, summary, and per-item download.
+- **2026-09-29:** Completed the automated portion of Milestone 7. Added an isolated, lazy
+  faster-whisper component and provider-neutral ASR contract; durable restartable/cancellable jobs;
+  structured model/download errors; managed audio import; segment and word timing JSON; readable
+  paragraph regrouping; per-line Markdown timestamps; SRT/WebVTT; and explicitly labelled guessed
+  chapters. Convert exposes a separate Transcribe mode with essential controls first and hardware,
+  precision, VAD, word timing, and pause thresholds behind one advanced disclosure. Faithful worker,
+  restart/cancel/atomic-output, API/download, and Chromium import/progress/reload tests pass. The
+  opt-in real-model run remains open until a configured faster-whisper environment and audio fixture
+  supply actual recognition evidence.

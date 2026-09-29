@@ -823,12 +823,15 @@ button:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important
 
 /* Conversion workspace */
 .conversion-workspace { padding: 28px 32px 64px; max-width: 1680px; margin: 0 auto; }
+.audio-utility-tabs { display: inline-flex; gap: 4px; padding: 4px; margin: 0 0 18px; border: 1px solid var(--line); border-radius: 12px; background: rgba(0,0,0,.18); }
+.audio-utility-tabs button { min-width: 112px; padding: 9px 15px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font-weight: 700; }
+.audio-utility-tabs button.active { background: var(--accent-soft); color: var(--accent); box-shadow: inset 0 0 0 1px rgba(216,255,114,.18); }
 .conversion-header { align-items: end; }
 .conversion-header > div:first-child { flex: 1; }
 .conversion-header > div:first-child > p:last-child { color: var(--muted); margin: 6px 0 0; }
 .conversion-layout { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(300px, .75fr); gap: 18px; align-items: start; }
 .conversion-main-stack, .conversion-activity { display: grid; gap: 16px; min-width: 0; }
-.conversion-source-card, .conversion-settings-card, .conversion-split-card, .conversion-job, .conversion-history { padding: 22px; }
+.conversion-source-card, .conversion-settings-card, .conversion-split-card, .conversion-job, .conversion-history, .transcription-settings-card, .transcription-output-card, .transcription-job { padding: 22px; }
 .conversion-source-card .control { max-width: none; }
 .conversion-error { margin: 0 0 16px; }
 .conversion-drop { width: 100%; min-height: 148px; display: grid; place-items: center; align-content: center; gap: 7px; border: 1px dashed #42453c; border-radius: 14px; color: var(--muted); background: rgba(255,255,255,.015); }
@@ -858,6 +861,20 @@ button:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important
 .conversion-history > button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .conversion-history > button small { color: var(--muted); text-transform: capitalize; }
 .conversion-history > button.active span { color: var(--accent); }
+.transcription-advanced { margin-top: 16px; border-top: 1px solid var(--line-soft); }
+.transcription-advanced summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 15px 2px 4px; color: var(--text); cursor: pointer; list-style: none; }
+.transcription-advanced summary::-webkit-details-marker { display: none; }
+.transcription-advanced summary > span:first-child { display: grid; gap: 3px; }
+.transcription-advanced summary small { color: var(--muted); font-weight: 400; }
+.transcription-advanced summary > span:last-child { color: var(--accent); font-size: 12px; }
+.transcription-advanced[open] summary { margin-bottom: 12px; }
+.transcription-output-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.warning-choice { border-color: rgba(255,173,107,.28); }
+.transcription-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 14px 0; }
+.transcription-facts > div { padding: 9px; border: 1px solid var(--line-soft); border-radius: 9px; }
+.transcription-facts dt { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .07em; }
+.transcription-facts dd { margin: 4px 0 0; font-size: 12px; }
+.transcription-job .inline-error { display: grid; gap: 3px; }
 .muted-copy { color: var(--muted); }
 
 @media (max-width: 1050px) {
@@ -870,9 +887,12 @@ button:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important
   .conversion-header { align-items: stretch; }
   .conversion-header .secondary-button { width: 100%; justify-content: center; }
   .conversion-split-options, .conversion-activity { grid-template-columns: 1fr; }
-  .conversion-source-card, .conversion-settings-card, .conversion-split-card, .conversion-job, .conversion-history { padding: 18px; }
+  .conversion-source-card, .conversion-settings-card, .conversion-split-card, .conversion-job, .conversion-history, .transcription-settings-card, .transcription-output-card, .transcription-job { padding: 18px; }
   .conversion-job-heading { grid-template-columns: auto minmax(0, 1fr); }
   .conversion-job-heading > strong { grid-column: 2; }
+  .transcription-output-options, .transcription-facts { grid-template-columns: 1fr; }
+  .audio-utility-tabs { display: flex; }
+  .audio-utility-tabs button { min-width: 0; flex: 1; }
 }
 
 /* Components workspace */

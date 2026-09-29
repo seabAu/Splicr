@@ -24,6 +24,16 @@ from splicr.domain import (
 from splicr.providers import ProviderRegistry
 from splicr.service import SynthesisService
 from splicr.studio import SqliteStudioStore
+from splicr.studio.conversion import ConversionJobStore
+from splicr.studio.transcription import (
+    TranscriptionControlDefinition,
+    TranscriptionJobService,
+    TranscriptionJobStore,
+    TranscriptionProviderDescriptor,
+    TranscriptionResult,
+    TranscriptionSegment,
+    TranscriptionWord,
+)
 from splicr.studio.voice_design import (
     QWEN_DESIGN_MODEL,
     QWEN_REFERENCE_TEXT,
@@ -44,9 +54,7 @@ class AcceptanceRecordingProvider(RecordingProvider):
 
 
 class AcceptanceVoiceDesignRunner:
-    async def design(
-        self, *, description, take, output_path, result_path, should_cancel
-    ):
+    async def design(self, *, description, take, output_path, result_path, should_cancel):
         del description, should_cancel
         output_path.parent.mkdir(parents=True, exist_ok=True)
         with wave.open(str(output_path), "wb") as recording:
@@ -76,6 +84,51 @@ class AcceptanceVoiceDesignRunner:
             encoding="utf-8",
         )
         return result
+
+
+class AcceptanceTranscriptionProvider:
+    @property
+    def descriptor(self):
+        return TranscriptionProviderDescriptor(
+            id="acceptance-asr",
+            label="Acceptance ASR",
+            description="Deterministic local transcription acceptance provider.",
+            controls=(
+                TranscriptionControlDefinition(
+                    "model", "Model size", "enum", "base", "Acceptance model", ("base",)
+                ),
+            ),
+        )
+
+    @property
+    def available(self):
+        return True
+
+    async def transcribe(self, audio_path, options, *, on_progress, is_cancelled):
+        del audio_path, options
+        for index in range(3):
+            await asyncio.sleep(0.12)
+            if is_cancelled():
+                from splicr.studio.transcription import TranscriptionCancelled
+
+                raise TranscriptionCancelled
+            on_progress((index + 1) / 3, "transcribing", index + 1, 6, index + 1)
+        return TranscriptionResult(
+            segments=(
+                TranscriptionSegment(
+                    0,
+                    0,
+                    1.5,
+                    "Welcome to the acceptance recording.",
+                    (TranscriptionWord(0, 0.5, "Welcome"),),
+                ),
+                TranscriptionSegment(1, 1.8, 3, "This remains one paragraph."),
+                TranscriptionSegment(2, 5.5, 6, "A guessed chapter starts here."),
+            ),
+            language="en",
+            language_probability=0.99,
+            duration_seconds=6,
+        )
 
 
 def _settings() -> Settings:
@@ -181,10 +234,22 @@ def application():
         output_root=settings.data_dir / "studio" / "voices",
         runner=AcceptanceVoiceDesignRunner(),
     )
+    conversion_store = ConversionJobStore(settings.database_path)
+    conversion_store.initialize()
+    transcriptions = TranscriptionJobService(
+        store=TranscriptionJobStore(settings.database_path),
+        conversion_store=conversion_store,
+        source_store=synthesis.store,
+        source_storage=synthesis.storage,
+        studio_store=studio,
+        output_root=settings.data_dir / "studio" / "transcriptions",
+        providers=[AcceptanceTranscriptionProvider()],
+    )
     return create_app(
         settings=settings,
         service=synthesis,
         voice_design_service=voice_designs,
+        transcription_service=transcriptions,
     )
 
 

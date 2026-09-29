@@ -30,6 +30,7 @@ def _clear_engine_environment(monkeypatch) -> None:
         "SPLICR_QWEN3_PYTHON",
         "SPLICR_AUDIO8_PYTHON",
         "SPLICR_EDGE_PYTHON",
+        "SPLICR_WHISPER_PYTHON",
     ):
         monkeypatch.delenv(name, raising=False)
 
@@ -84,7 +85,7 @@ def test_malformed_component_file_is_ignored_safely(tmp_path: Path, monkeypatch)
     manager = ComponentManager(settings)
 
     assert manager.apply(settings) == settings
-    assert len(manager.status(settings)["engines"]) == 4
+    assert len(manager.status(settings)["engines"]) == 5
 
 
 def test_component_api_persists_validated_engine_paths(tmp_path: Path, monkeypatch) -> None:
@@ -112,6 +113,7 @@ def test_component_api_persists_validated_engine_paths(tmp_path: Path, monkeypat
             "qwen3",
             "audio8",
             "edge",
+            "whisper",
         }
         refreshed = client.post("/v1/studio/components/engines/edge/voices/refresh")
         assert refreshed.status_code == 200

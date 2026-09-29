@@ -264,6 +264,20 @@ export const api = {
     request(`/v1/studio/conversions/jobs/${encodeURIComponent(id)}/${action}`, {
       method: "POST",
     }),
+  transcriptionCapabilities: () => request("/v1/studio/transcriptions/capabilities"),
+  transcriptionSources: () => request("/v1/studio/transcriptions/sources"),
+  transcriptionJobs: () => request("/v1/studio/transcriptions/jobs"),
+  transcriptionJob: (id) =>
+    request(`/v1/studio/transcriptions/jobs/${encodeURIComponent(id)}`),
+  createTranscription: (payload) =>
+    request("/v1/studio/transcriptions/jobs", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  transcriptionJobAction: (id, action) =>
+    request(`/v1/studio/transcriptions/jobs/${encodeURIComponent(id)}/${action}`, {
+      method: "POST",
+    }),
   publishingChannel: () => request("/v1/studio/publishing/channel"),
   savePublishingChannel: (payload) =>
     request("/v1/studio/publishing/channel", {

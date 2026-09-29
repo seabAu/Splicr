@@ -47,6 +47,17 @@ from .subtitles import (
     SubtitleTimingSource,
     serialize_subtitles,
 )
+from .transcription import (
+    TranscriptionJob,
+    TranscriptionJobService,
+    TranscriptionJobStatus,
+    TranscriptionOptions,
+    TranscriptionProvider,
+    TranscriptionProviderDescriptor,
+    TranscriptionResult,
+    TranscriptionSegment,
+    TranscriptionWord,
+)
 
 __all__ = [
     "Artifact",
@@ -82,6 +93,15 @@ __all__ = [
     "SubtitleTimeline",
     "SubtitleTimingConfidence",
     "SubtitleTimingSource",
+    "TranscriptionJob",
+    "TranscriptionJobService",
+    "TranscriptionJobStatus",
+    "TranscriptionOptions",
+    "TranscriptionProvider",
+    "TranscriptionProviderDescriptor",
+    "TranscriptionResult",
+    "TranscriptionSegment",
+    "TranscriptionWord",
     "engine_adapter_for_provider",
     "import_narrator_customizations",
     "import_narrator_projects",

@@ -164,6 +164,52 @@ test("Library batch queues persist frozen work and surface skipped items", async
   expect(runtimeErrors).toEqual([]);
 });
 
+test("Convert imports audio and preserves a durable transcription package", async ({ page }) => {
+  const runtimeErrors = captureRuntimeErrors(page);
+  const navigation = page.getByRole("navigation", { name: "Studio workspaces" });
+  await navigation.getByRole("button", { name: "Convert", exact: true }).click();
+  await page.getByRole("button", { name: "Transcribe", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Transcribe", exact: true })).toBeVisible();
+
+  await page.locator('.transcription-workspace input[type="file"]').setInputFiles({
+    name: "acceptance recording.wav",
+    mimeType: "audio/wav",
+    buffer: Buffer.from("deterministic acceptance audio"),
+  });
+  await expect(page.getByLabel("Completed take or imported file")).toContainText("acceptance recording.wav");
+
+  await page.getByText("Advanced recognition", { exact: true }).click();
+  await page.getByLabel("Word timings").check();
+  await page.getByLabel("Per-line timestamps").check();
+  const start = page.getByRole("button", { name: "Transcribe audio" });
+  await expect(start).toBeEnabled();
+  await start.click();
+  await expect(page.getByText("Latest transcription")).toBeVisible();
+  await expect(page.locator(".transcription-job")).toContainText(/transcribing|completed/, {
+    timeout: 10_000,
+  });
+  await expect(page.locator(".transcription-job")).toContainText("100%", { timeout: 15_000 });
+  await expect(page.locator(".transcription-facts")).toContainText("0:06 / 0:06");
+  await expect(page.getByRole("link", { name: "Transcript" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "SRT" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "WebVTT" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Guessed chapters" })).toBeVisible();
+
+  const transcriptUrl = await page.getByRole("link", { name: "Transcript" }).getAttribute("href");
+  const transcript = await page.request.get(transcriptUrl);
+  expect(transcript.ok()).toBeTruthy();
+  expect(await transcript.text()).toContain("**[0:00]** Welcome to the acceptance recording.");
+
+  await page.reload();
+  await navigation.getByRole("button", { name: "Convert", exact: true }).click();
+  await page.getByRole("button", { name: "Transcribe", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Transcription history" })).toBeVisible();
+  await expect(page.locator(".transcription-workspace .conversion-history").getByText("acceptance recording.wav")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Transcript" })).toBeVisible();
+
+  expect(runtimeErrors).toEqual([]);
+});
+
 test("a document can be planned, directed, rendered, played, and reopened", async ({ page }) => {
   const runtimeErrors = captureRuntimeErrors(page);
   const source = page.getByPlaceholder(/Paste the document you want to hear/);

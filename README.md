@@ -5,8 +5,9 @@ asynchronous job, splits the source at natural boundaries, calls one TTS provide
 time, checkpoints each raw PCM response, and assembles the successful chunks under one WAV
 header.
 
-Despite the source document's use of “transcription,” this service performs **speech synthesis**
-(text to speech), not speech-to-text transcription.
+SPLICR Studio also includes a provider-neutral audio-transcription utility. Its optional local
+faster-whisper component runs in a configured Python environment and produces durable transcripts,
+timing data, subtitles, and clearly labelled pause-derived chapter drafts.
 
 ## What is implemented
 
@@ -61,6 +62,9 @@ Despite the source document's use of “transcription,” this service performs 
 - Durable reusable intro/outro assets and resumable finishing jobs that create an atomic derived
   WAV with safe crossfades, optional loudness normalization, and one shared timing offset for
   subtitles, chapters, Timeline navigation, and publishing
+- A durable audio-to-text workspace with a provider-neutral ASR boundary, isolated optional
+  faster-whisper runtime, segment/word timings, readable paragraph regrouping, SRT/WebVTT,
+  per-line transcript timestamps, and explicitly guessed pause-derived chapter drafts
 
 Gemini remains available as a Preview provider. Deepgram Aura-2 and Inworld TTS-2 are also
 registered, and every provider's model and voice defaults can be changed through environment
@@ -162,6 +166,7 @@ SPLICR_KOKORO_PYTHON=C:\path\to\Narrator\kokoro-env\Scripts\python.exe
 SPLICR_QWEN3_PYTHON=C:\path\to\Narrator\qwen3-env\Scripts\python.exe
 SPLICR_AUDIO8_PYTHON=C:\path\to\Narrator\audio8-env\Scripts\python.exe
 SPLICR_EDGE_PYTHON=C:\path\to\edge-tts-env\Scripts\python.exe
+SPLICR_WHISPER_PYTHON=C:\path\to\faster-whisper-env\Scripts\python.exe
 ```
 
 On Linux or macOS, use each environment's `bin/python`. The first uncached local-engine run may
@@ -326,6 +331,12 @@ uv run splicr synthesize .\input_document.md .\continuous_reading.wav `
 | `POST` | `/v1/studio/conversions/jobs/{id}/{cancel,retry}` | Cancel or retry a conversion |
 | `GET` | `/v1/studio/conversions/jobs/{id}/file` | Download the complete converted file |
 | `GET` | `/v1/studio/conversions/jobs/{id}/parts/{index}` | Download one verified split part |
+| `GET` | `/v1/studio/transcriptions/capabilities` | Read ASR providers and typed recognition controls |
+| `GET` | `/v1/studio/transcriptions/sources` | List completed takes and managed uploaded audio for ASR |
+| `GET`, `POST` | `/v1/studio/transcriptions/jobs` | List or queue durable transcription jobs |
+| `GET` | `/v1/studio/transcriptions/jobs/{id}` | Read ASR phase, progress, timings, errors, and output links |
+| `POST` | `/v1/studio/transcriptions/jobs/{id}/{cancel,retry}` | Cancel or retry transcription |
+| `GET` | `/v1/studio/transcriptions/jobs/{id}/files/{name}` | Download transcript, timing data, subtitles, or guessed chapters |
 | `GET` | `/v1/studio/finishing/capabilities` | Read FFmpeg availability and finishing defaults |
 | `GET`, `POST` | `/v1/studio/finishing/assets` | List or add durable reusable intro/outro audio |
 | `GET`, `POST` | `/v1/studio/finishing/jobs` | List or queue durable derived-master jobs |
@@ -414,9 +425,8 @@ The important tuning controls are:
   `SPLICR_MAX_SOURCE_WORDS`, and `SPLICR_MAX_OUTPUT_PCM_BYTES`
 - `SPLICR_PACING_SECONDS`
 - `SPLICR_DEEPGRAM_PACING_SECONDS` and `SPLICR_INWORLD_PACING_SECONDS`
-- `SPLICR_KOKORO_PYTHON`, `SPLICR_QWEN3_PYTHON`, `SPLICR_AUDIO8_PYTHON`, and
-  `SPLICR_EDGE_PYTHON` to enable isolated
-  local engines
+- `SPLICR_KOKORO_PYTHON`, `SPLICR_QWEN3_PYTHON`, `SPLICR_AUDIO8_PYTHON`,
+  `SPLICR_EDGE_PYTHON`, and `SPLICR_WHISPER_PYTHON` to enable isolated local model environments
 - `SPLICR_LOCAL_ENGINE_STARTUP_TIMEOUT_SECONDS` and
   `SPLICR_LOCAL_ENGINE_REQUEST_TIMEOUT_SECONDS`
 - `SPLICR_PROVIDER_TIMEOUT_SECONDS`

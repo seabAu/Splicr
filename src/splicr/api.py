@@ -189,6 +189,17 @@ from .studio.subtitles import (
     SubtitleService,
     SubtitleTimeline,
 )
+from .studio.transcription import (
+    FasterWhisperProvider,
+    InvalidTranscriptionJobStateError,
+    TranscriptionJob,
+    TranscriptionJobNotFoundError,
+    TranscriptionJobService,
+    TranscriptionJobStatus,
+    TranscriptionJobStore,
+    TranscriptionOptions,
+    TranscriptionProviderError,
+)
 from .studio.voice_design import (
     InvalidVoiceDesignJobStateError,
     SubprocessQwenVoiceDesignRunner,
@@ -1841,6 +1852,110 @@ class ConversionJobResponse(BaseModel):
         )
 
 
+class TranscriptionOptionsPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    model: str = Field(default="base", min_length=1, max_length=240)
+    language: str | None = Field(default=None, max_length=24)
+    device: Literal["auto", "cpu", "cuda"] = "auto"
+    compute_type: Literal["default", "int8", "int8_float16", "float16", "float32"] = (
+        "default"
+    )
+    vad_filter: bool = True
+    word_timestamps: bool = False
+    include_srt: bool = True
+    include_vtt: bool = True
+    line_timestamps: bool = False
+    guessed_chapters: bool = True
+    paragraph_gap_seconds: float = Field(default=2, ge=0.25, le=30)
+    chapter_pause_seconds: float = Field(default=2, ge=0.25, le=30)
+
+    @field_validator("language")
+    @classmethod
+    def normalize_language(cls, value: str | None) -> str | None:
+        return value.strip() or None if value is not None else None
+
+    def to_domain(self) -> TranscriptionOptions:
+        return TranscriptionOptions(**self.model_dump())
+
+
+class TranscriptionCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source_job_id: str | None = Field(default=None, min_length=1, max_length=64)
+    input_id: str | None = Field(default=None, min_length=1, max_length=64)
+    provider_id: str = Field(default="faster-whisper", min_length=1, max_length=100)
+    options: TranscriptionOptionsPayload = Field(default_factory=TranscriptionOptionsPayload)
+
+    @model_validator(mode="after")
+    def source_must_be_unambiguous(self) -> "TranscriptionCreateRequest":
+        if bool(self.source_job_id) == bool(self.input_id):
+            raise ValueError("choose exactly one completed take or imported audio file")
+        return self
+
+
+class TranscriptionJobResponse(BaseModel):
+    id: str
+    source_job_id: str | None
+    input_id: str | None
+    source_name: str
+    project_id: str | None
+    take_id: str | None
+    provider_id: str
+    status: TranscriptionJobStatus
+    phase: str
+    options: TranscriptionOptionsPayload
+    progress: float
+    processed_seconds: float
+    duration_seconds: float
+    segment_count: int
+    detected_language: str | None
+    language_probability: float | None
+    output_urls: dict[str, str]
+    artifact_ids: dict[str, str]
+    error_code: str | None
+    error_detail: str | None
+    cancel_requested: bool
+    created_at: str
+    updated_at: str
+
+    @classmethod
+    def from_domain(cls, job: TranscriptionJob) -> "TranscriptionJobResponse":
+        ready = job.status is TranscriptionJobStatus.COMPLETED
+        return cls(
+            id=job.id,
+            source_job_id=job.source_job_id,
+            input_id=job.input_id,
+            source_name=job.source_name,
+            project_id=job.project_id,
+            take_id=job.take_id,
+            provider_id=job.provider_id,
+            status=job.status,
+            phase=job.phase,
+            options=TranscriptionOptionsPayload(**job.options.to_mapping()),
+            progress=job.progress,
+            processed_seconds=job.processed_seconds,
+            duration_seconds=job.duration_seconds,
+            segment_count=job.segment_count,
+            detected_language=job.detected_language,
+            language_probability=job.language_probability,
+            output_urls=(
+                {
+                    name: f"/v1/studio/transcriptions/jobs/{job.id}/files/{name}"
+                    for name in job.output_paths
+                }
+                if ready
+                else {}
+            ),
+            artifact_ids=dict(job.artifact_ids),
+            error_code=job.error_code,
+            error_detail=job.error_detail,
+            cancel_requested=job.cancel_requested,
+            created_at=job.created_at,
+            updated_at=job.updated_at,
+        )
+
+
 class PodcastChannelPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -2532,6 +2647,7 @@ def create_app(
     finishing_service: FinishingJobService | None = None,
     audiogram_service: AudiogramJobService | None = None,
     conversion_service: ConversionJobService | None = None,
+    transcription_service: TranscriptionJobService | None = None,
     publishing_service: PublishingService | None = None,
     voice_design_service: VoiceDesignJobService | None = None,
     batch_queue_service: BatchQueueService | None = None,
@@ -2604,6 +2720,23 @@ def create_app(
         converter=FfmpegAudioConverter(),
     )
     conversions.store.initialize()
+    transcriptions = transcription_service or TranscriptionJobService(
+        store=TranscriptionJobStore(resolved_settings.database_path),
+        conversion_store=conversions.store,
+        source_store=synthesis.store,
+        source_storage=synthesis.storage,
+        studio_store=studio,
+        output_root=resolved_settings.data_dir / "studio" / "transcriptions",
+        providers=[
+            FasterWhisperProvider(
+                python_path=resolved_settings.whisper_python,
+                worker_path=Path(__file__).resolve().parent / "transcription_worker.py",
+                download_root=resolved_settings.data_dir / "studio" / "models" / "faster-whisper",
+                startup_timeout_seconds=resolved_settings.local_engine_startup_timeout_seconds,
+            )
+        ],
+    )
+    transcriptions.store.initialize()
     publishing = publishing_service or PublishingService(
         store=PublishingStore(resolved_settings.database_path),
         studio_store=studio,
@@ -2666,11 +2799,15 @@ def create_app(
                         try:
                             await conversions.start()
                             try:
-                                await batches.start()
+                                await transcriptions.start()
                                 try:
-                                    yield
+                                    await batches.start()
+                                    try:
+                                        yield
+                                    finally:
+                                        await batches.stop()
                                 finally:
-                                    await batches.stop()
+                                    await transcriptions.stop()
                             finally:
                                 await conversions.stop()
                         finally:
@@ -2698,6 +2835,7 @@ def create_app(
     application.state.finishing_service = finishing
     application.state.audiogram_service = audiograms
     application.state.conversion_service = conversions
+    application.state.transcription_service = transcriptions
     application.state.batch_queue_service = batches
     application.state.publishing_service = publishing
     application.state.voice_design_service = voice_designs
@@ -4501,6 +4639,130 @@ def create_app(
             path,
             media_type=media_type_for(job.spec.output_format),
             filename=f"{Path(job.source_name).stem}-{part_index + 1:03d}.{job.spec.output_format.value}",
+        )
+
+    @application.get("/v1/studio/transcriptions/capabilities", tags=["studio"])
+    async def get_transcription_capabilities(response: Response) -> dict[str, Any]:
+        response.headers["Cache-Control"] = "no-store"
+        return {
+            "providers": transcriptions.capabilities(),
+            "defaults": TranscriptionOptionsPayload().model_dump(mode="json"),
+            "max_upload_bytes": resolved_settings.max_audio_upload_bytes,
+        }
+
+    @application.get("/v1/studio/transcriptions/sources", tags=["studio"])
+    async def list_transcription_sources(response: Response) -> list[dict[str, Any]]:
+        response.headers["Cache-Control"] = "no-store"
+        return conversions.list_sources()
+
+    @application.get(
+        "/v1/studio/transcriptions/jobs",
+        response_model=list[TranscriptionJobResponse],
+        tags=["studio"],
+    )
+    async def list_transcription_jobs(
+        response: Response,
+        limit: int = Query(default=100, ge=1, le=500),
+    ) -> list[TranscriptionJobResponse]:
+        response.headers["Cache-Control"] = "no-store"
+        return [
+            TranscriptionJobResponse.from_domain(job)
+            for job in transcriptions.store.list(limit=limit)
+        ]
+
+    @application.post(
+        "/v1/studio/transcriptions/jobs",
+        response_model=TranscriptionJobResponse,
+        status_code=status.HTTP_202_ACCEPTED,
+        tags=["studio"],
+    )
+    async def create_transcription_job(
+        request: TranscriptionCreateRequest,
+    ) -> TranscriptionJobResponse:
+        try:
+            job = await transcriptions.submit(
+                provider_id=request.provider_id,
+                options=request.options.to_domain(),
+                source_job_id=request.source_job_id,
+                input_id=request.input_id,
+            )
+        except (JobNotFoundError, ConversionInputNotFoundError) as error:
+            raise HTTPException(status_code=404, detail="transcription source not found") from error
+        except TranscriptionProviderError as error:
+            raise HTTPException(status_code=503, detail=error.detail) from error
+        except FileNotFoundError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        return TranscriptionJobResponse.from_domain(job)
+
+    @application.get(
+        "/v1/studio/transcriptions/jobs/{job_id}",
+        response_model=TranscriptionJobResponse,
+        tags=["studio"],
+    )
+    async def get_transcription_job(
+        job_id: str, response: Response
+    ) -> TranscriptionJobResponse:
+        response.headers["Cache-Control"] = "no-store"
+        try:
+            return TranscriptionJobResponse.from_domain(transcriptions.store.get(job_id))
+        except TranscriptionJobNotFoundError as error:
+            raise HTTPException(status_code=404, detail="transcription job not found") from error
+
+    @application.post(
+        "/v1/studio/transcriptions/jobs/{job_id}/cancel",
+        response_model=TranscriptionJobResponse,
+        tags=["studio"],
+    )
+    async def cancel_transcription_job(job_id: str) -> TranscriptionJobResponse:
+        try:
+            return TranscriptionJobResponse.from_domain(await transcriptions.cancel(job_id))
+        except TranscriptionJobNotFoundError as error:
+            raise HTTPException(status_code=404, detail="transcription job not found") from error
+        except InvalidTranscriptionJobStateError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+
+    @application.post(
+        "/v1/studio/transcriptions/jobs/{job_id}/retry",
+        response_model=TranscriptionJobResponse,
+        tags=["studio"],
+    )
+    async def retry_transcription_job(job_id: str) -> TranscriptionJobResponse:
+        try:
+            return TranscriptionJobResponse.from_domain(await transcriptions.retry(job_id))
+        except TranscriptionJobNotFoundError as error:
+            raise HTTPException(status_code=404, detail="transcription job not found") from error
+        except InvalidTranscriptionJobStateError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+
+    @application.get(
+        "/v1/studio/transcriptions/jobs/{job_id}/files/{output_name}", tags=["studio"]
+    )
+    async def get_transcription_file(job_id: str, output_name: str) -> FileResponse:
+        media_types = {
+            "transcript": "text/markdown",
+            "segments": "application/json",
+            "srt": "application/x-subrip",
+            "vtt": "text/vtt",
+            "chapters": "text/plain",
+        }
+        if output_name not in media_types:
+            raise HTTPException(status_code=404, detail="transcription output not found")
+        try:
+            job = transcriptions.store.get(job_id)
+            path = transcriptions.output_for(job_id, output_name)
+        except TranscriptionJobNotFoundError as error:
+            raise HTTPException(status_code=404, detail="transcription job not found") from error
+        except InvalidTranscriptionJobStateError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        except FileNotFoundError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        safe_stem = re.sub(r"[^A-Za-z0-9._-]+", "-", Path(job.source_name).stem).strip("-.")
+        return FileResponse(
+            path,
+            media_type=media_types[output_name],
+            filename=f"{safe_stem or 'transcription'}-{path.name}",
         )
 
     @application.get(

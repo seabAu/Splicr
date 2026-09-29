@@ -45,6 +45,14 @@ _ENGINE_DEFINITIONS = {
         "unlocks": ["Edge TTS narration", "Multilingual neural voices", "Speech timing"],
         "install_url": "https://pypi.org/project/edge-tts/",
     },
+    "whisper": {
+        "label": "faster-whisper",
+        "attribute": "whisper_python",
+        "environment": "SPLICR_WHISPER_PYTHON",
+        "description": "Local audio transcription with segment and optional word timings.",
+        "unlocks": ["Audio-to-text", "Subtitle drafts", "Guessed chapter drafts"],
+        "install_url": "https://pypi.org/project/faster-whisper/",
+    },
 }
 
 
@@ -126,15 +134,6 @@ class ComponentManager:
             ],
             "engines": engines,
             "planned": [
-                {
-                    "id": "transcription",
-                    "label": "Local transcription",
-                    "kind": "planned",
-                    "available": False,
-                    "state": "planned",
-                    "description": "Narrator's faster-whisper workflow is preserved but not wired into Studio yet.",
-                    "unlocks": ["Audio-to-text", "Subtitle drafts", "Pause-based chapter drafts"],
-                },
                 {
                     "id": "chapter-tags",
                     "label": "Embedded chapter tags",

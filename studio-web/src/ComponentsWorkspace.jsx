@@ -160,8 +160,8 @@ export function ComponentsWorkspace() {
             <div className="component-grid">{catalog.system.map((item) => <ComponentCard key={item.id} item={item} onConfigure={setEditing} onClear={clear} onRefreshVoices={refreshVoices} busy={busy === "edge-voices"} />)}</div>
           </section>
           <section className="components-section">
-            <div className="section-heading"><div><p className="eyebrow">Speech engines</p><h2>Isolated Python environments</h2></div><span>{catalog.engines.filter((item) => item.available && !item.restart_required).length}/{catalog.engines.length} active</span></div>
-            <p className="components-intro">Each engine keeps its own dependencies and model cache. SPLICR launches the configured interpreter through the same supervised, job-scoped protocol used by local narration.</p>
+            <div className="section-heading"><div><p className="eyebrow">Local models</p><h2>Isolated Python environments</h2></div><span>{catalog.engines.filter((item) => item.available && !item.restart_required).length}/{catalog.engines.length} active</span></div>
+            <p className="components-intro">Each narration or transcription environment keeps its own dependencies and model cache. SPLICR launches the configured interpreter through a supervised, job-scoped protocol.</p>
             <div className="component-grid">{catalog.engines.map((item) => <ComponentCard key={item.id} item={item} onConfigure={setEditing} onClear={clear} onRefreshVoices={refreshVoices} busy={busy === "edge-voices"} />)}</div>
           </section>
           <section className="components-section components-planned">

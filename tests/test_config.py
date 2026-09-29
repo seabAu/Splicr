@@ -90,10 +90,12 @@ def test_local_engine_environments_are_optional_and_resolved(monkeypatch, tmp_pa
     qwen3_path = tmp_path / "qwen3-env" / "Scripts" / "python.exe"
     audio8_path = tmp_path / "audio8-env" / "Scripts" / "python.exe"
     edge_path = tmp_path / "edge-env" / "Scripts" / "python.exe"
+    whisper_path = tmp_path / "whisper-env" / "Scripts" / "python.exe"
     monkeypatch.setenv("SPLICR_KOKORO_PYTHON", str(kokoro_path))
     monkeypatch.setenv("SPLICR_QWEN3_PYTHON", str(qwen3_path))
     monkeypatch.setenv("SPLICR_AUDIO8_PYTHON", str(audio8_path))
     monkeypatch.setenv("SPLICR_EDGE_PYTHON", str(edge_path))
+    monkeypatch.setenv("SPLICR_WHISPER_PYTHON", str(whisper_path))
     monkeypatch.setenv("SPLICR_LOCAL_ENGINE_STARTUP_TIMEOUT_SECONDS", "900")
     monkeypatch.setenv("SPLICR_LOCAL_ENGINE_REQUEST_TIMEOUT_SECONDS", "450")
 
@@ -103,5 +105,6 @@ def test_local_engine_environments_are_optional_and_resolved(monkeypatch, tmp_pa
     assert settings.qwen3_python == qwen3_path.resolve()
     assert settings.audio8_python == audio8_path.resolve()
     assert settings.edge_python == edge_path.resolve()
+    assert settings.whisper_python == whisper_path.resolve()
     assert settings.local_engine_startup_timeout_seconds == 900
     assert settings.local_engine_request_timeout_seconds == 450

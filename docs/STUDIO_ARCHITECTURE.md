@@ -186,6 +186,22 @@ choice, durable queue history, aggregate progress/counts, per-item errors and do
 not-started-only ordering/removal. Advanced engine values stay inside the selected profile instead
 of duplicating Narrate's large provider-specific control form in the queue composer.
 
+Convert now separates file conversion and speech recognition into two explicit modes. The
+transcription side depends on a provider-neutral `TranscriptionProvider` contract rather than on
+faster-whisper types. Its bundled one-shot worker imports faster-whisper only after a job starts and
+runs through the Python interpreter configured in Components, so model dependencies and downloads
+remain outside FastAPI and outside the repository. Provider output is normalized immediately into
+plain segment/word timing records.
+
+`studio_transcription_jobs` freezes the provider and typed recognition options, including model,
+language, device, compute type, VAD, word timing, paragraph/chapter pause thresholds, and requested
+outputs. Running/cancelling work is requeued after a process restart; provider/model/download errors
+remain structured; cancellation terminates the supervised worker; and transcript, JSON timing,
+SRT, WebVTT, and clearly labelled guessed-chapter files are built in a temporary directory before
+one atomic publish. Outputs from an existing Take join its immutable artifact history. The Convert
+UI keeps only source/model/language essential controls visible and places hardware and precision
+settings behind one keyboard-accessible advanced disclosure.
+
 The established SPLICR UI remains at `/` as a transition surface while the remaining Narrator
 workspaces are migrated. Vite source lives in `studio-web/`; hashed production assets are packaged
 under `src/splicr/static/studio/` so Python/Docker runtime images do not need Node.js.
