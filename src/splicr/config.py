@@ -71,6 +71,7 @@ class Settings:
     kokoro_python: Path | None = None
     qwen3_python: Path | None = None
     audio8_python: Path | None = None
+    edge_python: Path | None = None
     local_engine_startup_timeout_seconds: float = 600.0
     local_engine_request_timeout_seconds: float = 300.0
     chunk_max_bytes: int = 3_800
@@ -124,6 +125,7 @@ class Settings:
         kokoro_python_value = os.getenv("SPLICR_KOKORO_PYTHON", "").strip()
         qwen3_python_value = os.getenv("SPLICR_QWEN3_PYTHON", "").strip()
         audio8_python_value = os.getenv("SPLICR_AUDIO8_PYTHON", "").strip()
+        edge_python_value = os.getenv("SPLICR_EDGE_PYTHON", "").strip()
         return cls(
             data_dir=Path(os.getenv("SPLICR_DATA_DIR", str(_default_data_dir())))
             .expanduser()
@@ -174,6 +176,11 @@ class Settings:
             audio8_python=(
                 Path(audio8_python_value).expanduser().resolve()
                 if audio8_python_value
+                else None
+            ),
+            edge_python=(
+                Path(edge_python_value).expanduser().resolve()
+                if edge_python_value
                 else None
             ),
             local_engine_startup_timeout_seconds=_float_env(

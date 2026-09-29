@@ -97,6 +97,10 @@ export const api = {
     request(`/v1/studio/components/engines/${encodeURIComponent(id)}`, {
       method: "DELETE",
     }),
+  refreshEdgeVoices: () =>
+    request("/v1/studio/components/engines/edge/voices/refresh", {
+      method: "POST",
+    }),
   voices: (engineId = "") =>
     request(`/v1/studio/voices${engineId ? `?engine_id=${encodeURIComponent(engineId)}` : ""}`),
   voiceDesignJobs: () => request("/v1/studio/voice-design/jobs"),

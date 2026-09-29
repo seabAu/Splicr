@@ -7,6 +7,7 @@ from .secret_vault import EncryptedFileSecretVault
 from .service import SynthesisService
 from .providers import CompositeProviderRegistry
 from .providers.audio8 import Audio8TtsProvider
+from .providers.edge import EdgeTtsProvider
 from .providers.kokoro import KokoroTtsProvider
 from .providers.qwen3 import Qwen3TtsProvider
 
@@ -41,6 +42,15 @@ def create_service(settings: Settings) -> SynthesisService:
                     request_timeout_seconds=settings.local_engine_request_timeout_seconds,
                 )
             )
+    if settings.edge_python is not None:
+        local_providers.append(
+            EdgeTtsProvider(
+                settings.edge_python,
+                voice_cache_path=settings.data_dir / "studio" / "edge-voices.json",
+                startup_timeout_seconds=settings.local_engine_startup_timeout_seconds,
+                request_timeout_seconds=settings.local_engine_request_timeout_seconds,
+            )
+        )
     providers = resource_providers
     if local_providers:
         providers = CompositeProviderRegistry(

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
 
@@ -14,6 +15,7 @@ from splicr.studio.components import (
     ComponentConfigurationLockedError,
     ComponentManager,
 )
+from splicr.studio import components as component_module
 
 from .fakes import RecordingProvider
 
@@ -23,7 +25,12 @@ def _settings(tmp_path: Path) -> Settings:
 
 
 def _clear_engine_environment(monkeypatch) -> None:
-    for name in ("SPLICR_KOKORO_PYTHON", "SPLICR_QWEN3_PYTHON", "SPLICR_AUDIO8_PYTHON"):
+    for name in (
+        "SPLICR_KOKORO_PYTHON",
+        "SPLICR_QWEN3_PYTHON",
+        "SPLICR_AUDIO8_PYTHON",
+        "SPLICR_EDGE_PYTHON",
+    ):
         monkeypatch.delenv(name, raising=False)
 
 
@@ -77,7 +84,7 @@ def test_malformed_component_file_is_ignored_safely(tmp_path: Path, monkeypatch)
     manager = ComponentManager(settings)
 
     assert manager.apply(settings) == settings
-    assert len(manager.status(settings)["engines"]) == 3
+    assert len(manager.status(settings)["engines"]) == 4
 
 
 def test_component_api_persists_validated_engine_paths(tmp_path: Path, monkeypatch) -> None:
@@ -87,6 +94,15 @@ def test_component_api_persists_validated_engine_paths(tmp_path: Path, monkeypat
         settings=settings,
         providers=ProviderRegistry([RecordingProvider()]),
     )
+    monkeypatch.setattr(
+        ComponentManager,
+        "refresh_edge_voices",
+        lambda self, active_settings: {
+            "count": 2,
+            "refreshed_at": "2026-09-29T00:00:00+00:00",
+            "path": str(tmp_path / "studio" / "edge-voices.json"),
+        },
+    )
 
     with TestClient(create_app(settings=settings, service=synthesis)) as client:
         initial = client.get("/v1/studio/components")
@@ -95,7 +111,11 @@ def test_component_api_persists_validated_engine_paths(tmp_path: Path, monkeypat
             "kokoro",
             "qwen3",
             "audio8",
+            "edge",
         }
+        refreshed = client.post("/v1/studio/components/engines/edge/voices/refresh")
+        assert refreshed.status_code == 200
+        assert refreshed.json()["count"] == 2
 
         invalid = client.put(
             "/v1/studio/components/engines/kokoro",
@@ -115,3 +135,35 @@ def test_component_api_persists_validated_engine_paths(tmp_path: Path, monkeypat
         cleared = client.delete("/v1/studio/components/engines/kokoro")
         assert cleared.status_code == 200
         assert cleared.json()["restart_required"] is False
+
+
+def test_edge_voice_refresh_is_explicit_and_atomically_cached(tmp_path, monkeypatch) -> None:
+    settings = Settings(data_dir=tmp_path, edge_python=Path(sys.executable))
+    manager = ComponentManager(settings)
+    payload = {
+        "voices": [
+            {
+                "short_name": "en-US-AriaNeural",
+                "locale": "en-US",
+                "gender": "Female",
+                "personalities": [],
+            }
+        ]
+    }
+    monkeypatch.setattr(
+        component_module.subprocess,
+        "run",
+        lambda *args, **kwargs: SimpleNamespace(
+            returncode=0,
+            stdout=json.dumps(payload),
+            stderr="",
+        ),
+    )
+
+    refreshed = manager.refresh_edge_voices(settings)
+
+    assert refreshed["count"] == 1
+    cached = json.loads((tmp_path / "studio" / "edge-voices.json").read_text("utf-8"))
+    assert cached["voices"] == payload["voices"]
+    edge = next(item for item in manager.status(settings)["engines"] if item["id"] == "edge")
+    assert edge["voice_catalog"]["count"] == 1

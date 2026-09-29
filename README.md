@@ -11,8 +11,8 @@ Despite the source document's use of “transcription,” this service performs 
 ## What is implemented
 
 - FastAPI job submission, progress, retry, listing, and audio download endpoints
-- A provider-neutral engine boundary with Gemini, Deepgram, Inworld, generic HTTP, and optional
-  isolated local Kokoro adapters
+- A provider-neutral engine boundary with Gemini, Deepgram, Inworld, generic HTTP, optional
+  isolated local engines, and Edge TTS through an externally managed Python environment
 - Versioned API resources with editable endpoints, auth placement, JSON templates, variables,
   limits, pacing, retry policy, response extraction, and per-revision job pinning
 - A Generic REST TTS adapter for raw PCM, WAV, and JSON-base64 audio responses, including
@@ -60,7 +60,8 @@ Gemini remains available as a Preview provider. Deepgram Aura-2 and Inworld TTS-
 registered, and every provider's model and voice defaults can be changed through environment
 variables.
 
-Kokoro, Qwen3-TTS, and Audio8 are registered as `kokoro-local`, `qwen3-local`, and `audio8-local`
+Kokoro, Qwen3-TTS, Audio8, and Edge TTS are registered as `kokoro-local`, `qwen3-local`,
+`audio8-local`, and `edge-tts`
 when their corresponding environment settings point to Python executables containing those
 engines. Environments and model caches stay where they already live; SPLICR launches its bundled
 worker through the selected interpreter and keeps the model process alive for one job. Qwen3 and
@@ -93,7 +94,8 @@ can split delivery files by time or verified maximum size. Conversion progress, 
 retry, and restart recovery are durable; outputs derived from a Take join its artifact history.
 The Components workspace detects FFmpeg/FFprobe and the active SPLICR runtime, reports exactly what
 each component unlocks, and can save validated Python executable paths for existing Kokoro,
-Qwen3-TTS, and Audio8 environments. Saved engine changes activate after restart so an in-flight job
+Qwen3-TTS, Audio8, and Edge TTS environments. Edge voice discovery is an explicit cached refresh,
+so it never blocks Studio startup. Saved engine changes activate after restart so an in-flight job
 never has its provider registry changed underneath it. Explicit `SPLICR_*_PYTHON` environment
 variables remain authoritative and appear read-only in the UI. SPLICR does not copy those
 environments or download their model weights.
@@ -144,6 +146,7 @@ starting SPLICR:
 SPLICR_KOKORO_PYTHON=C:\path\to\Narrator\kokoro-env\Scripts\python.exe
 SPLICR_QWEN3_PYTHON=C:\path\to\Narrator\qwen3-env\Scripts\python.exe
 SPLICR_AUDIO8_PYTHON=C:\path\to\Narrator\audio8-env\Scripts\python.exe
+SPLICR_EDGE_PYTHON=C:\path\to\edge-tts-env\Scripts\python.exe
 ```
 
 On Linux or macOS, use each environment's `bin/python`. The first uncached local-engine run may
@@ -369,7 +372,9 @@ secret. Back up both, but store the vault key separately from ordinary job-data 
 When an external provider is selected, every transcript chunk and any custom director's notes are
 sent to that provider. Gemini requests set `store=false`, which prevents creation of a retained
 Interaction resource; it does not make remote processing local or supersede the provider's
-applicable data-use terms. Kokoro processing stays in the configured local engine environment.
+applicable data-use terms. Edge TTS also sends each selected transcript chunk to Microsoft's
+online Edge speech service even though its Python module runs in an isolated local environment.
+Kokoro processing stays in the configured local engine environment.
 Review the selected provider's terms before submitting sensitive, confidential, or personal text.
 
 Plan disk capacity for both checkpoints and the assembled output. At final assembly, SPLICR can
@@ -388,7 +393,8 @@ The important tuning controls are:
   `SPLICR_MAX_SOURCE_WORDS`, and `SPLICR_MAX_OUTPUT_PCM_BYTES`
 - `SPLICR_PACING_SECONDS`
 - `SPLICR_DEEPGRAM_PACING_SECONDS` and `SPLICR_INWORLD_PACING_SECONDS`
-- `SPLICR_KOKORO_PYTHON`, `SPLICR_QWEN3_PYTHON`, and `SPLICR_AUDIO8_PYTHON` to enable isolated
+- `SPLICR_KOKORO_PYTHON`, `SPLICR_QWEN3_PYTHON`, `SPLICR_AUDIO8_PYTHON`, and
+  `SPLICR_EDGE_PYTHON` to enable isolated
   local engines
 - `SPLICR_LOCAL_ENGINE_STARTUP_TIMEOUT_SECONDS` and
   `SPLICR_LOCAL_ENGINE_REQUEST_TIMEOUT_SECONDS`

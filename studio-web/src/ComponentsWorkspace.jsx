@@ -21,7 +21,7 @@ function StateBadge({ state }) {
   return <span className={`component-state state-${state}`}>{label.replaceAll("_", " ")}</span>;
 }
 
-function ComponentCard({ item, onConfigure, onClear }) {
+function ComponentCard({ item, onConfigure, onClear, onRefreshVoices, busy }) {
   return (
     <article className={`component-card surface component-${item.state}`}>
       <div className="component-card-heading">
@@ -37,6 +37,7 @@ function ComponentCard({ item, onConfigure, onClear }) {
           {item.path && <><dt>Path</dt><dd title={item.path}>{item.path}</dd></>}
           {item.version && <><dt>Version</dt><dd>{item.version}</dd></>}
           {item.detail && <><dt>Note</dt><dd>{item.detail}</dd></>}
+          {item.voice_catalog?.count > 0 && <><dt>Voice catalog</dt><dd>{item.voice_catalog.count} cached voices</dd></>}
         </dl>
       )}
       <div className="component-actions">
@@ -48,6 +49,12 @@ function ComponentCard({ item, onConfigure, onClear }) {
         {item.kind === "engine" && item.path && !item.locked && (
           <button className="icon-button danger" type="button" onClick={() => onClear(item)} aria-label={`Clear ${item.label} configuration`} title="Clear saved path">
             <Trash2 size={15} />
+          </button>
+        )}
+        {item.id === "edge" && item.available && !item.restart_required && (
+          <button className="secondary-button" type="button" disabled={busy} onClick={onRefreshVoices}>
+            <RefreshCw className={busy ? "spin" : ""} size={14} />
+            {busy ? "Refreshing…" : "Refresh voices"}
           </button>
         )}
         {item.locked && <span className="component-lock"><Power size={13} /> {item.environment_variable}</span>}
@@ -121,6 +128,19 @@ export function ComponentsWorkspace() {
     }
   };
 
+  const refreshVoices = async () => {
+    setBusy("edge-voices");
+    setError("");
+    try {
+      await api.refreshEdgeVoices();
+      await load();
+    } catch (reason) {
+      setError(reason.message);
+    } finally {
+      setBusy("");
+    }
+  };
+
   return (
     <main className="components-workspace">
       <header className="workspace-header components-header">
@@ -137,16 +157,16 @@ export function ComponentsWorkspace() {
           )}
           <section className="components-section">
             <div className="section-heading"><div><p className="eyebrow">Runtime</p><h2>System tools</h2></div><span>{catalog.system.filter((item) => item.available).length}/{catalog.system.length} ready</span></div>
-            <div className="component-grid">{catalog.system.map((item) => <ComponentCard key={item.id} item={item} onConfigure={setEditing} onClear={clear} />)}</div>
+            <div className="component-grid">{catalog.system.map((item) => <ComponentCard key={item.id} item={item} onConfigure={setEditing} onClear={clear} onRefreshVoices={refreshVoices} busy={busy === "edge-voices"} />)}</div>
           </section>
           <section className="components-section">
             <div className="section-heading"><div><p className="eyebrow">Speech engines</p><h2>Isolated Python environments</h2></div><span>{catalog.engines.filter((item) => item.available && !item.restart_required).length}/{catalog.engines.length} active</span></div>
             <p className="components-intro">Each engine keeps its own dependencies and model cache. SPLICR launches the configured interpreter through the same supervised, job-scoped protocol used by local narration.</p>
-            <div className="component-grid">{catalog.engines.map((item) => <ComponentCard key={item.id} item={item} onConfigure={setEditing} onClear={clear} />)}</div>
+            <div className="component-grid">{catalog.engines.map((item) => <ComponentCard key={item.id} item={item} onConfigure={setEditing} onClear={clear} onRefreshVoices={refreshVoices} busy={busy === "edge-voices"} />)}</div>
           </section>
           <section className="components-section components-planned">
             <div className="section-heading"><div><p className="eyebrow">Migration queue</p><h2>Preserved, not active yet</h2></div></div>
-            <div className="component-grid">{catalog.planned.map((item) => <ComponentCard key={item.id} item={item} onConfigure={setEditing} onClear={clear} />)}</div>
+            <div className="component-grid">{catalog.planned.map((item) => <ComponentCard key={item.id} item={item} onConfigure={setEditing} onClear={clear} onRefreshVoices={refreshVoices} busy={busy === "edge-voices"} />)}</div>
           </section>
         </>
       )}

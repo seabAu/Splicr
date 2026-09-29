@@ -61,6 +61,7 @@ for line in sys.stdin:
             "sample_width": 2,
             "encoding": "pcm_s16le",
         },
+        "metadata": {"timings": [{"text": text, "start_seconds": 0.0}]},
     })
 '''
 
@@ -114,6 +115,9 @@ def test_local_worker_is_reused_and_returns_canonical_pcm(tmp_path: Path) -> Non
         assert first.pcm == b"\x00\x00" * len("first")
         assert second.pcm == b"\x00\x00" * len("second")
         assert first.format.sample_rate == 24_000
+        assert first.metadata == {
+            "timings": [{"text": "first", "start_seconds": 0.0}]
+        }
         assert marker.read_text(encoding="utf-8").splitlines() == ["start"]
         assert not list((context.work_directory / ".engine").glob("*.pcm"))
 

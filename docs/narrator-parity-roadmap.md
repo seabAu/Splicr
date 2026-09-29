@@ -110,7 +110,7 @@ human-readable work queue, including broader capabilities that were not render-s
 | Qwen voice-design take and deterministic seed | Covered; live-model acceptance pending | Narrate / Voice Studio | 2 |
 | Optional precise speed | Covered for Kokoro | Narrate advanced controls | 2 |
 | Parts/token/character chunk planning | Covered | Narrate advanced controls | 2 |
-| Edge TTS engine | Gap | Narrate / Components | 3 |
+| Edge TTS engine | Covered; live-service acceptance pending | Narrate / Components | 3 |
 | Export filename | Gap | Narrate / Library | 4 |
 | Checkpoint/chunk export | Gap | Timeline / Library | 4 |
 | SRT/VTT export and burned captions | Gap | Publish / Audiogram | 4 |
@@ -223,17 +223,17 @@ Providers without a declared numeric rate continue to expose only the provider-n
 
 Edge TTS was Narrator's zero-setup online fallback. It is not currently a merged SPLICR provider.
 
-- [ ] Implement Edge TTS behind `TtsProvider` or the existing supervised subprocess boundary.
-- [ ] Invoke the module through the configured Python environment rather than relying on a movable
+- [x] Implement Edge TTS behind `TtsProvider` or the existing supervised subprocess boundary.
+- [x] Invoke the module through the configured Python environment rather than relying on a movable
   `edge-tts.exe` shim.
-- [ ] Discover and cache voices/languages without blocking Studio startup.
-- [ ] Normalize output to canonical PCM and retain word/sentence timing when available.
-- [ ] Classify offline, throttling, voice-not-found, and subprocess failures into structured errors.
-- [ ] Add Components detection and setup guidance without silently installing packages or weights.
-- [ ] Decide and document whether Studio ever manages engine environments; until then, external
+- [x] Discover and cache voices/languages without blocking Studio startup.
+- [x] Normalize output to canonical PCM and retain word/sentence timing when available.
+- [x] Classify offline, throttling, voice-not-found, and subprocess failures into structured errors.
+- [x] Add Components detection and setup guidance without silently installing packages or weights.
+- [x] Decide and document whether Studio ever manages engine environments; until then, external
   environment reuse remains the supported safe behavior.
-- [ ] Add fake-surface tests against the real CLI/API shape and an opt-in live Edge contract test.
-- [ ] Add an onboarding template/checklist for future local engines so Audio8-style additions do not
+- [x] Add fake-surface tests against the real CLI/API shape and an opt-in live Edge contract test.
+- [x] Add an onboarding template/checklist for future local engines so Audio8-style additions do not
   require bespoke architecture.
 
 ## Milestone 4 — naming, checkpoints, subtitles, and captions
@@ -430,15 +430,21 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   build, and three Chromium journeys. VoiceDesign coverage includes durable idempotency, atomic
   restart finalization, cancellation, cancellation recovery, retry, managed-profile creation, and
   generating another take through the real FastAPI transport.
+- [x] 2026-09-29 — Milestone 3 implementation gate passed: Ruff, the complete Python suite (three
+  opt-in live checks skipped), eight frontend unit tests, the production Vite build, and three
+  Chromium journeys. Edge coverage uses faithful `Communicate.stream()`/voice/error fakes,
+  validates FFmpeg normalization and timing transport, persists chunk metadata through schema v5,
+  and includes an opt-in live online-service contract test.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
 ## Current work pointer
 
-- **Active milestone:** Milestone 2 acceptance closeout, then Milestone 3 — Edge TTS and engine
-  onboarding breadth.
-- **Next implementation slice:** run the opt-in real Qwen VoiceDesign acceptance check when a
-  configured environment is available; otherwise begin the provider-neutral Edge TTS adapter.
+- **Active milestone:** Milestones 2/3 live acceptance closeout, then Milestone 4 — naming,
+  checkpoints, subtitles, and captions.
+- **Next implementation slice:** run the opt-in real Qwen and Edge checks when configured
+  environments are available; otherwise begin export naming and checkpoint export without changing
+  stable internal artifact identities.
 - **Known unrelated worktree item:** `LICENSE.txt` is untracked and not part of this roadmap unless
   deliberately adopted later.
 
@@ -461,3 +467,8 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   cancellation and retry, Voice Studio Designed voice / Generate another take flows, a faithful
   worker fake, and an opt-in real-model contract test. Full mocked regressions pass; the real Qwen
   execution remains an explicit acceptance item until a configured environment supplies evidence.
+- **2026-09-29:** Added Edge TTS as a supervised provider using an external Python environment,
+  explicit cached voice discovery, schema-driven rate/pitch/volume/timing controls, canonical
+  FFmpeg normalization, structured transport failures, and durable word/sentence timing metadata.
+  Added the reusable local-engine onboarding checklist and opt-in live Edge contract test; the real
+  online-service run remains an explicit acceptance item.

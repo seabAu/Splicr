@@ -29,7 +29,7 @@ from .domain import (
 
 _CONTROLS_SCHEMA_VERSION = 1
 _ERROR_SCHEMA_VERSION = 1
-_DATABASE_SCHEMA_VERSION = 4
+_DATABASE_SCHEMA_VERSION = 5
 _ERROR_EVENT_RETENTION_LIMIT = 500
 
 
@@ -182,6 +182,7 @@ class SqliteJobStore:
                     attempts INTEGER NOT NULL DEFAULT 0,
                     pcm_path TEXT,
                     error TEXT,
+                    metadata_json TEXT NOT NULL DEFAULT '{}',
                     PRIMARY KEY (job_id, chunk_index)
                 );
 
@@ -241,6 +242,14 @@ class SqliteJobStore:
             if "variables_json" not in columns:
                 connection.execute(
                     "ALTER TABLE jobs ADD COLUMN variables_json TEXT NOT NULL DEFAULT '{}'"
+                )
+            chunk_columns = {
+                str(row["name"])
+                for row in connection.execute("PRAGMA table_info(chunks)").fetchall()
+            }
+            if "metadata_json" not in chunk_columns:
+                connection.execute(
+                    "ALTER TABLE chunks ADD COLUMN metadata_json TEXT NOT NULL DEFAULT '{}'"
                 )
             latest_sequence = connection.execute(
                 "SELECT COALESCE(MAX(sequence), 0) FROM error_events"
@@ -815,15 +824,21 @@ class SqliteJobStore:
     def mark_chunk_failed(self, job_id: str, index: int, error: str) -> None:
         self._update_chunk(job_id, index, ChunkStatus.FAILED, error=error)
 
-    def mark_chunk_completed(self, job_id: str, index: int, pcm_path: str) -> None:
+    def mark_chunk_completed(
+        self,
+        job_id: str,
+        index: int,
+        pcm_path: str,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> None:
         now = utc_now()
         with self._lock, self._connect() as connection:
             connection.execute(
                 """
-                UPDATE chunks SET status = ?, pcm_path = ?, error = NULL
+                UPDATE chunks SET status = ?, pcm_path = ?, error = NULL, metadata_json = ?
                 WHERE job_id = ? AND chunk_index = ?
                 """,
-                (ChunkStatus.COMPLETED, pcm_path, job_id, index),
+                (ChunkStatus.COMPLETED, pcm_path, _encode_variables(metadata), job_id, index),
             )
             connection.execute(
                 """
@@ -935,6 +950,7 @@ class SqliteJobStore:
             attempts=row["attempts"],
             pcm_path=row["pcm_path"],
             error=row["error"],
+            metadata=_decode_variables(row["metadata_json"]),
         )
 
     @staticmethod

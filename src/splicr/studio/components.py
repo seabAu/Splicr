@@ -7,6 +7,7 @@ import subprocess
 import sys
 import threading
 import uuid
+from datetime import datetime, timezone
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
@@ -35,6 +36,14 @@ _ENGINE_DEFINITIONS = {
         "environment": "SPLICR_AUDIO8_PYTHON",
         "description": "Local reference-voice rendering through an isolated environment.",
         "unlocks": ["Audio8 narration", "Audio8 cloned voices"],
+    },
+    "edge": {
+        "label": "Edge TTS",
+        "attribute": "edge_python",
+        "environment": "SPLICR_EDGE_PYTHON",
+        "description": "Zero-key online narration with cached multilingual voice discovery.",
+        "unlocks": ["Edge TTS narration", "Multilingual neural voices", "Speech timing"],
+        "install_url": "https://pypi.org/project/edge-tts/",
     },
 }
 
@@ -167,6 +176,51 @@ class ComponentManager:
             self._save(data)
         return removed
 
+    def refresh_edge_voices(self, active_settings: Settings) -> dict[str, Any]:
+        executable = active_settings.edge_python
+        if executable is None or not executable.is_file():
+            raise ComponentConfigurationError(
+                "Activate an Edge TTS Python environment before refreshing voices"
+            )
+        worker = Path(__file__).resolve().parents[1] / "engine_worker.py"
+        try:
+            result = subprocess.run(
+                [str(executable), str(worker), "--tool", "edge_voices"],
+                input="{}",
+                capture_output=True,
+                text=True,
+                timeout=60,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError) as error:
+            raise ComponentConfigurationError(
+                f"Could not discover Edge TTS voices: {error}"
+            ) from error
+        try:
+            payload = json.loads(result.stdout)
+        except json.JSONDecodeError as error:
+            detail = (result.stderr or result.stdout).strip()[-500:]
+            raise ComponentConfigurationError(
+                f"Edge TTS voice discovery returned invalid output: {detail}"
+            ) from error
+        if not isinstance(payload, dict) or "error_type" in payload:
+            message = payload.get("message") if isinstance(payload, dict) else None
+            raise ComponentConfigurationError(
+                str(message or "Edge TTS voice discovery failed")
+            )
+        voices = payload.get("voices")
+        if result.returncode != 0 or not isinstance(voices, list) or not voices:
+            raise ComponentConfigurationError("Edge TTS returned no available voices")
+        refreshed_at = datetime.now(timezone.utc).isoformat()
+        catalog = {"version": 1, "refreshed_at": refreshed_at, "voices": voices}
+        path = self.path.parent / "edge-voices.json"
+        self._save_json(path, catalog)
+        return {
+            "count": len(voices),
+            "refreshed_at": refreshed_at,
+            "path": str(path),
+        }
+
     def _engine_status(
         self,
         engine_id: str,
@@ -217,7 +271,22 @@ class ComponentManager:
             "locked": locked,
             "source": source,
             "environment_variable": definition["environment"],
+            "install_url": definition.get("install_url"),
             "restart_required": restart_required,
+            "voice_catalog": self._edge_catalog_status() if engine_id == "edge" else None,
+        }
+
+    def _edge_catalog_status(self) -> dict[str, Any]:
+        path = self.path.parent / "edge-voices.json"
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            voices = payload.get("voices") if isinstance(payload, dict) else None
+        except (OSError, json.JSONDecodeError):
+            payload, voices = {}, None
+        return {
+            "count": len(voices) if isinstance(voices, list) else 0,
+            "refreshed_at": payload.get("refreshed_at") if isinstance(payload, dict) else None,
+            "path": str(path),
         }
 
     @staticmethod
@@ -311,13 +380,17 @@ class ComponentManager:
         return value
 
     def _save(self, data: dict[str, Any]) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = self.path.with_name(f".{self.path.name}.{uuid.uuid4().hex}.tmp")
+        self._save_json(self.path, data)
+
+    @staticmethod
+    def _save_json(path: Path, data: dict[str, Any]) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
         try:
             temporary.write_text(
                 json.dumps(data, indent=2, sort_keys=True) + "\n",
                 encoding="utf-8",
             )
-            os.replace(temporary, self.path)
+            os.replace(temporary, path)
         finally:
             temporary.unlink(missing_ok=True)

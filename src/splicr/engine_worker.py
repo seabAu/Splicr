@@ -8,12 +8,15 @@ environment without installing the rest of SPLICR into that environment.
 from __future__ import annotations
 
 import argparse
+import asyncio
 import contextlib
 import hashlib
 import importlib
 import json
 import os
 import re
+import shutil
+import subprocess
 import sys
 import traceback
 import wave
@@ -59,7 +62,14 @@ class EngineRuntime(Protocol):
         text: str,
         options: Mapping[str, Any],
         output_path: Path,
-    ) -> None: ...
+    ) -> Mapping[str, Any] | None: ...
+
+
+class EngineWorkerRequestError(RuntimeError):
+    def __init__(self, message: str, *, code: str, retryable: bool) -> None:
+        super().__init__(message)
+        self.code = code
+        self.retryable = retryable
 
 
 def _apply_pronunciation_overrides(pipeline: Any, options: Mapping[str, Any]) -> int:
@@ -432,6 +442,157 @@ class Audio8Runtime:
         _write_canonical_pcm(self._np, merged, int(rate), output_path)
 
 
+class EdgeRuntime:
+    def __init__(self) -> None:
+        self.edge_tts = importlib.import_module("edge_tts")
+        self.ffmpeg = shutil.which("ffmpeg")
+        if self.ffmpeg is None:
+            raise RuntimeError("Edge TTS requires ffmpeg on PATH")
+
+    def synthesize(
+        self,
+        text: str,
+        options: Mapping[str, Any],
+        output_path: Path,
+    ) -> Mapping[str, Any]:
+        voice = str(options.get("voice") or "").strip()
+        if not voice:
+            raise EngineWorkerRequestError(
+                "Edge TTS voice must not be blank",
+                code="edge_voice_not_found",
+                retryable=False,
+            )
+        variables = options.get("variables")
+        values = variables if isinstance(variables, Mapping) else {}
+        controls = options.get("controls")
+        delivery = controls if isinstance(controls, Mapping) else {}
+        rate_value = values.get("rate_percent")
+        if rate_value is None:
+            pace = str(delivery.get("pace") or "normal")
+            rate_percent = round((PACE_SPEEDS.get(pace, 1.0) - 1.0) * 100)
+        else:
+            rate_percent = int(rate_value)
+        pitch_hz = int(values.get("pitch_hz", 0))
+        volume_percent = int(values.get("volume_percent", 0))
+        boundary_value = str(values.get("timing_boundary") or "sentence")
+        boundary = "WordBoundary" if boundary_value == "word" else "SentenceBoundary"
+        mp3, timings = asyncio.run(
+            self._stream(
+                text,
+                voice,
+                rate=f"{rate_percent:+d}%",
+                volume=f"{volume_percent:+d}%",
+                pitch=f"{pitch_hz:+d}Hz",
+                boundary=boundary,
+            )
+        )
+        completed = subprocess.run(
+            [
+                self.ffmpeg,
+                "-nostdin",
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-f",
+                "mp3",
+                "-i",
+                "pipe:0",
+                "-f",
+                "s16le",
+                "-acodec",
+                "pcm_s16le",
+                "-ac",
+                "1",
+                "-ar",
+                "24000",
+                "pipe:1",
+            ],
+            input=mp3,
+            capture_output=True,
+            check=False,
+        )
+        if completed.returncode != 0 or not completed.stdout:
+            detail = completed.stderr.decode("utf-8", errors="replace")[-1000:]
+            raise EngineWorkerRequestError(
+                f"Edge TTS audio conversion failed: {detail}",
+                code="edge_audio_conversion_failed",
+                retryable=False,
+            )
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = output_path.with_name(f".{output_path.name}.{os.getpid()}.tmp")
+        try:
+            temporary.write_bytes(completed.stdout)
+            os.replace(temporary, output_path)
+        finally:
+            temporary.unlink(missing_ok=True)
+        return {"timings": timings, "timing_boundary": boundary_value}
+
+    async def _stream(
+        self,
+        text: str,
+        voice: str,
+        *,
+        rate: str,
+        volume: str,
+        pitch: str,
+        boundary: str,
+    ) -> tuple[bytes, list[dict[str, object]]]:
+        audio = bytearray()
+        timings: list[dict[str, object]] = []
+        try:
+            communicate = self.edge_tts.Communicate(
+                text,
+                voice,
+                rate=rate,
+                volume=volume,
+                pitch=pitch,
+                boundary=boundary,
+            )
+            async for chunk in communicate.stream():
+                if chunk["type"] == "audio":
+                    audio.extend(chunk["data"])
+                elif chunk["type"] in {"WordBoundary", "SentenceBoundary"}:
+                    timings.append(
+                        {
+                            "type": str(chunk["type"]),
+                            "start_seconds": round(int(chunk["offset"]) / 10_000_000, 6),
+                            "duration_seconds": round(
+                                int(chunk["duration"]) / 10_000_000, 6
+                            ),
+                            "text": str(chunk["text"]),
+                        }
+                    )
+        except Exception as error:
+            name = error.__class__.__name__
+            message = str(error) or name
+            if name in {"ClientResponseError", "WSServerHandshakeError"} and "429" in message:
+                code, retryable = "edge_rate_limited", True
+            elif name in {
+                "ClientConnectionError",
+                "ClientConnectorError",
+                "ServerTimeoutError",
+                "TimeoutError",
+                "WebSocketError",
+            }:
+                code, retryable = "edge_offline", True
+            elif name in {"NoAudioReceived", "ValueError"}:
+                code, retryable = "edge_voice_not_found", False
+            else:
+                code, retryable = "edge_request_failed", True
+            raise EngineWorkerRequestError(
+                f"Edge TTS request failed: {message}",
+                code=code,
+                retryable=retryable,
+            ) from error
+        if not audio:
+            raise EngineWorkerRequestError(
+                "Edge TTS returned no audio",
+                code="edge_no_audio",
+                retryable=True,
+            )
+        return bytes(audio), timings
+
+
 def _kokoro_speed(options: Mapping[str, Any]) -> float:
     variables = options.get("variables")
     if isinstance(variables, Mapping) and "speed" in variables:
@@ -457,6 +618,8 @@ def _runtime(engine: str) -> EngineRuntime:
         return Qwen3Runtime()
     if engine == "audio8-local":
         return Audio8Runtime()
+    if engine == "edge-tts":
+        return EdgeRuntime()
     raise ValueError(f"unknown local engine {engine!r}")
 
 
@@ -488,9 +651,8 @@ def _handle_synthesis(runtime: EngineRuntime, message: Mapping[str, Any]) -> Non
     if not output_path.is_absolute():
         raise ValueError("synthesis output_path must be absolute")
 
-    runtime.synthesize(text, options, output_path)
-    _emit(
-        {
+    metadata = runtime.synthesize(text, options, output_path)
+    response: dict[str, Any] = {
             "type": "result",
             "id": request_id,
             "output_path": str(output_path),
@@ -501,7 +663,9 @@ def _handle_synthesis(runtime: EngineRuntime, message: Mapping[str, Any]) -> Non
                 "encoding": "pcm_s16le",
             },
         }
-    )
+    if metadata:
+        response["metadata"] = dict(metadata)
+    _emit(response)
 
 
 def run(engine: str) -> int:
@@ -535,7 +699,8 @@ def run(engine: str) -> int:
                     "id": request_id,
                     "message": str(error) or error.__class__.__name__,
                     "error_type": error.__class__.__name__,
-                    "retryable": False,
+                    "code": getattr(error, "code", "local_engine_error"),
+                    "retryable": bool(getattr(error, "retryable", False)),
                 }
             )
     return 0
@@ -718,6 +883,29 @@ def _tool_qwen_voice_design(payload: Mapping[str, Any]) -> dict[str, Any]:
     return result
 
 
+def _tool_edge_voices(payload: Mapping[str, Any]) -> dict[str, Any]:
+    del payload
+    edge_tts = importlib.import_module("edge_tts")
+    voices = asyncio.run(edge_tts.list_voices())
+    normalized = []
+    for raw in voices:
+        tags = raw.get("VoiceTag")
+        personalities = tags.get("VoicePersonalities", []) if isinstance(tags, dict) else []
+        normalized.append(
+            {
+                "short_name": str(raw.get("ShortName") or ""),
+                "locale": str(raw.get("Locale") or ""),
+                "gender": str(raw.get("Gender") or ""),
+                "personalities": [str(value) for value in personalities],
+            }
+        )
+    normalized = sorted(
+        (voice for voice in normalized if voice["short_name"]),
+        key=lambda voice: str(voice["short_name"]),
+    )
+    return {"voices": normalized}
+
+
 def run_tool(operation: str) -> int:
     try:
         payload = json.loads(sys.stdin.read() or "{}")
@@ -732,6 +920,8 @@ def run_tool(operation: str) -> int:
                 result = _tool_respell_to_ipa(payload)
             elif operation == "qwen_voice_design":
                 result = _tool_qwen_voice_design(payload)
+            elif operation == "edge_voices":
+                result = _tool_edge_voices(payload)
             else:
                 raise ValueError(f"unknown tool operation {operation!r}")
     except Exception as error:

@@ -44,7 +44,7 @@ orchestrator
 The adapter advertises a transport without leaking it into orchestration:
 
 - `remote_http`: Gemini, Deepgram, Inworld, and configurable API resources
-- `local_subprocess`: isolated Python environments such as Kokoro, Qwen3-TTS, and Audio8
+- `local_subprocess`: isolated Python environments such as Kokoro, Qwen3-TTS, Audio8, and Edge TTS
 - `local_http`: a separately managed local model server
 
 Remote SPLICR providers are first wrapped with `ProviderEngineAdapter`; this preserves current
@@ -63,6 +63,15 @@ Startup and synthesis timeouts terminate an unhealthy process, cancellation cann
 worker running, and stderr tail data is attached to redacted engine diagnostics. Kokoro is the
 first adapter and reuses an existing isolated environment through its Python executable. Generic
 REST resources pointed at loopback hosts provide the local HTTP transport.
+
+Edge TTS deliberately uses the same supervised subprocess boundary even though synthesis is
+online: Studio invokes the Python module from the configured external environment and never relies
+on a movable `edge-tts.exe` shim. Voice/language discovery is an explicit Components action that
+atomically caches a normalized catalog without delaying startup. The worker streams Edge MP3 plus
+word or sentence boundaries, FFmpeg normalizes audio to canonical mono PCM16 at 24 kHz, and the
+provider-neutral chunk record retains timing metadata for later subtitle/timeline work. Studio
+does not create, mutate, upgrade, or delete engine environments; see
+[`LOCAL_ENGINE_ONBOARDING.md`](LOCAL_ENGINE_ONBOARDING.md).
 
 The 2026-09-28 integration smoke reused the existing Narrator Kokoro environment in place and
 produced a mono, 16-bit, 24 kHz WAV through SPLICR's production queue, checkpoint, and assembly

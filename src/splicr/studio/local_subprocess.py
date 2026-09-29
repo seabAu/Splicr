@@ -268,7 +268,13 @@ class _LocalSubprocessEngineSession:
         if output_size % audio_format.frame_width:
             raise ValueError("local engine returned a partial PCM frame")
         pcm = await asyncio.to_thread(returned_path.read_bytes)
-        return AudioChunk(pcm=pcm, format=audio_format)
+        metadata_value = response.get("metadata")
+        metadata = (
+            cast(Mapping[str, JsonValue], dict(metadata_value))
+            if isinstance(metadata_value, Mapping)
+            else {}
+        )
+        return AudioChunk(pcm=pcm, format=audio_format, metadata=metadata)
 
     async def _write_message(self, message: Mapping[str, object]) -> None:
         process = self._process

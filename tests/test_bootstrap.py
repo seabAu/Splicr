@@ -31,6 +31,7 @@ def test_bootstrap_adds_configured_local_engines(tmp_path) -> None:
             kokoro_python=Path(sys.executable),
             qwen3_python=Path(sys.executable),
             audio8_python=Path(sys.executable),
+            edge_python=Path(sys.executable),
         )
     )
 
@@ -43,11 +44,14 @@ def test_bootstrap_adds_configured_local_engines(tmp_path) -> None:
         "kokoro-local",
         "qwen3-local",
         "audio8-local",
+        "edge-tts",
     ]
     assert providers["kokoro-local"].default_model == "kokoro-82m"
     assert providers["kokoro-local"].default_voice == "af_heart"
     assert providers["kokoro-local"].max_input_tokens == 510
     assert providers["qwen3-local"].recommended_chunk_characters == 250
     assert providers["audio8-local"].recommended_chunk_characters == 150
+    assert providers["edge-tts"].default_voice == "en-US-AriaNeural"
+    assert providers["edge-tts"].max_input_bytes == 4_000
 
     asyncio.run(service.providers.close())

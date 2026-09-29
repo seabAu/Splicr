@@ -2986,6 +2986,16 @@ def create_app(
             raise HTTPException(status_code=404, detail=str(error)) from error
         return await asyncio.to_thread(components.status, resolved_settings)
 
+    @application.post("/v1/studio/components/engines/edge/voices/refresh", tags=["studio"])
+    async def refresh_edge_voices() -> dict[str, Any]:
+        try:
+            return await asyncio.to_thread(
+                components.refresh_edge_voices,
+                resolved_settings,
+            )
+        except ComponentConfigurationError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+
     @application.get(
         "/v1/studio/projects",
         response_model=list[StudioProjectSummaryResponse],

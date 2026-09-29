@@ -41,6 +41,15 @@ def test_controls_round_trip_with_job_and_chunks(tmp_path) -> None:
     assert job.controls == controls
     assert job.resource_revision == 4
     assert job.variables == {"seed": 7, "metadata": {"language": "en"}}
+    store.mark_chunk_completed(
+        "round-trip",
+        0,
+        "chunk-00000.pcm",
+        {"timings": [{"text": "One", "start_seconds": 0.0}]},
+    )
+    assert store.chunks_for_job("round-trip")[0].metadata == {
+        "timings": [{"start_seconds": 0.0, "text": "One"}]
+    }
 
 
 def test_initialize_migrates_legacy_jobs_without_losing_progress(tmp_path) -> None:
@@ -99,12 +108,14 @@ def test_initialize_migrates_legacy_jobs_without_losing_progress(tmp_path) -> No
 
     with sqlite3.connect(database) as connection:
         columns = {row[1] for row in connection.execute("PRAGMA table_info(jobs)")}
+        chunk_columns = {row[1] for row in connection.execute("PRAGMA table_info(chunks)")}
         version = connection.execute("PRAGMA user_version").fetchone()[0]
     assert "controls_json" in columns
     assert "error_json" in columns
     assert "resource_revision" in columns
     assert "variables_json" in columns
-    assert version == 4
+    assert "metadata_json" in chunk_columns
+    assert version == 5
 
 
 def test_paused_error_round_trips_and_survives_restart_requeue(tmp_path) -> None:

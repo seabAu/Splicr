@@ -519,6 +519,7 @@ class SynthesisService:
                     job_id,
                     chunk.index,
                     str(destination.resolve()),
+                    chunk.metadata,
                 )
         except Exception as error:
             self.store.mark_job_failed(job_id, f"could not stage unchanged checkpoints: {error}")
@@ -895,7 +896,10 @@ class SynthesisService:
                             pass
                         else:
                             self.store.mark_chunk_completed(
-                                job_id, chunk.index, str(checkpoint.resolve())
+                                job_id,
+                                chunk.index,
+                                str(checkpoint.resolve()),
+                                chunk.metadata,
                             )
                             admitted_pcm_bytes = candidate_pcm_bytes
                             continue
@@ -1207,7 +1211,12 @@ class SynthesisService:
                         origin="service",
                     )
                 path = self.storage.write_chunk(job_id, index, audio.pcm, audio.format)
-                self.store.mark_chunk_completed(job_id, index, str(path.resolve()))
+                self.store.mark_chunk_completed(
+                    job_id,
+                    index,
+                    str(path.resolve()),
+                    audio.metadata,
+                )
                 return
             except ProviderError as error:
                 self.store.mark_chunk_failed(job_id, index, str(error)[:2000])

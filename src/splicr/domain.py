@@ -366,6 +366,7 @@ class SynthesisSegment:
 class AudioChunk:
     pcm: bytes
     format: AudioFormat = CANONICAL_AUDIO_FORMAT
+    metadata: Mapping[str, JsonValue] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -524,6 +525,7 @@ class ChunkRecord:
     attempts: int
     pcm_path: str | None
     error: str | None
+    metadata: Mapping[str, JsonValue] = field(default_factory=dict)
 
 
 class UnknownProviderError(ValueError):
