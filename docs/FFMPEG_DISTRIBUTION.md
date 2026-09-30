@@ -119,8 +119,9 @@ into FFmpeg.
   alternative, Kvazaar's BSD notice, and LCEVCdec's Clear BSD license plus required no-patent-
   license notice. Recipe options prove GME's GPL MAME alternative, Kvazaar's test/distribution
   helpers, and LCEVCdec's utility/platform dependencies are not built. The legal-file fetcher
-  independently downloaded and SHA-256-verified all eight new manifest files. Real package
-  acceptance remains the next gate.
+  independently downloaded and SHA-256-verified all eight new manifest files. Real `0.1.0-dev.10`
+  portable and installed-package acceptance independently verified all 19 manifest-bound dependency
+  files by exact revision and SHA-256, plus the existing media and lifecycle checks.
 - [ ] Execute the tracked fetch commands and archive every enabled external dependency source at its
   recipe-pinned revision.
 - [ ] Record the applicable license and notice for every enabled dependency, including libraries

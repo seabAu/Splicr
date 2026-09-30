@@ -733,7 +733,8 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   preserve GME's LGPL/MIT terms, GMP's LGPLv3 and accompanying GPL texts, Kvazaar's BSD notice, and
   LCEVCdec's Clear BSD plus explicit no-patent-license notice. The exact recipes prove 11 auxiliary
   candidates are excluded, and the fetcher plus fail-closed reconciliation suites passed. Real
-  Windows package acceptance remains the next gate.
+  `0.1.0-dev.10` portable and installed-package acceptance verified all 19 manifest-bound legal
+  files plus the existing media and lifecycle checks.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
