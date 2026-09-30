@@ -146,7 +146,9 @@ snapshot before the first install.
   passed `--package-smoke-test` on the development workstation.
 - [x] Repeat from a path containing spaces and Unicode characters. The same packaged smoke passed
   from `.test-runs/Portable Test – résumé dev3`; this is not a substitute for clean-VM GUI testing.
-- [ ] Confirm the package does not write mutable data into its extraction directory.
+- [x] Confirm the package does not write mutable data into its extraction directory. An isolated
+  `0.1.0-dev.3` smoke run left all 1,121 packaged files unchanged and created its database/state
+  only under the redirected per-user local-app-data root.
 - [ ] Confirm closing the lifecycle window stops its private server process.
 
 ## 6. Publish and rollback
@@ -172,7 +174,7 @@ snapshot before the first install.
 | 2026-09-29 | `47b6d19` | Windows development workstation with CUDA | Real Qwen design/clone/resume | Python 3.12.14, `qwen-tts 0.1.1`, PyTorch 2.11.0+cu128; VoiceDesign take 2 and 1.7B Base cloning passed with seed `424242`, five non-default sampling values, forced restart, frozen-control preservation, and unchanged completed-checkpoint hash/timestamp/attempt count. |
 | 2026-09-29 | Audio8 lifecycle harness working tree | Windows development workstation with CUDA | Real Audio8 clone/resume | Python 3.12.14, Transformers 4.57.6, PyTorch/Torchaudio 2.11.0+cu128, Audio8 0.6B, RTX 5070 Ti; exact-transcript cloning, forced restart, completed-checkpoint preservation, and canonical WAV assembly passed. The live run also verified the current upstream processor/decoder API compatibility fix. Post-fix regression: 538 passed, 6 intentional opt-in live skips. |
 | 2026-09-29 | Privacy/seam acceptance working tree | Windows development workstation | Privacy, real Edge seam, deterministic release gate | Diagnostic path redaction and the existing write-only secret/profile/browser audit passed. Real Edge source/revised WAVs and splice provenance were retained outside source control for listening. Current deterministic gates: 539 Python passed / 7 opt-in live skips; 8 frontend unit tests; Vite build; 6 Chromium journeys; 42 real FFmpeg/FFprobe tests. |
-| 2026-09-29 | `dc6b965` / `0.1.0-dev.3` | Windows development workstation | Multi-gigabyte range-read and internal portable candidate | Full regression passed 540 Python tests with 7 intentional opt-in live skips. A sparse 3.9 GB canonical WAV returned bounded 1 KB ranges from the beginning, midpoint, and end. PyInstaller packaged smoke passed after extraction to a Unicode/spaces path. Portable ZIP size: 220,690,342 bytes; independently verified SHA-256: `b2bb391bd572b695c094e4f668085a79c22f0bb53c2d40586d3d55ef5cdd76cd`. Internal acceptance only: installer, clean VM, signing, malware scan, and public-compatible FFmpeg licensing remain open. |
+| 2026-09-29 | `dc6b965` / `0.1.0-dev.3` | Windows development workstation | Multi-gigabyte range-read and internal portable candidate | Full regression passed 540 Python tests with 7 intentional opt-in live skips. A sparse 3.9 GB canonical WAV returned bounded 1 KB ranges from the beginning, midpoint, and end. PyInstaller packaged smoke passed after extraction to a Unicode/spaces path. An isolated rerun left all 1,121 packaged files unchanged and wrote state only to the redirected per-user data root. Portable ZIP size: 220,690,342 bytes; independently verified SHA-256: `b2bb391bd572b695c094e4f668085a79c22f0bb53c2d40586d3d55ef5cdd76cd`. Internal acceptance only: installer, clean VM, signing, malware scan, and public-compatible FFmpeg licensing remain open. |
 | Pending | Pending | Clean Windows x64 VM | Fresh install / upgrade / uninstall / portable | Record artifact hashes, Windows version, install paths, and observations here. |
 | Pending | Pending | GitHub Actions `windows-2025` | Browser/package workflows | Link successful workflow runs and retained failure artifacts when applicable. |
 

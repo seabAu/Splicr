@@ -619,8 +619,9 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
 - [x] 2026-09-29 — Multi-gigabyte and internal portable-candidate acceptance passed. A sparse
   3.9 GB canonical WAV returned bounded 1 KB ranges at its beginning, midpoint, and end. The full
   regression suite passed 540 tests with seven intentional opt-in live skips. The
-  `0.1.0-dev.3` portable ZIP (220,690,342 bytes) passed packaged smoke from a Unicode/spaces path;
-  its independently verified SHA-256 is
+  `0.1.0-dev.3` portable ZIP (220,690,342 bytes) passed packaged smoke from a Unicode/spaces path.
+  An isolated rerun left all 1,121 package files unchanged and created state only in the redirected
+  per-user data root. Its independently verified SHA-256 is
   `b2bb391bd572b695c094e4f668085a79c22f0bb53c2d40586d3d55ef5cdd76cd`. This is an internal-only
   candidate because installer/clean-VM/signing/malware-scan evidence and public-compatible FFmpeg
   licensing remain open.
