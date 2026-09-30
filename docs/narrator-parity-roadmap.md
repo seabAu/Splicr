@@ -708,7 +708,8 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   combined notices; and libpng's root `libpng-2.0` license and non-built CI/contrib candidates are
   explicit. Patent-rights caveats remain visible and unresolved rather than being overclaimed. Real
   `0.1.0-dev.7` portable/installer acceptance passed with exact AMF, OpenJPEG, and TwoLAME license
-  identity verified in both payloads against the manifest.
+  identity verified in both payloads against the manifest. Hosted browser run `36722600815` passed
+  all six Studio journeys on acceptance-record commit `f0666c4`.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
@@ -719,7 +720,7 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
 - **Next implementation slice:** continue the bounded FFmpeg source/license review in
   `docs/FFMPEG_DISTRIBUTION.md`, while preserving the remaining credential and clean-VM checks in
   `docs/RELEASE_CHECKLIST.md`. Twelve of 92 source locators are reviewed. Gemini/Deepgram
-  credentials, the clean-VM matrix, current-commit GitHub Actions, complete FFmpeg corresponding
+  credentials, the clean-VM matrix, complete FFmpeg corresponding
   source/compliance publication, malware/signing evidence, and audible sentence-seam acceptance
   remain.
 - **Clean-VM routing:** the current workstation has no Windows Sandbox binary or Hyper-V,
