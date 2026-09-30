@@ -45,6 +45,12 @@ into FFmpeg.
   BtbN downloader image pinned by digest. `test-ffmpeg-source-collector.sh` covers the complete
   90-stage plan, one-stage selection, unknown-stage rejection, and recipe-tamper rejection. This is
   collection machinery, not evidence that the full collection has run.
+- [x] A real single-stage acceptance run pulled that exact image digest, fetched OpenH264 commit
+  `8b2d28faade10d74d99ac80e199aef664c9c5a3b`, produced a valid 118,568,280-byte archive with
+  `LICENSE` and the expected detached Git `HEAD`, passed every emitted checksum, retained both
+  fail-closed status flags, and reused the same archive on a second run. The ignored evidence is in
+  `.test-runs/ffmpeg-source-collector-runtime`; this proves collector execution/resume, not the full
+  graph.
 - [ ] Execute the tracked fetch commands and archive every enabled external dependency source at its
   recipe-pinned revision.
 - [ ] Record the applicable license and notice for every enabled dependency, including libraries
