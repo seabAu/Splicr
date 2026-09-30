@@ -27,6 +27,9 @@ public release tags begin; the current section describes the unreleased Narrator
   installed package smoke, bundled-media configuration, real OpenH264/AAC output, uninstall
   cleanup, preserved user data, exact installed-payload contents, and optional prior-version upgrade
   preflight before CI uploads the release candidate and its evidence JSON.
+- A fail-closed FFmpeg primary-source audit kit with checksum-pinned FFmpeg, OpenH264, and BtbN
+  recipe snapshots. Its manifest explicitly keeps the public corresponding-source gate open until
+  the enabled external dependency graph, notices, and hosted source link are complete.
 
 ### Changed
 

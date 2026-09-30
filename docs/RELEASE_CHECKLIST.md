@@ -116,7 +116,11 @@ Get-Content .\dist\SPLICR-Studio-0.1.0-SHA256SUMS.txt
   package. Representative-job/profile/media migration in a clean VM remains required below.
 - [ ] Publish the exact corresponding FFmpeg source and required attribution/source link, then
   complete the FFmpeg distribution checklist review. The GPL-enabled binary blocker is removed,
-  but the remaining LGPL compliance publication step is still a public-release gate.
+  but the remaining LGPL compliance publication step is still a public-release gate. The exact
+  FFmpeg, OpenH264, and BtbN recipe snapshots are now hash-pinned and assembled into a validated,
+  explicitly incomplete primary-source audit kit; the enabled external dependency sources/notices,
+  final correspondence review, and hosted source link remain open in
+  [`FFMPEG_DISTRIBUTION.md`](FFMPEG_DISTRIBUTION.md).
 - [ ] Scan the installer and portable archive with the organization's selected malware scanner.
   Microsoft Defender's command-line scan returned `0x80004005` because the product/feature is
   disabled on this workstation; no scan result is claimed.

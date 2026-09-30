@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "binary": {
+    "provider": "BtbN/FFmpeg-Builds",
+    "release_tag": "autobuild-2026-09-24-14-14",
+    "asset": "ffmpeg-n9.0.2-3-ga5923073bf-win64-lgpl-shared-9.0.zip",
+    "asset_url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-09-24-14-14/ffmpeg-n9.0.2-3-ga5923073bf-win64-lgpl-shared-9.0.zip",
+    "sha256": "735bae484ba2c3342bfb34df477b9c6b0f43f9819f4d2fde011be293ee1b6517",
+    "target": "win64",
+    "variant": "lgpl-shared",
+    "addin": "9.0",
+    "reported_version": "n9.0.2-3-ga5923073bf-20260924"
+  },
+  "primary_source_archives": [
+    {
+      "name": "FFmpeg",
+      "repository": "https://github.com/FFmpeg/FFmpeg",
+      "commit": "a5923073bfd8f25b7300d93af3f8e690174ebd30",
+      "url": "https://codeload.github.com/FFmpeg/FFmpeg/zip/a5923073bfd8f25b7300d93af3f8e690174ebd30",
+      "filename": "ffmpeg-source.zip",
+      "sha256": "9da21157f8f6c033c1445a6e69a0650d2bee8a7b669bd1eecb23d79c7fd1baf5"
+    },
+    {
+      "name": "OpenH264",
+      "repository": "https://github.com/cisco/openh264",
+      "commit": "8b2d28faade10d74d99ac80e199aef664c9c5a3b",
+      "url": "https://codeload.github.com/cisco/openh264/zip/8b2d28faade10d74d99ac80e199aef664c9c5a3b",
+      "filename": "openh264-source.zip",
+      "sha256": "b04b01ccb4c7c7fe3b8bfe358366c83e1d7f56c97eb637686ca5c84504f9c1d6"
+    },
+    {
+      "name": "BtbN FFmpeg build recipes",
+      "repository": "https://github.com/BtbN/FFmpeg-Builds",
+      "commit": "20ad148c3b69a862b061eb7e6cc7b61d896bcfef",
+      "url": "https://codeload.github.com/BtbN/FFmpeg-Builds/zip/20ad148c3b69a862b061eb7e6cc7b61d896bcfef",
+      "filename": "btbn-build-scripts.zip",
+      "sha256": "89051de89fd6f128115bc1dfbf49e8aead6100cbe68caa6ed5f8df6533458b86"
+    }
+  ],
+  "completeness": {
+    "primary_sources_pinned": true,
+    "build_recipe_pinned": true,
+    "all_enabled_external_dependency_sources_included": false,
+    "corresponding_source_complete": false,
+    "public_release_gate_satisfied": false
+  }
+}

@@ -77,6 +77,14 @@ jobs:
           .\packaging\windows\test-package.ps1 `
             -Version "${{ steps.version.outputs.version }}"
 
+      - name: Prepare FFmpeg primary-source audit material
+        shell: pwsh
+        run: |
+          .\packaging\windows\prepare-ffmpeg-source-audit.ps1 `
+            -Version "${{ steps.version.outputs.version }}"
+          .\packaging\windows\test-ffmpeg-source-audit.ps1 `
+            -Version "${{ steps.version.outputs.version }}"
+
       - name: Upload package artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -86,5 +94,7 @@ jobs:
             dist/SPLICR-Studio-${{ steps.version.outputs.version }}-Windows-x64-setup.exe
             dist/SPLICR-Studio-${{ steps.version.outputs.version }}-SHA256SUMS.txt
             dist/SPLICR-Studio-${{ steps.version.outputs.version }}-Windows-x64-ACCEPTANCE.json
+            dist/SPLICR-Studio-${{ steps.version.outputs.version }}-FFmpeg-primary-source-audit.zip
+            dist/SPLICR-Studio-${{ steps.version.outputs.version }}-FFmpeg-primary-source-audit-SHA256.txt
           if-no-files-found: error
           retention-days: 30

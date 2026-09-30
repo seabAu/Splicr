@@ -87,6 +87,23 @@ This automated harness does not replace the release checklist's interactive clea
 the lifecycle window, browser launch/reuse, real document playback, upgrade migration, Windows
 Settings, Start menu behavior, or signing/malware review.
 
+## FFmpeg source audit
+
+The packaging workflow also creates and validates an explicitly incomplete FFmpeg primary-source
+audit kit. It pins the exact FFmpeg, OpenH264, and BtbN recipe snapshots without pretending that
+those three archives alone cover every external library compiled into the distributed FFmpeg DLLs.
+The generator writes a separate SHA-256 sidecar and the validator checks both the outer archive and
+every pinned source archive inside it.
+
+```powershell
+.\packaging\windows\prepare-ffmpeg-source-audit.ps1 -Version 0.1.0
+.\packaging\windows\test-ffmpeg-source-audit.ps1 -Version 0.1.0
+```
+
+See [`../../docs/FFMPEG_DISTRIBUTION.md`](../../docs/FFMPEG_DISTRIBUTION.md) for the exact binary
+identity, upstream checklist mapping, and remaining corresponding-source/publication gates. The
+audit kit is CI evidence; it must not be published or described as complete corresponding source.
+
 ## Removing local data manually
 
 Windows uninstall intentionally removes only the application and shortcuts. To erase projects,
