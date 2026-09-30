@@ -396,11 +396,18 @@ sequence, cancellation cleanup, deterministic archives, API validation, and the 
 
 - [ ] Run the opt-in live contract against Gemini and record model/voice/date/result.
 - [ ] Run it against Deepgram and record model/voice/date/result.
-- [ ] Run it against Inworld and record model/voice/date/result.
+- [x] Run it against Inworld and record model/voice/date/result. On 2026-09-29, saved resource
+  revision 1 used `inworld-tts-2`, voice `Ashley`, and the current `/tts/v1/voice` endpoint; the
+  vault-backed live contract returned non-empty canonical 24 kHz mono signed-16-bit PCM without
+  exporting or logging the credential.
 - [x] Run the Edge provider against the live service. On 2026-09-29, `edge-tts 7.2.8`
   synthesized the acceptance fixture with model `edge-tts` and voice `en-US-AriaNeural`; SPLICR
   verified non-empty canonical 24 kHz mono signed-16-bit PCM plus word-boundary timing metadata.
-- [ ] Run real Kokoro narration through import -> preview -> render -> resume -> playback.
+- [x] Run real Kokoro narration through import -> preview -> render -> resume -> playback. On
+  2026-09-29, Python 3.12.14 with Kokoro 0.9.4 and voice `af_heart` imported Markdown, previewed
+  the exact persisted plan, rendered a checkpoint, survived a forced service stop, resumed without
+  rewriting or re-attempting the completed chunk, assembled canonical WAV, and served range
+  playback through the application API.
 - [ ] Run real Qwen voice design/clone with non-default advanced parameters and forced resume.
 - [ ] Run real Audio8 clone narration with forced resume.
 - [ ] Confirm local engine processes/models are reused only within their intended job/session scope
@@ -560,6 +567,15 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   keywords; SPLICR now applies a worker-scoped compatibility shim with deterministic regression
   coverage rather than requiring users to downgrade their isolated environment. The post-fix full
   suite passed 537 Python tests with four remaining intentional live-environment skips.
+- [x] 2026-09-29 — Live Inworld acceptance passed through saved resource revision 1 with
+  `inworld-tts-2`, voice `Ashley`, and the current `/tts/v1/voice` endpoint. The live harness
+  resolved the credential directly from SPLICR's vault and verified canonical output without
+  exporting or logging the secret.
+- [x] 2026-09-29 — Real Kokoro lifecycle acceptance passed with Python 3.12.14, Kokoro 0.9.4,
+  and `af_heart`: Markdown import, exact preview/persisted-plan agreement, rendering, forced process
+  interruption, durable resume without replacing the completed checkpoint, canonical WAV assembly,
+  and HTTP range playback all passed through the merged SPLICR service. The expanded full suite
+  passed 537 Python tests with five intentional opt-in live-environment skips.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 

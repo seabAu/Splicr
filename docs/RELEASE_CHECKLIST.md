@@ -53,10 +53,15 @@ uv run pytest -m live_engine tests/test_transcription_live.py
 
 - [ ] Gemini canonical-audio contract passes.
 - [ ] Deepgram canonical-audio contract passes.
-- [ ] Inworld canonical-audio contract passes.
+- [x] Inworld canonical-audio contract passes. Verified 2026-09-29 with saved resource revision 1,
+  `inworld-tts-2`, voice `Ashley`, and the current `/tts/v1/voice` endpoint; the harness resolved
+  the credential directly from SPLICR's vault without exporting it.
 - [x] Edge online-service contract passes. Verified 2026-09-29 with `edge-tts 7.2.8`, model
   `edge-tts`, voice `en-US-AriaNeural`, canonical 24 kHz mono signed-16-bit PCM, and word timings.
-- [ ] Configured Kokoro environment passes its applicable end-to-end checks.
+- [x] Configured Kokoro environment passes its applicable end-to-end checks. Verified 2026-09-29
+  with Python 3.12.14, Kokoro 0.9.4, and `af_heart`: Markdown import, preview/persisted-plan
+  agreement, real render, forced restart, completed-checkpoint preservation, canonical WAV, and
+  range playback all passed.
 - [ ] Configured Qwen3-TTS environment passes its applicable end-to-end checks.
 - [ ] Configured Audio8 environment passes its applicable end-to-end checks.
 - [x] Configured faster-whisper environment passes its real-model check. Verified 2026-09-29 with
@@ -135,6 +140,8 @@ snapshot before the first install.
 | 2026-09-29 | `0.1.0-dev.2` working tree | Windows development workstation | Deterministic failure and frozen portable-package gate | 536 Python tests passed with 4 intentional live-environment skips. PyInstaller portable build passed its packaged executable smoke, including bundled FFmpeg/FFprobe discovery and an actual lazy-loaded NumPy/Pillow polar/formula/transparent audiogram frame. Portable ZIP SHA-256: `4023d860395f10ff47c2324f592f2e017833227708f8ca7ebb10595b5284fc41`. This is not a substitute for the clean-VM matrix below. |
 | 2026-09-29 | `29c180f` + acceptance-doc update | Windows development workstation | Live Edge TTS contract | `edge-tts 7.2.8`, model `edge-tts`, voice `en-US-AriaNeural`; real service returned canonical 24 kHz mono signed-16-bit PCM and word-boundary timing metadata. |
 | 2026-09-29 | `29c180f` + PyAV compatibility update | Windows development workstation | Real faster-whisper contract | Python 3.13.5, `faster-whisper 1.2.1`, CTranslate2 4.8.2, PyAV 19.0.0, `tiny.en`, CPU/int8; a known Edge-generated fixture produced positive duration, progress, segments, word timings, and both expected terms. Post-fix regression: 537 Python passed, 4 intentional live-environment skips. |
+| 2026-09-29 | `e9a1ff8` + vault-backed live harness update | Windows development workstation | Live Inworld contract | Saved resource revision 1, `inworld-tts-2`, voice `Ashley`, current `/tts/v1/voice` endpoint; returned non-empty canonical 24 kHz mono signed-16-bit PCM without exporting or logging the credential. |
+| 2026-09-29 | `e9a1ff8` + Kokoro lifecycle harness update | Windows development workstation | Real Kokoro lifecycle | Python 3.12.14, Kokoro 0.9.4, `af_heart`; Markdown import, exact preview plan, real render, forced restart, completed-checkpoint preservation, canonical WAV assembly, and API range playback passed. Expanded regression: 537 Python passed, 5 intentional opt-in live-environment skips. |
 | Pending | Pending | Clean Windows x64 VM | Fresh install / upgrade / uninstall / portable | Record artifact hashes, Windows version, install paths, and observations here. |
 | Pending | Pending | GitHub Actions `windows-2025` | Browser/package workflows | Link successful workflow runs and retained failure artifacts when applicable. |
 

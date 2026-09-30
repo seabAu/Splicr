@@ -2,17 +2,21 @@ from __future__ import annotations
 
 import asyncio
 import os
+from pathlib import Path
 
 import pytest
 
+from splicr.api_resources import SqliteApiResourceStore
 from splicr.config import Settings
 from splicr.domain import CANONICAL_AUDIO_FORMAT, SynthesisOptions, TtsProvider
 from splicr.providers.deepgram import DeepgramTtsProvider
 from splicr.providers.gemini import GeminiTtsProvider
 from splicr.providers.inworld import InworldTtsProvider
+from splicr.resource_registry import provider_from_resource
 
 
 _PROVIDER_ENV = "SPLICR_LIVE_PROVIDER"
+_RESOURCE_DB_ENV = "SPLICR_LIVE_RESOURCE_DB"
 
 
 def _configured_provider(settings: Settings) -> TtsProvider:
@@ -21,6 +25,20 @@ def _configured_provider(settings: Settings) -> TtsProvider:
         pytest.skip(
             f"set {_PROVIDER_ENV} to gemini, deepgram, or inworld to spend quota on a live check"
         )
+    resource_database = os.getenv(_RESOURCE_DB_ENV, "").strip()
+    if resource_database:
+        database_path = Path(resource_database).expanduser().resolve()
+        if not database_path.is_file():
+            pytest.fail(f"configured {_RESOURCE_DB_ENV} database does not exist")
+        store = SqliteApiResourceStore(database_path)
+        store.initialize()
+        resource = store.get_current(name)
+        if resource is None:
+            pytest.fail(f"configured resource database has no enabled {name!r} resource")
+        api_key = store.resolve_api_key(resource)
+        if not api_key:
+            pytest.fail(f"configured {name!r} resource has no resolvable credential")
+        return provider_from_resource(resource, api_key=api_key, settings=settings)
     if name == "gemini":
         return GeminiTtsProvider(
             default_model=settings.gemini_model,
