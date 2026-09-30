@@ -765,7 +765,9 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   candidate. Disabled jpgicc/LSR tests are excluded, while the separately built GPL-3.0 Little CMS
   plugins are unincorporated static archives absent from the package. The fetcher plus exact-batch,
   tracked, synthetic, and negative reconciliation suites passed for all 45 manifest files. Real
-  Windows package acceptance remains the next gate; AVS3 patent review remains open.
+  `0.1.0-dev.13` portable and installed-package acceptance independently verified all 45 files plus
+  the existing media and lifecycle checks. Hosted browser acceptance is pending for the acceptance-
+  record commit; AVS3 patent review remains open.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 

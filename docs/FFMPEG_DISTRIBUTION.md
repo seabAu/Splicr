@@ -153,8 +153,9 @@ into FFmpeg.
   recipe/source and packaged-binary evidence excludes disabled jpgicc/LSR tests and classifies the
   separately built GPL-3.0 Little CMS plugins as unincorporated, unshipped static archives. The
   downloader independently fetched and SHA-256-verified all 45 manifest files; the SoXR entries use
-  an immutable GitHub mirror at the identical SourceForge commit. Real package acceptance remains
-  the next gate, and AVS3 patent review remains open.
+  an immutable GitHub mirror at the identical SourceForge commit. Real `0.1.0-dev.13` portable and
+  installed-package acceptance independently verified every one of those 45 files by exact revision
+  and SHA-256, plus the existing media and lifecycle checks. AVS3 patent review remains open.
 - [ ] Execute the tracked fetch commands and archive every enabled external dependency source at its
   recipe-pinned revision.
 - [ ] Record the applicable license and notice for every enabled dependency, including libraries
