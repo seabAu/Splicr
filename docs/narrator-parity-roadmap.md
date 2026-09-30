@@ -776,7 +776,9 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   excluded; both Mbed TLS framework submodules are build-time-only. The validator now supports the
   graph-pinned `v4.2.0` release tag while rejecting unsafe arbitrary refs. The PowerShell downloader
   independently fetched and SHA-256-verified all 53 manifest files, while exact-batch, tracked,
-  synthetic, and negative reconciliation suites passed. Real package acceptance remains next.
+  synthetic, and negative reconciliation suites passed. Real `0.1.0-dev.14` portable and installed-
+  package acceptance independently verified all 53 files plus the existing media and lifecycle
+  checks; hosted browser acceptance remains next.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
