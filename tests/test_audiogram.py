@@ -5,7 +5,9 @@ import hashlib
 import json
 import math
 import shutil
+import subprocess
 import struct
+import sys
 import time
 import wave
 import zipfile
@@ -161,6 +163,53 @@ def test_ffmpeg_command_is_structured_and_keeps_audio(tmp_path: Path) -> None:
         AudiogramSpec(source=AudiogramSource.VECTORSCOPE, foreground_color="#FFAA33")
     )
     assert "rc=255:gc=170:bc=51" in vector_graph
+
+
+def test_mp4_command_uses_bitrate_driven_openh264_fallback(tmp_path: Path) -> None:
+    spec = AudiogramSpec(
+        output_format=AudiogramOutputFormat.MP4,
+        width=1280,
+        height=720,
+        fps=30,
+        crf=23,
+    )
+
+    command = build_ffmpeg_command(
+        "ffmpeg",
+        tmp_path / "source.wav",
+        tmp_path / "output.mp4",
+        spec,
+        render_seconds=2,
+        mp4_video_encoder="libopenh264",
+    )
+
+    assert command[command.index("-c:v") + 1] == "libopenh264"
+    assert command[command.index("-rc_mode") + 1] == "bitrate"
+    assert int(command[command.index("-b:v") + 1]) > 1_000_000
+    assert "-crf" not in command
+    assert "-preset" not in command
+
+
+@pytest.mark.parametrize(
+    ("encoders", "expected"),
+    [
+        (" V..... libopenh264 H.264 encoder", "libopenh264"),
+        (" V..... libopenh264 H.264 encoder\n V..... libx264 H.264 encoder", "libx264"),
+    ],
+)
+def test_renderer_detects_lgpl_mp4_encoder_and_prefers_x264(
+    encoders: str,
+    expected: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "splicr.studio.audiogram.subprocess.run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(args, 0, encoders, ""),
+    )
+    renderer = FfmpegAudiogramRenderer(executable=sys.executable)
+
+    assert renderer.mp4_video_encoder == expected
+    assert AudiogramOutputFormat.MP4 in renderer.supported_output_formats
 
 
 def test_image_background_uses_shared_layout_and_managed_ffmpeg_input(tmp_path: Path) -> None:

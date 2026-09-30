@@ -17,11 +17,13 @@ The release publisher must review the recorded configuration and provide all not
 and corresponding source or source offer required by that particular build before distributing the
 package publicly.
 
-The FFmpeg 9.0 full build used for the 2026-09-29 development acceptance candidate reports
-`--enable-gpl --enable-version3`. That candidate is therefore **not cleared for public download**
-by this notice alone. A public publisher must replace it with a reviewed compatible build or add the
-complete GPLv3 compliance materials for the exact binary. This paragraph records the current audit
-finding; the adjacent generated `BUILD_INFO.txt` remains authoritative for any later candidate.
+The `0.1.0-dev.5` Windows acceptance candidate uses the checksum-pinned BtbN
+`ffmpeg-n9.0.2-3-ga5923073bf-win64-lgpl-shared-9.0.zip` asset. Its recorded configuration enables
+shared libraries and OpenH264 while disabling libx264, libx265, and other GPL-only codecs used by
+the earlier internal candidate. The package preserves FFmpeg's `LICENSE.txt`, a `SOURCE_INFO.txt`
+record containing the exact download URL and SHA-256, and the generated `BUILD_INFO.txt`. A public
+publisher must still provide the exact corresponding source and complete the distribution review;
+this notice does not itself make a legal determination.
 
 Advanced audiogram rendering also includes these Python libraries in the frozen desktop package:
 

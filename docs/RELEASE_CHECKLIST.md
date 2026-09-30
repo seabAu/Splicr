@@ -98,12 +98,14 @@ Requirements are listed in [`../packaging/windows/README.md`](../packaging/windo
 Get-Content .\dist\SPLICR-Studio-0.1.0-SHA256SUMS.txt
 ```
 
-- [x] Portable ZIP, per-user installer, checksum file, `BUILD_INFO.txt`, and third-party notices are
-  present. Verified for `0.1.0-dev.4` after a complete PyInstaller/Inno Setup 6.7.3 build.
+- [x] Portable ZIP, per-user installer, checksum file, `BUILD_INFO.txt`, third-party notices, and
+  bundled FFmpeg license/source provenance are present. Verified for `0.1.0-dev.5` after a complete
+  PyInstaller/Inno Setup 6.7.3 build with the pinned LGPL-shared media-tool archive.
 - [x] Recompute every SHA-256 digest and compare it with the checksum file. Verified independently
-  with `certutil` for `0.1.0-dev.4`: portable ZIP
-  `669f9f607e9f35d6fe8741af5fb646a3378b62305248ee2873d195abf42afbeb`; installer
-  `5d630e34271a0a1a2f57128c73474577f58e427460d6310bb4797518012a0ff2`.
+  with `certutil` for `0.1.0-dev.5`; final hashes are recorded in the evidence table below.
+- [ ] Publish the exact corresponding FFmpeg source and required attribution/source link, then
+  complete the FFmpeg distribution checklist review. The GPL-enabled binary blocker is removed,
+  but the remaining LGPL compliance publication step is still a public-release gate.
 - [ ] Scan the installer and portable archive with the organization's selected malware scanner.
   Microsoft Defender's command-line scan returned `0x80004005` because the product/feature is
   disabled on this workstation; no scan result is claimed.
@@ -179,6 +181,7 @@ snapshot before the first install.
 | 2026-09-29 | Privacy/seam acceptance working tree | Windows development workstation | Privacy, real Edge seam, deterministic release gate | Diagnostic path redaction and the existing write-only secret/profile/browser audit passed. Real Edge source/revised WAVs and splice provenance were retained outside source control for listening. Current deterministic gates: 539 Python passed / 7 opt-in live skips; 8 frontend unit tests; Vite build; 6 Chromium journeys; 42 real FFmpeg/FFprobe tests. |
 | 2026-09-29 | `dc6b965` / `0.1.0-dev.3` | Windows development workstation | Multi-gigabyte range-read and internal portable candidate | Full regression passed 540 Python tests with 7 intentional opt-in live skips. A sparse 3.9 GB canonical WAV returned bounded 1 KB ranges from the beginning, midpoint, and end. PyInstaller packaged smoke passed after extraction to a Unicode/spaces path. An isolated rerun left all 1,121 packaged files unchanged and wrote state only to the redirected per-user data root. Portable ZIP size: 220,690,342 bytes; independently verified SHA-256: `b2bb391bd572b695c094e4f668085a79c22f0bb53c2d40586d3d55ef5cdd76cd`. Internal acceptance only: installer, clean VM, signing, malware scan, and public-compatible FFmpeg licensing remain open. |
 | 2026-09-29 | `0.1.0-dev.4` working tree | Windows development workstation | Frozen lifecycle and per-user installer acceptance | The frozen launcher gained and tested `--no-browser`. Its real Tk lifecycle window started a healthy private service on port 8765, accepted the normal close event, exited with code 0, and left `/health` unreachable. Inno Setup 6.7.3 built the per-user installer after SPLICR was fixed to discover user-scope installs and preserve a one-item path array. An isolated silent install placed the executable, notices, and build metadata; package smoke returned 0; silent uninstall returned 0, removed the application directory, and preserved external user data. Full regression: 543 passed, 7 intentional live skips. Portable: 220,689,908 bytes, SHA-256 `669f9f607e9f35d6fe8741af5fb646a3378b62305248ee2873d195abf42afbeb`. Installer: 151,418,758 bytes, SHA-256 `5d630e34271a0a1a2f57128c73474577f58e427460d6310bb4797518012a0ff2`. Internal acceptance only; clean-VM and public-release gates remain open. |
+| 2026-09-29 | `0.1.0-dev.5` working tree | Windows development workstation | LGPL-shared media bundle and final local installer acceptance | Packaging fetched the pinned BtbN LGPL-shared archive, verified its upstream SHA-256, bundled FFmpeg/FFprobe plus all required DLLs, and preserved its license and exact source record beside the tools. The packaged binary reports OpenH264 and no libx264; a real 1-second H.264/AAC MP4 passed FFprobe. The final isolated silent install placed the relocated compliance metadata, package smoke returned 0, and uninstall removed the app while preserving redirected per-user state. Ruff passed; full regression passed 546 tests with 7 intentional live skips. Portable: 179,300,537 bytes, SHA-256 `bdf188b2db2ece4ee3f33b0bc59b7612497de92e5fa4c926ce9ba46f8fcfeef8`. Installer: 119,685,499 bytes, SHA-256 `5fe9d9bc36479da65ec879ac84ba111fff7f2ee313748c8fd131eeecbbb8e605`. Clean-VM, corresponding-source publication/review, signing, malware scan, and CI evidence remain open. |
 | Pending | Pending | Clean Windows x64 VM | Fresh install / upgrade / uninstall / portable | Record artifact hashes, Windows version, install paths, and observations here. |
 | Pending | Pending | GitHub Actions `windows-2025` | Browser/package workflows | Link successful workflow runs and retained failure artifacts when applicable. |
 

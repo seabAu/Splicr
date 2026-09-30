@@ -21,6 +21,8 @@ public release tags begin; the current section describes the unreleased Narrator
 - Windows portable/installer build automation with bundled FFmpeg discovery, checksums, build
   metadata, supervised browser acceptance, packaged-executable smoke tests, and a headless
   `--no-browser` launcher mode for deployment and lifecycle acceptance.
+- Reproducible Windows media-tool acquisition pinned to a checksum-verified BtbN LGPL-shared
+  FFmpeg build, including its shared DLLs, license, and exact source/provenance record.
 
 ### Changed
 
@@ -43,6 +45,8 @@ public release tags begin; the current section describes the unreleased Narrator
   private paths before persistence or display.
 - Windows packaging discovers Inno Setup from `PATH`, user-scope, and machine-scope installations;
   a single discovered compiler path no longer collapses to its first character in PowerShell.
+- MP4 audiograms prefer `libx264` when an external build provides it and otherwise use the bundled
+  LGPL-compatible `libopenh264` encoder with deterministic bitrate-based quality mapping.
 
 ### Migration and configuration
 
@@ -67,9 +71,9 @@ public release tags begin; the current section describes the unreleased Narrator
   falls back to regenerating the whole chunk.
 - Clean-Windows installer upgrade/uninstall/Unicode-path evidence, signed binaries, malware scan,
   and current-commit GitHub Actions evidence remain release gates.
-- The FFmpeg build currently found on the development workstation is GPL-enabled. It is suitable
-  for internal acceptance packages only until the publisher either supplies a compatible LGPL
-  build or completes all obligations for distributing that exact GPL build.
+- Windows candidates now use a pinned LGPL-shared FFmpeg build rather than the workstation's
+  GPL-enabled build. Public release still requires publication of the exact corresponding source,
+  attribution/source links, and final review against FFmpeg's distribution checklist.
 
 ### Rollback
 

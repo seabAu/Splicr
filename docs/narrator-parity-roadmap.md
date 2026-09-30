@@ -450,8 +450,8 @@ sequence, cancellation cleanup, deterministic archives, API validation, and the 
   failure; link a green release-commit run in the evidence record.
 - [x] Update user documentation, migration notes, third-party notices, and release checklist.
   `CHANGELOG.md`, the Windows packaging guide, the release checklist, and the FFmpeg notice now
-  record data migration/rollback, external engine ownership, live-evidence gaps, and the
-  GPL-enabled development FFmpeg finding.
+  record data migration/rollback, external engine ownership, live-evidence gaps, and the pinned
+  LGPL-shared FFmpeg/OpenH264 packaging policy.
 
 ## Deferred ideas from the Narrator handover
 
@@ -638,6 +638,16 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   `669f9f607e9f35d6fe8741af5fb646a3378b62305248ee2873d195abf42afbeb`; the 151,418,758-byte
   installer SHA-256 is `5d630e34271a0a1a2f57128c73474577f58e427460d6310bb4797518012a0ff2`.
   Clean-VM fresh/upgrade/uninstall acceptance remains open.
+- [x] 2026-09-29 — The Windows media bundle moved from the GPL-enabled workstation build to a
+  checksum-pinned BtbN LGPL-shared FFmpeg build. SPLICR detects `libopenh264` as the MP4 fallback,
+  preserves FFmpeg's shared DLLs, license, exact asset URL, and SHA-256, and produced a real H.264 /
+  AAC MP4 from both the portable build and installed payload. The isolated installer smoke returned
+  0; uninstall removed the app and preserved redirected per-user data. The final 179,300,537-byte
+  portable ZIP SHA-256 is `bdf188b2db2ece4ee3f33b0bc59b7612497de92e5fa4c926ce9ba46f8fcfeef8`;
+  the 119,685,499-byte installer SHA-256 is
+  `5fe9d9bc36479da65ec879ac84ba111fff7f2ee313748c8fd131eeecbbb8e605`. Ruff and the full regression
+  suite passed (546 tests, 7 intentional live skips). Public release still needs corresponding-source
+  publication and final compliance review.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
@@ -647,8 +657,8 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   remaining Milestones 2/3/5/7 live-environment evidence.
 - **Next implementation slice:** execute and record the remaining credential and clean-VM checks in
   `docs/RELEASE_CHECKLIST.md`. Gemini/Deepgram credentials, the clean-VM matrix,
-  current-commit GitHub Actions, public-compatible FFmpeg licensing, malware/signing evidence, and
-  audible sentence-seam acceptance remain.
+  current-commit GitHub Actions, FFmpeg corresponding-source/compliance publication,
+  malware/signing evidence, and audible sentence-seam acceptance remain.
 - **Known unrelated worktree item:** `LICENSE.txt` is untracked and not part of this roadmap unless
   deliberately adopted later.
 

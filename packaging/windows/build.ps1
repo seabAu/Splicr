@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$Version = "0.1.0",
+    [string]$FfmpegBin = "",
     [switch]$SkipInstaller
 )
 
@@ -23,16 +24,48 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "Studio web build failed" }
 
     New-Item -ItemType Directory -Force -Path $VendorBin | Out-Null
-    foreach ($Tool in @("ffmpeg.exe", "ffprobe.exe")) {
-        $Command = Get-Command $Tool -ErrorAction SilentlyContinue
-        if (-not $Command) {
-            throw "$Tool is required to build the Windows package. Install FFmpeg and retry."
+    Get-ChildItem -LiteralPath $VendorBin -File -ErrorAction SilentlyContinue | Remove-Item -Force
+    $VendorMetadataRoot = Split-Path $VendorBin -Parent
+    foreach ($Metadata in @("LICENSE.txt", "SOURCE_INFO.txt")) {
+        $StaleMetadata = Join-Path $VendorMetadataRoot $Metadata
+        if (Test-Path -LiteralPath $StaleMetadata) {
+            Remove-Item -LiteralPath $StaleMetadata -Force
         }
-        Copy-Item -LiteralPath $Command.Source -Destination (Join-Path $VendorBin $Tool) -Force
     }
-    $FfmpegInfo = & ffmpeg.exe -version 2>&1
+    if ($FfmpegBin) {
+        $ResolvedFfmpegBin = (Resolve-Path -LiteralPath $FfmpegBin).Path
+        foreach ($Tool in @("ffmpeg.exe", "ffprobe.exe")) {
+            $Source = Join-Path $ResolvedFfmpegBin $Tool
+            if (-not (Test-Path -LiteralPath $Source)) {
+                throw "$Tool was not found in -FfmpegBin '$ResolvedFfmpegBin'."
+            }
+        }
+        Get-ChildItem -LiteralPath $ResolvedFfmpegBin -File | Where-Object {
+            $_.Name -in @("ffmpeg.exe", "ffprobe.exe") -or $_.Extension -eq ".dll"
+        } | Copy-Item -Destination $VendorBin -Force
+        $FfmpegRoot = Split-Path $ResolvedFfmpegBin -Parent
+        foreach ($Metadata in @("LICENSE.txt", "SOURCE_INFO.txt")) {
+            $Source = Join-Path $FfmpegRoot $Metadata
+            $Destination = Join-Path $VendorMetadataRoot $Metadata
+            if (Test-Path -LiteralPath $Source) {
+                Copy-Item -LiteralPath $Source -Destination $Destination -Force
+            }
+        }
+    }
+    else {
+        foreach ($Tool in @("ffmpeg.exe", "ffprobe.exe")) {
+            $Command = Get-Command $Tool -ErrorAction SilentlyContinue
+            if (-not $Command) {
+                throw "$Tool is required to build the Windows package. Install FFmpeg and retry."
+            }
+            Copy-Item -LiteralPath $Command.Source -Destination (Join-Path $VendorBin $Tool) -Force
+        }
+    }
+    $BundledFfmpeg = Join-Path $VendorBin "ffmpeg.exe"
+    $BundledFfprobe = Join-Path $VendorBin "ffprobe.exe"
+    $FfmpegInfo = & $BundledFfmpeg -version 2>&1
     if ($LASTEXITCODE -ne 0) { throw "Could not read the bundled FFmpeg version" }
-    $FfprobeInfo = & ffprobe.exe -version 2>&1
+    $FfprobeInfo = & $BundledFfprobe -version 2>&1
     if ($LASTEXITCODE -ne 0) { throw "Could not read the bundled FFprobe version" }
     @(
         "This file records the exact media tools copied into this SPLICR Studio build."

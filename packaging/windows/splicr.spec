@@ -15,12 +15,18 @@ datas = [
     (str(ROOT / "packaging" / "windows" / "THIRD_PARTY_NOTICES.md"), "."),
     (str(ROOT / "packaging" / "windows" / "vendor" / "ffmpeg" / "BUILD_INFO.txt"), "."),
 ]
+for metadata in ("LICENSE.txt", "SOURCE_INFO.txt"):
+    candidate = ROOT / "packaging" / "windows" / "vendor" / "ffmpeg" / metadata
+    if candidate.is_file():
+        datas.append((str(candidate), "ffmpeg"))
 binaries = []
 for executable in ("ffmpeg.exe", "ffprobe.exe"):
     candidate = VENDOR / executable
     if not candidate.is_file():
         raise SystemExit(f"Missing required bundled tool: {candidate}")
     binaries.append((str(candidate), "ffmpeg"))
+for library in sorted(VENDOR.glob("*.dll")):
+    binaries.append((str(library), "ffmpeg"))
 
 hiddenimports = sorted(
     set(

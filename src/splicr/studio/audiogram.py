@@ -883,6 +883,7 @@ def build_ffmpeg_command(
     render_seconds: float,
     subtitle_path: Path | None = None,
     background_path: Path | None = None,
+    mp4_video_encoder: str = "libx264",
 ) -> list[str]:
     command = [
         executable,
@@ -913,22 +914,8 @@ def build_ffmpeg_command(
     command.extend(["-t", f"{render_seconds:.3f}", "-r", str(spec.fps)])
 
     if spec.output_format is AudiogramOutputFormat.MP4:
-        command.extend(
-            [
-                "-c:v",
-                "libx264",
-                "-preset",
-                spec.preset,
-                "-crf",
-                str(spec.crf),
-                "-c:a",
-                "aac",
-                "-b:a",
-                "192k",
-                "-movflags",
-                "+faststart",
-            ]
-        )
+        command.extend(_mp4_video_arguments(spec, mp4_video_encoder))
+        command.extend(["-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart"])
     elif spec.output_format in {
         AudiogramOutputFormat.WEBM,
         AudiogramOutputFormat.WEBM_ALPHA,
@@ -970,6 +957,43 @@ def build_ffmpeg_command(
         command.append("-shortest")
     command.append(str(output_path))
     return command
+
+
+def _mp4_video_arguments(spec: AudiogramSpec, encoder: str) -> list[str]:
+    if encoder == "libx264":
+        return [
+            "-c:v",
+            encoder,
+            "-preset",
+            spec.preset,
+            "-crf",
+            str(spec.crf),
+            "-pix_fmt",
+            "yuv420p",
+        ]
+    if encoder == "libopenh264":
+        # OpenH264 is bitrate-driven rather than CRF-driven. Preserve the existing quality control
+        # as a stable approximation scaled by resolution and frame rate.
+        quality_scale = 2 ** ((23 - spec.crf) / 6)
+        bitrate = max(
+            350_000,
+            min(20_000_000, round(spec.width * spec.height * spec.fps * 0.07 * quality_scale)),
+        )
+        return [
+            "-c:v",
+            encoder,
+            "-rc_mode",
+            "bitrate",
+            "-b:v",
+            str(bitrate),
+            "-maxrate",
+            str(round(bitrate * 1.5)),
+            "-bufsize",
+            str(bitrate * 2),
+            "-pix_fmt",
+            "yuv420p",
+        ]
+    raise ValueError(f"unsupported MP4 video encoder: {encoder}")
 
 
 def estimate_render_seconds(spec: AudiogramSpec, audio_seconds: float) -> float:
@@ -1047,6 +1071,7 @@ class FfmpegAudiogramRenderer:
     def __init__(self, executable: str = "ffmpeg") -> None:
         self.executable = executable
         self._supported_output_formats: tuple[AudiogramOutputFormat, ...] | None = None
+        self._encoders: str | None = None
 
     @property
     def available(self) -> bool:
@@ -1059,17 +1084,9 @@ class FfmpegAudiogramRenderer:
         if not self.available:
             self._supported_output_formats = ()
             return self._supported_output_formats
-        creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
-        result = subprocess.run(
-            [self.executable, "-hide_banner", "-encoders"],
-            check=False,
-            capture_output=True,
-            text=True,
-            creationflags=creationflags,
-        )
-        encoders = result.stdout + result.stderr
+        encoders = self._encoder_listing
         supported: list[AudiogramOutputFormat] = []
-        if re.search(r"\blibx264\b", encoders):
+        if self.mp4_video_encoder is not None:
             supported.append(AudiogramOutputFormat.MP4)
         if re.search(r"\blibvpx-vp9\b", encoders):
             supported.extend([AudiogramOutputFormat.WEBM, AudiogramOutputFormat.WEBM_ALPHA])
@@ -1079,6 +1096,32 @@ class FfmpegAudiogramRenderer:
             supported.append(AudiogramOutputFormat.PNG_SEQUENCE)
         self._supported_output_formats = tuple(supported)
         return self._supported_output_formats
+
+    @property
+    def mp4_video_encoder(self) -> str | None:
+        encoders = self._encoder_listing
+        for encoder in ("libx264", "libopenh264"):
+            if re.search(rf"\b{encoder}\b", encoders):
+                return encoder
+        return None
+
+    @property
+    def _encoder_listing(self) -> str:
+        if self._encoders is not None:
+            return self._encoders
+        if not self.available:
+            self._encoders = ""
+            return self._encoders
+        creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+        result = subprocess.run(
+            [self.executable, "-hide_banner", "-encoders"],
+            check=False,
+            capture_output=True,
+            text=True,
+            creationflags=creationflags,
+        )
+        self._encoders = result.stdout + result.stderr
+        return self._encoders
 
     async def render(
         self,
@@ -1111,6 +1154,7 @@ class FfmpegAudiogramRenderer:
                 render_seconds=render_seconds,
                 subtitle_path=subtitle_path,
                 background_path=background_path,
+                mp4_video_encoder=self.mp4_video_encoder or "libx264",
                 on_progress=on_progress,
                 is_cancelled=is_cancelled,
             )
@@ -1131,6 +1175,7 @@ class FfmpegAudiogramRenderer:
             render_seconds=render_seconds,
             subtitle_path=subtitle_path,
             background_path=background_path,
+            mp4_video_encoder=self.mp4_video_encoder or "libx264",
         )
         creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
         process = await asyncio.create_subprocess_exec(

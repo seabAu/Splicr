@@ -240,8 +240,9 @@ def _video_command(
     *,
     render_seconds: float,
     subtitle_path: Path | None,
+    mp4_video_encoder: str = "libx264",
 ) -> list[str]:
-    from .audiogram import AudiogramOutputFormat, _ffmpeg_subtitle_path
+    from .audiogram import AudiogramOutputFormat, _ffmpeg_subtitle_path, _mp4_video_arguments
 
     command = [
         executable,
@@ -273,24 +274,9 @@ def _video_command(
         )
     command.extend(["-t", f"{render_seconds:.3f}", "-r", str(spec.fps)])
     if spec.output_format is AudiogramOutputFormat.MP4:
+        command.extend(_mp4_video_arguments(spec, mp4_video_encoder))
         command.extend(
-            [
-                "-c:v",
-                "libx264",
-                "-preset",
-                spec.preset,
-                "-crf",
-                str(spec.crf),
-                "-pix_fmt",
-                "yuv420p",
-                "-c:a",
-                "aac",
-                "-b:a",
-                "192k",
-                "-movflags",
-                "+faststart",
-                "-shortest",
-            ]
+            ["-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", "-shortest"]
         )
     elif spec.output_format in {AudiogramOutputFormat.WEBM, AudiogramOutputFormat.WEBM_ALPHA}:
         command.extend(
@@ -367,6 +353,7 @@ def _render_sync(
     render_seconds: float,
     subtitle_path: Path | None,
     background_path: Path | None,
+    mp4_video_encoder: str,
     on_progress: ProgressCallback,
     is_cancelled: CancelCallback,
 ) -> None:
@@ -395,6 +382,7 @@ def _render_sync(
         spec,
         render_seconds=render_seconds,
         subtitle_path=subtitle_path,
+        mp4_video_encoder=mp4_video_encoder,
     )
     creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
     process = subprocess.Popen(
@@ -457,6 +445,7 @@ async def render_advanced_audiogram(
     render_seconds: float,
     subtitle_path: Path | None,
     background_path: Path | None,
+    mp4_video_encoder: str = "libx264",
     on_progress: ProgressCallback,
     is_cancelled: CancelCallback,
 ) -> None:
@@ -469,6 +458,7 @@ async def render_advanced_audiogram(
         render_seconds=render_seconds,
         subtitle_path=subtitle_path,
         background_path=background_path,
+        mp4_video_encoder=mp4_video_encoder,
         on_progress=on_progress,
         is_cancelled=is_cancelled,
     )
