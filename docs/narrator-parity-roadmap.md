@@ -746,6 +746,15 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   package acceptance verified all 29 manifest-bound legal files plus the existing media and
   lifecycle checks. Hosted browser run `36747089346` passed all six Studio journeys on acceptance-
   record commit `d4d76f7`.
+- [x] 2026-09-30 — A bounded libudfread, oneVPL, PCRE2, and pixman review raised coverage to 31 of
+  92 source locators and reconciled all 108 candidates: 34 shipped licenses, ten supplemental
+  notices, 59 recipe-proven not-built records, and five build-only/not-shipped records. Five new
+  manifest-bound files preserve libudfread's LGPL-2.1, oneVPL's MIT, PCRE2's BSD terms and binary-
+  package exception plus its upstream licence pointer, and pixman's MIT terms. Exact recipe/source
+  paths exclude the oneVPL examples and tests plus PCRE2's CMake scripts; PCRE2 JIT defaults off, so
+  absent SLJIT is not incorporated. The fetcher and fail-closed reconciliation suites passed, using
+  byte-identical immutable mirrors around Code.Videolan and GitLab automated-client challenges.
+  Real Windows package acceptance remains the next gate.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
@@ -755,7 +764,7 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   remaining Milestones 2/3/5/7 live-environment evidence.
 - **Next implementation slice:** continue the bounded FFmpeg source/license review in
   `docs/FFMPEG_DISTRIBUTION.md`, while preserving the remaining credential and clean-VM checks in
-  `docs/RELEASE_CHECKLIST.md`. Twenty-seven of 92 source locators are reviewed. Gemini/Deepgram
+  `docs/RELEASE_CHECKLIST.md`. Thirty-one of 92 source locators are reviewed. Gemini/Deepgram
   credentials, the clean-VM matrix, complete FFmpeg corresponding
   source/compliance publication, malware/signing evidence, and audible sentence-seam acceptance
   remain.

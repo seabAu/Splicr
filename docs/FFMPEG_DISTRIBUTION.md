@@ -133,6 +133,16 @@ into FFmpeg.
   while exact hashes retain correspondence to the collected source. Real `0.1.0-dev.11` portable
   and installed-package acceptance independently verified every one of those 29 files by exact
   revision and SHA-256, plus the existing media and lifecycle checks.
+- [x] A bounded libudfread, oneVPL, PCRE2, and pixman run brought coverage to 31 of 92 locators and
+  108 candidates: 34 shipped licenses, ten supplemental notices, 59 not-built candidates, and five
+  build-only/not-shipped candidates. Five new manifest-bound files preserve libudfread's LGPL-2.1,
+  oneVPL's MIT, PCRE2's BSD-3-Clause-with-exception plus its upstream licence pointer, and pixman's
+  MIT terms. Exact recipe/source paths exclude 14 oneVPL examples, its test-only googletest, and
+  PCRE2's unused CMake scripts; PCRE2 JIT defaults off, so absent SLJIT is not incorporated. The
+  downloader independently fetched and SHA-256-verified all 34 manifest files. Byte-identical,
+  immutable GitHub mirror commits avoid Code.Videolan and GitLab automated-client challenges while
+  exact hashes retain correspondence to the collected source. Real package acceptance remains the
+  next gate.
 - [ ] Execute the tracked fetch commands and archive every enabled external dependency source at its
   recipe-pinned revision.
 - [ ] Record the applicable license and notice for every enabled dependency, including libraries

@@ -458,6 +458,47 @@ packaged as `ffmpeg/OPENCORE-AMR-PATENT-DISCLAIMER.txt` with SHA-256
 does not constitute an independent AMR patent scope, validity, royalty, or enforceability
 determination.
 
+## libudfread
+
+The bundled FFmpeg dependency graph statically incorporates libudfread at pinned revision
+`b0bc6957e7e07d5f35391f210596d9eb71cffdd9` under LGPL-2.1-or-later. Its exact LGPL-2.1 text is
+packaged as `ffmpeg/LIBUDFREAD-COPYING.txt` with SHA-256
+`dc626520dcd53a22f727af3ee42c770e56c97a64fe3adb063799d8ab032fe551`. Corresponding source and
+relink materials remain part of the public-release gate. The manifest uses immutable mirror commit
+`9e1e9865ffc261016ac164c0e00602c0f6f4fda9` because Code.Videolan's raw endpoint presents an
+automated-client challenge; the packaged bytes exactly match the reviewed source revision above.
+
+## oneVPL
+
+The bundled FFmpeg dependency graph statically incorporates the oneVPL dispatcher at pinned
+revision `674d015bcb294bc39fa276e99a652ea045423e82`. Its exact MIT license is packaged as
+`ffmpeg/ONEVPL-LICENSE.txt` with SHA-256
+`bf1cfac2e2792b6e1e995ce103d70796aecaf2ec7e4c5fe5474f7acec7b4a677`. The recipe disables tests
+and example builds and removes staged example content, so their separate candidate files are not
+part of the binary payload.
+
+## PCRE2
+
+The bundled dependency graph statically incorporates the 8-bit Unicode PCRE2 library at pinned
+revision `09eb19dc1102b34e7557408f33318364cb97d2b0`. Its substantive BSD-3-Clause terms with the
+PCRE2 binary-package exception are packaged as `ffmpeg/PCRE2-LICENCE.md` with SHA-256
+`197d8a73ffee0d6b09adba2f9c677b5f5aede24edf89258a68e48248d010d811`.
+
+Upstream's short `COPYING` pointer is preserved exactly as `ffmpeg/PCRE2-COPYING.txt` with SHA-256
+`99272c55f3dcfa07a8a7e15a5c1a33096e4727de74241d65fa049fccfdd59507`. The recipe uses Autotools,
+not the separately licensed CMake scripts, and does not enable JIT; therefore neither those scripts
+nor SLJIT are compiled into the package.
+
+## pixman
+
+The bundled FFmpeg dependency graph statically incorporates pixman at pinned revision
+`96c04d1b87934dc4b9396197a2dff737698ab310`. Its exact MIT notice is packaged as
+`ffmpeg/PIXMAN-COPYING.txt` with SHA-256
+`fac9270f0987b96ff4533fca3548c633e02083cbba4a0172a3b149b2e4019793`. The recipe disables tests,
+demos, GTK, libpng, and OpenMP support. The manifest uses immutable mirror commit
+`85467ec308f8621a5410c007491797b7b1847601` because GitLab's raw endpoint presents an automated-
+client challenge; the packaged bytes exactly match the reviewed source revision above.
+
 Advanced audiogram rendering also includes these Python libraries in the frozen desktop package:
 
 - NumPy, distributed under the BSD 3-Clause license: https://numpy.org/doc/stable/license.html

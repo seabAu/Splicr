@@ -109,12 +109,13 @@ partial or full collection, run `inventory-ffmpeg-source-licenses.sh` against it
 `test-ffmpeg-source-license-inventory.sh` and `test-ffmpeg-source-license-review.sh`. Generated
 candidate rows remain pending until their source identity, SPDX expression, and binary notice
 obligation are added to the tracked `ffmpeg-source-license-review.tsv`. The reviewed set currently
-covers 27 of 92 source locators and 87 detected candidates: 30 shipped licenses, nine supplemental
-notices, 43 recipe-proven not-built candidates, and five build-only candidates absent from the
+covers 31 of 92 source locators and 108 detected candidates: 34 shipped licenses, ten supplemental
+notices, 59 recipe-proven not-built candidates, and five build-only candidates absent from the
 distributed binary. Required notices are hash-anchored byte-for-byte in `THIRD_PARTY_NOTICES.md` or
 separately manifest-bound and packaged, including exact files for ffnvcodec, dav1d, FriBidi,
 TwoLAME, AMF, OpenJPEG, Game Music Emu, GMP, Kvazaar, LCEVCdec, libvpx, libwebp, libzmq, and
-OpenCORE AMR. FFmpeg's own license is not treated as a substitute for dependency licenses.
+OpenCORE AMR, libudfread, oneVPL, PCRE2, and pixman. FFmpeg's own license is not treated as a
+substitute for dependency licenses.
 Optional-notice, not-built, and build-only/not-shipped candidates remain explicit
 rather than silently ignored. The validator can reconcile every generated candidate to exactly one
 reviewed disposition. Repeated `--stage` selections permit ordered bounded batches, with a 12 GiB
