@@ -105,9 +105,13 @@ into FFmpeg.
   trees that recipes never build. Real `0.1.0-dev.8` portable and installed-package acceptance verified
   all six manifest-bound dependency files by exact revision and SHA-256, including both dav1d files
   and FriBidi's license.
-  A checksum-verified ffnvcodec archive is retained but not counted;
-  its license terms are embedded in headers across three version branches and need a dedicated
-  extraction/reconciliation pass rather than a false filename-based disposition.
+- [x] The ffnvcodec embedded-header review brought coverage to 19 of 92 locators and 50 candidates:
+  19 shipped licenses, two supplemental notices, 24 not-built candidates, and five build-only/not-
+  shipped candidates. A tracked supplemental-path manifest makes nonstandard license-bearing files
+  part of deterministic inventory and negative testing. All five MIT-bearing primary headers used by
+  FFmpeg 9 are exact URL/revision/SHA-256-bound package files; ten sdk/13.0 and sdk/11.1 header
+  candidates are recipe-proven not built for the packaged FFmpeg 9 variant. Real `0.1.0-dev.9`
+  portable and installed-package acceptance verified all 11 manifest-bound dependency files.
 - [ ] Execute the tracked fetch commands and archive every enabled external dependency source at its
   recipe-pinned revision.
 - [ ] Record the applicable license and notice for every enabled dependency, including libraries

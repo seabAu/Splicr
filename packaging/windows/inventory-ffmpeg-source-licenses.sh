@@ -12,6 +12,37 @@ collection_root="$1"
     exit 1
 }
 collection_root="$(cd "$collection_root" && pwd)"
+script_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+extra_paths_path="${FFMPEG_LICENSE_EXTRA_PATHS_FILE:-$script_root/ffmpeg-source-license-extra-paths.tsv}"
+[[ -f "$extra_paths_path" ]] || {
+    echo "Supplemental license-candidate path manifest not found: $extra_paths_path" >&2
+    exit 1
+}
+expected_extra_header=$'stage\tcandidate_path'
+[[ "$(head -n 1 "$extra_paths_path")" == "$expected_extra_header" ]] || {
+    echo "Unexpected supplemental license-candidate path manifest header" >&2
+    exit 1
+}
+declare -A seen_extra_paths=()
+while IFS=$'\t' read -r extra_stage extra_candidate_path extra_field; do
+    [[ "$extra_stage" != "stage" ]] || continue
+    [[ -n "$extra_stage" && -n "$extra_candidate_path" && -z "$extra_field" ]] || {
+        echo "Malformed supplemental license-candidate path row" >&2
+        exit 1
+    }
+    [[ "$extra_stage" == scripts.d/*.sh && "$extra_stage" != *'..'* && \
+        "$extra_candidate_path" == ./* && "$extra_candidate_path" != *'..'* && \
+        "$extra_candidate_path" != */ && "$extra_candidate_path" != *$'\n'* ]] || {
+        echo "Unsafe supplemental license-candidate path: $extra_stage $extra_candidate_path" >&2
+        exit 1
+    }
+    extra_key="$extra_stage"$'\t'"$extra_candidate_path"
+    [[ -z "${seen_extra_paths[$extra_key]:-}" ]] || {
+        echo "Duplicate supplemental license-candidate path: $extra_stage $extra_candidate_path" >&2
+        exit 1
+    }
+    seen_extra_paths[$extra_key]=1
+done < "$extra_paths_path"
 
 manifest_path="$collection_root/collection-manifest.tsv"
 plan_path="$collection_root/collection-plan.tsv"
@@ -116,6 +147,13 @@ while IFS=$'\t' read -r stage command_sha256 source_status archive_name archive_
                 }
             '
     )
+    while IFS=$'\t' read -r extra_stage extra_candidate_path; do
+        [[ "$extra_stage" == "$stage" ]] || continue
+        candidate_paths+=("$extra_candidate_path")
+    done < <(tail -n +2 "$extra_paths_path")
+    mapfile -t candidate_paths < <(
+        printf '%s\n' "${candidate_paths[@]}" | awk 'NF' | LC_ALL=C sort -u
+    )
 
     candidate_count=0
     for candidate_path in "${candidate_paths[@]}"; do
@@ -164,11 +202,11 @@ Selected stage count: $stage_count
 Selected source-bearing stage count: $source_stage_count
 No-external-source stage count: $no_source_count
 Pending human review count: $pending_review_count
-Stages with no filename-based license candidate: $missing_candidate_count
+Stages with no tracked license candidate: $missing_candidate_count
 All enabled dependency licenses reviewed: false
 Corresponding source complete: false
 Public release gate satisfied: false
 EOF
 
-printf 'Extracted license/notice candidates for %s source-bearing stage(s); %s require review and %s have no filename-based candidate.\n' \
+printf 'Extracted license/notice candidates for %s source-bearing stage(s); %s require review and %s have no tracked candidate.\n' \
     "$source_stage_count" "$pending_review_count" "$missing_candidate_count"

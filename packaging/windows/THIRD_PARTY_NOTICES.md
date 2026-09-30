@@ -324,6 +324,22 @@ are packaged as `ffmpeg/OPENJPEG-LICENSE.txt` with SHA-256
 This preserves the upstream patent-rights caveat but does not constitute an independent patent
 scope or enforceability determination.
 
+## NVIDIA codec headers (ffnvcodec)
+
+The bundled FFmpeg 9 build uses the primary nv-codec-headers set at pinned revision
+`eddcea9e27f6b772057c9b3f87de2cc1737faffc`. Upstream provides no standalone license file; each
+installed header carries an MIT notice. The package therefore preserves all five exact pinned
+primary headers and their notices:
+
+- `ffmpeg/FFNVCODEC-dynlink_cuda.h.txt` — SHA-256 `c970d5817120ea481ba29b9c603bdc9a386985d9fc98a47f6588030dcdba87c1`
+- `ffmpeg/FFNVCODEC-dynlink_cuviddec.h.txt` — SHA-256 `0d9f490e8699a2e000904275d9e380e7ee9945e5717b95f920358013153c6377`
+- `ffmpeg/FFNVCODEC-dynlink_loader.h.txt` — SHA-256 `144c0927b6009d5af34a3a7335b0c8c337eec287b4846dd3ac8519c06956662a`
+- `ffmpeg/FFNVCODEC-dynlink_nvcuvid.h.txt` — SHA-256 `c1290075d5d881e98c8f14dc5a23953a792f56971b172cf84ee0bc7aab6d1aab`
+- `ffmpeg/FFNVCODEC-nvEncodeAPI.h.txt` — SHA-256 `8776fddcb8febc6aec4d73989b1f21831eb30306bc583da55b4bf0c14a1dc228`
+
+The recipe's sdk/13.0 and sdk/11.1 compatibility branches are selected only for older FFmpeg
+versions and are not installed or compiled into this FFmpeg 9 payload.
+
 ## dav1d
 
 The bundled FFmpeg dependency graph statically incorporates dav1d at pinned source revision

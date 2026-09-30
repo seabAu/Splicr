@@ -34,8 +34,10 @@ make_archive "$licensed_source" "$collection_root/stages/$licensed_archive"
 licensed_sha="$(sha256sum "$collection_root/stages/$licensed_archive" | cut -d' ' -f1)"
 
 unclassified_source="$work_root/unclassified-source"
-mkdir -p "$unclassified_source"
+mkdir -p "$unclassified_source/include"
 printf 'No filename-based license candidate here\n' > "$unclassified_source/README.md"
+printf 'Permission is hereby granted in this synthetic embedded notice.\n' \
+    > "$unclassified_source/include/embedded_notice.h"
 unclassified_archive='scripts.d__20-unclassified_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.tar.xz'
 make_archive "$unclassified_source" "$collection_root/stages/$unclassified_archive"
 unclassified_sha="$(sha256sum "$collection_root/stages/$unclassified_archive" | cut -d' ' -f1)"
@@ -68,6 +70,13 @@ EOF
         collection-plan.tsv > COLLECTION-SHA256SUMS.txt
 )
 
+extra_paths="$work_root/extra-paths.tsv"
+cat > "$extra_paths" <<'EOF'
+stage	candidate_path
+scripts.d/20-unclassified.sh	./include/embedded_notice.h
+EOF
+export FFMPEG_LICENSE_EXTRA_PATHS_FILE="$extra_paths"
+
 bash "$inventory_tool" "$collection_root"
 
 inventory="$collection_root/license-candidate-inventory.tsv"
@@ -75,14 +84,15 @@ review="$collection_root/license-review-template.tsv"
 info="$collection_root/LICENSE_REVIEW_INFO.txt"
 [[ "$(($(wc -l < "$inventory") - 1))" -eq 5 ]]
 grep -Fq $'scripts.d/10-licensed.sh	collected	3			pending	' "$review"
-grep -Fq $'scripts.d/20-unclassified.sh	collected	0			pending	' "$review"
+grep -Fq $'scripts.d/20-unclassified.sh	collected	1			pending	' "$review"
 grep -Fq $'scripts.d/30-built-in.sh	no-external-source	0			not-applicable	' "$review"
 grep -Fq $'./LICENSE	' "$inventory"
 grep -Fq $'./LICENSES/BSD-2-Clause.txt	' "$inventory"
 grep -Fq $'./docs/NOTICE.md	' "$inventory"
+grep -Fq $'./include/embedded_notice.h	' "$inventory"
 grep -Fq 'State: candidates-extracted-unreviewed' "$info"
 grep -Fq 'Pending human review count: 2' "$info"
-grep -Fq 'Stages with no filename-based license candidate: 1' "$info"
+grep -Fq 'Stages with no tracked license candidate: 0' "$info"
 grep -Fq 'All enabled dependency licenses reviewed: false' "$info"
 grep -Fq 'Corresponding source complete: false' "$info"
 grep -Fq 'Public release gate satisfied: false' "$info"
@@ -125,5 +135,13 @@ if bash "$inventory_tool" "$collection_root" >/dev/null 2>&1; then
     exit 1
 fi
 mv "$work_root/checksums.backup" "$collection_root/COLLECTION-SHA256SUMS.txt"
+
+cp "$extra_paths" "$work_root/extra-paths.backup"
+printf 'scripts.d/20-unclassified.sh\t./include/missing.h\n' >> "$extra_paths"
+if bash "$inventory_tool" "$collection_root" >/dev/null 2>&1; then
+    echo "License inventory accepted a missing supplemental candidate path" >&2
+    exit 1
+fi
+mv "$work_root/extra-paths.backup" "$extra_paths"
 
 printf 'FFmpeg source license-candidate inventory passed deterministic and negative cases.\n'

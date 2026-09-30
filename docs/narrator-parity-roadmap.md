@@ -720,6 +720,12 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   installed-package acceptance passed with all six dependency files verified by exact manifest
   revision and SHA-256. Hosted browser run `36728460149` passed all six Studio journeys on
   acceptance-record commit `a4617bc`.
+- [x] 2026-09-30 — The dedicated ffnvcodec embedded-header review raised coverage to 19 of 92
+  locators and 50 candidates. A tracked supplemental-path manifest now brings license-bearing files
+  with nonstandard names into deterministic inventory. All five MIT-bearing primary headers used by
+  FFmpeg 9 are exact manifest-bound package files; the ten sdk/13.0 and sdk/11.1 candidates are
+  recipe-proven not built for this FFmpeg 9 payload. Real `0.1.0-dev.9` portable and installed-
+  package acceptance verified all 11 manifest-bound dependency files.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
@@ -729,7 +735,7 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   remaining Milestones 2/3/5/7 live-environment evidence.
 - **Next implementation slice:** continue the bounded FFmpeg source/license review in
   `docs/FFMPEG_DISTRIBUTION.md`, while preserving the remaining credential and clean-VM checks in
-  `docs/RELEASE_CHECKLIST.md`. Sixteen of 92 source locators are reviewed. Gemini/Deepgram
+  `docs/RELEASE_CHECKLIST.md`. Nineteen of 92 source locators are reviewed. Gemini/Deepgram
   credentials, the clean-VM matrix, complete FFmpeg corresponding
   source/compliance publication, malware/signing evidence, and audible sentence-seam acceptance
   remain.
