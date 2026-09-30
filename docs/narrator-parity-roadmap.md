@@ -698,7 +698,9 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   92 source locators now reconcile 12 detected candidates into eight shipped licenses, one
   supplemental notice, and three recipe-proven not-built records. A package-wide license manifest
   now fetches and hash-verifies TwoLAME's exact LGPL-2.1-or-later `COPYING` file; Windows build and
-  artifact acceptance require it because FFmpeg's LGPLv3 file is not equivalent.
+  artifact acceptance require it because FFmpeg's LGPLv3 file is not equivalent. The real
+  `0.1.0-dev.6` portable/installer acceptance passed with the manifest-bound license in both
+  payloads, and hosted browser run `36670631733` passed commit `636a46a`.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
