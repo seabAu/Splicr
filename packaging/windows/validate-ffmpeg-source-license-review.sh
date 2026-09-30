@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -gt 1 ]]; then
-    echo "usage: $0 [REVIEW_FILE]" >&2
+if [[ $# -gt 2 ]]; then
+    echo "usage: $0 [REVIEW_FILE [THIRD_PARTY_NOTICES_FILE]]" >&2
     exit 2
 fi
 
@@ -11,13 +11,13 @@ graph_root="$script_root/ffmpeg-source-graph"
 review_path="${1:-$script_root/ffmpeg-source-license-review.tsv}"
 revisions_path="$graph_root/source-revisions.tsv"
 stages_path="$graph_root/enabled-stages.txt"
-notices_path="$script_root/THIRD_PARTY_NOTICES.md"
+notices_path="${2:-$script_root/THIRD_PARTY_NOTICES.md}"
 
 for required in "$review_path" "$revisions_path" "$stages_path" "$notices_path"; do
     [[ -f "$required" ]] || { echo "Required review input not found: $required" >&2; exit 1; }
 done
 
-expected_header=$'stage\tlocator_variable\trevision\tarchive_sha256\tcandidate_path\tcandidate_sha256\tspdx_expression\tbinary_notice_requirement\tnotice_anchor\treview_status\treview_notes'
+expected_header=$'stage\tlocator_variable\trevision\tarchive_sha256\tcandidate_path\tcandidate_sha256\tcandidate_final_newline\tspdx_expression\tbinary_notice_requirement\tnotice_anchor\treview_status\treview_notes'
 [[ "$(head -n 1 "$review_path")" == "$expected_header" ]] || {
     echo "Unexpected FFmpeg source license review header" >&2
     exit 1
@@ -25,9 +25,21 @@ expected_header=$'stage\tlocator_variable\trevision\tarchive_sha256\tcandidate_p
 
 reviewed_count=0
 declare -A seen_records=()
+
+extract_notice_block() {
+    local anchor="$1"
+    awk -v anchor="$anchor" '
+        index($0, anchor) { anchored = 1; next }
+        anchored && $0 == "```text" { in_block = 1; next }
+        in_block && $0 == "```" { closed = 1; exit }
+        in_block { print }
+        END { if (!anchored || !in_block || !closed) exit 1 }
+    ' "$notices_path"
+}
+
 while IFS=$'\t' read -r stage locator_variable revision archive_sha256 candidate_path \
-    candidate_sha256 spdx_expression binary_notice_requirement notice_anchor review_status \
-    review_notes extra; do
+    candidate_sha256 candidate_final_newline spdx_expression binary_notice_requirement \
+    notice_anchor review_status review_notes extra; do
     [[ "$stage" != "stage" ]] || continue
     [[ -z "${extra:-}" ]] || { echo "Review row has unexpected extra fields: $stage" >&2; exit 1; }
     [[ -n "$stage" && -n "$locator_variable" && -n "$revision" ]] || {
@@ -57,6 +69,10 @@ while IFS=$'\t' read -r stage locator_variable revision archive_sha256 candidate
         echo "Review row has an invalid candidate checksum: $stage" >&2
         exit 1
     }
+    [[ "$candidate_final_newline" == "yes" || "$candidate_final_newline" == "no" ]] || {
+        echo "Review row has an invalid candidate newline marker: $stage" >&2
+        exit 1
+    }
     [[ -n "$spdx_expression" && "$spdx_expression" != *$'\t'* ]] || {
         echo "Review row is missing an SPDX expression: $stage" >&2
         exit 1
@@ -72,6 +88,15 @@ while IFS=$'\t' read -r stage locator_variable revision archive_sha256 candidate
         }
         grep -Fq "$notice_anchor" "$notices_path" || {
             echo "Required binary notice is absent from THIRD_PARTY_NOTICES.md: $stage" >&2
+            exit 1
+        }
+        if [[ "$candidate_final_newline" == "yes" ]]; then
+            notice_sha256="$(extract_notice_block "$notice_anchor" | sha256sum | cut -d' ' -f1)"
+        else
+            notice_sha256="$(extract_notice_block "$notice_anchor" | head -c -1 | sha256sum | cut -d' ' -f1)"
+        fi
+        [[ "$notice_sha256" == "$candidate_sha256" ]] || {
+            echo "Packaged binary notice text differs from the reviewed source candidate: $stage" >&2
             exit 1
         }
     else

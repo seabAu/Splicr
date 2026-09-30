@@ -31,17 +31,25 @@ if bash "$validator" "$duplicate" >/dev/null 2>&1; then
 fi
 
 unresolved_notice="$work_root/unresolved-notice.tsv"
-sed $'2s/\trequired\tOpenH264/\treview-needed\tOpenH264/' "$review" > "$unresolved_notice"
+sed $'2s/\trequired\t/\treview-needed\t/' "$review" > "$unresolved_notice"
 if bash "$validator" "$unresolved_notice" >/dev/null 2>&1; then
     echo "Review validator accepted an unresolved notice requirement" >&2
     exit 1
 fi
 
 missing_notice_anchor="$work_root/missing-notice-anchor.tsv"
-sed $'2s/\tOpenH264 source license SHA-256: [0-9a-f]*\t/\tMissing packaged notice anchor\t/' \
+sed $'2s/\tlibogg source license SHA-256: [0-9a-f]*\t/\tMissing packaged notice anchor\t/' \
     "$review" > "$missing_notice_anchor"
 if bash "$validator" "$missing_notice_anchor" >/dev/null 2>&1; then
     echo "Review validator accepted a required notice absent from the package notice file" >&2
+    exit 1
+fi
+
+tampered_notices="$work_root/tampered-notices.md"
+sed '0,/Copyright (c) 2002, Xiph.org Foundation/s//Copyright (c) 2003, Xiph.org Foundation/' \
+    "$script_root/THIRD_PARTY_NOTICES.md" > "$tampered_notices"
+if bash "$validator" "$review" "$tampered_notices" >/dev/null 2>&1; then
+    echo "Review validator accepted packaged notice text that differs from its reviewed source" >&2
     exit 1
 fi
 

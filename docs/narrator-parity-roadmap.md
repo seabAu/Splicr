@@ -682,9 +682,11 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
 - [x] 2026-09-29 — FFmpeg compliance review gained a deterministic, checksum-gated license/notice
   candidate inventory and a pinned-graph review validator. Synthetic positive/negative coverage
   passed, and the real OpenH264 source archive produced a cryptographically identified
-  `BSD-2-Clause` record whose required notice is hash-anchored in the packaged legal surface. This
-  advances one of 92 pinned source locators; full collection, review, codec patent analysis,
-  correspondence, and publication remain open.
+  `BSD-2-Clause` record whose required notice is hash-anchored in the packaged legal surface.
+- [x] 2026-09-30 — The incremental collector fetched pinned libogg into a 500,976-byte normalized
+  archive; the inventory and review pipeline recorded `BSD-3-Clause` and hash-anchored its verbatim
+  binary notice. Two of 92 pinned source locators now have source/license evidence; full collection,
+  review, codec patent analysis, correspondence, and publication remain open.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 

@@ -59,6 +59,10 @@ into FFmpeg.
   `dd5c1c96…`; the tracked review records `BSD-2-Clause` and the binary notice obligation, while
   a unique hash anchor proves the complete notice is present in the packaged third-party notice,
   and full-graph and codec patent review remain explicitly open.
+- [x] A second incremental real-source run fetched libogg commit
+  `06a5e0262cdc28aa4ae6797627a783b5010440f0` into a 500,976-byte normalized archive. The inventory
+  found `./COPYING` at SHA-256 `d2ab5758…`; the tracked review records `BSD-3-Clause`, and CI proves
+  its complete required binary notice is present through a unique hash anchor.
 - [ ] Execute the tracked fetch commands and archive every enabled external dependency source at its
   recipe-pinned revision.
 - [ ] Record the applicable license and notice for every enabled dependency, including libraries
