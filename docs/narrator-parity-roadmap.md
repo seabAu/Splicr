@@ -608,6 +608,22 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   `reference_audio`/`reference_text`, generation-result, and decoder-length contracts; three
   implausible outputs now pause the job instead of silently accepting the last bad waveform.
   The post-fix regression suite passed 538 tests with six intentional opt-in live skips.
+- [x] 2026-09-29 — Privacy and real Edge sentence-seam acceptance passed its automated gates.
+  Diagnostic serialization now redacts local paths as well as credentials, while the existing
+  vault/profile/browser audit confirms secrets remain write-only and out of retained artifacts.
+  Edge word-boundary timing produced exact grouped sentence spans; a real sentence replacement
+  retained source/revised WAVs and provenance under ignored `.test-runs/seam-acceptance`, with a
+  30 ms crossfade and +0.155471 dB level adjustment. The full deterministic gate passed 539 Python
+  tests with seven opt-in live skips, eight frontend tests, the Vite build, six Chromium journeys,
+  and 42 real FFmpeg/FFprobe tests. Human listening approval remains open.
+- [x] 2026-09-29 — Multi-gigabyte and internal portable-candidate acceptance passed. A sparse
+  3.9 GB canonical WAV returned bounded 1 KB ranges at its beginning, midpoint, and end. The full
+  regression suite passed 540 tests with seven intentional opt-in live skips. The
+  `0.1.0-dev.3` portable ZIP (220,690,342 bytes) passed packaged smoke from a Unicode/spaces path;
+  its independently verified SHA-256 is
+  `b2bb391bd572b695c094e4f668085a79c22f0bb53c2d40586d3d55ef5cdd76cd`. This is an internal-only
+  candidate because installer/clean-VM/signing/malware-scan evidence and public-compatible FFmpeg
+  licensing remain open.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
@@ -616,8 +632,9 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
 - **Active milestone:** Milestone 9 — real-world acceptance and release hardening, including the
   remaining Milestones 2/3/5/7 live-environment evidence.
 - **Next implementation slice:** execute and record the remaining credential and clean-VM checks in
-  `docs/RELEASE_CHECKLIST.md`. Gemini/Deepgram credentials, the clean-VM matrix, multi-gigabyte
-  soak, current-commit GitHub Actions, and audible sentence-seam acceptance remain.
+  `docs/RELEASE_CHECKLIST.md`. Gemini/Deepgram credentials, the installer and clean-VM matrix,
+  current-commit GitHub Actions, public-compatible FFmpeg licensing, malware/signing evidence, and
+  audible sentence-seam acceptance remain.
 - **Known unrelated worktree item:** `LICENSE.txt` is untracked and not part of this roadmap unless
   deliberately adopted later.
 
