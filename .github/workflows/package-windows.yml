@@ -46,6 +46,8 @@ jobs:
           extracted_root="$(find "$recipe_root" -mindepth 1 -maxdepth 1 -type d -print -quit)"
           test -n "$extracted_root"
           bash packaging/windows/test-ffmpeg-source-collector.sh "$extracted_root"
+          bash packaging/windows/test-ffmpeg-source-license-inventory.sh
+          bash packaging/windows/test-ffmpeg-source-license-review.sh
 
   package:
     needs: source-collector-plan

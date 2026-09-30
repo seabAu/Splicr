@@ -679,6 +679,12 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   integration branches. The first diagnostic rerun published two specific media-capability failures
   plus its retained Playwright artifact; provisioning the same pinned LGPL FFmpeg/FFprobe bundle used
   by packaging fixed both, and public run `36665161955` passed all six Studio journeys.
+- [x] 2026-09-29 — FFmpeg compliance review gained a deterministic, checksum-gated license/notice
+  candidate inventory and a pinned-graph review validator. Synthetic positive/negative coverage
+  passed, and the real OpenH264 source archive produced a cryptographically identified
+  `BSD-2-Clause` record whose required notice is hash-anchored in the packaged legal surface. This
+  advances one of 92 pinned source locators; full collection, review, codec patent analysis,
+  correspondence, and publication remain open.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 

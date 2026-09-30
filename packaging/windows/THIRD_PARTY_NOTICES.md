@@ -25,6 +25,38 @@ record containing the exact download URL and SHA-256, and the generated `BUILD_I
 publisher must still provide the exact corresponding source and complete the distribution review;
 this notice does not itself make a legal determination.
 
+## OpenH264
+
+The bundled FFmpeg build exposes the OpenH264 encoder. The pinned OpenH264 source revision is
+`8b2d28faade10d74d99ac80e199aef664c9c5a3b`.
+
+OpenH264 source license SHA-256: dd5c1c9668512530fa5a96e4c29ac4033d70a7eeb0eed7a42fddb6dd794ebdbb
+
+Copyright (c) 2013, Cisco Systems
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification, are permitted
+provided that the following conditions are met:
+
+* Redistributions of source code must retain the above copyright notice, this list of conditions
+  and the following disclaimer.
+* Redistributions in binary form must reproduce the above copyright notice, this list of
+  conditions and the following disclaimer in the documentation and/or other materials provided
+  with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR
+IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
+FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
+CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+This source license notice does not determine codec patent rights. In particular, SPLICR does not
+claim that Cisco's separate patent terms for Cisco-distributed OpenH264 binaries apply to the
+third-party BtbN build; that release review remains open.
+
 Advanced audiogram rendering also includes these Python libraries in the frozen desktop package:
 
 - NumPy, distributed under the BSD 3-Clause license: https://numpy.org/doc/stable/license.html

@@ -102,6 +102,14 @@ recipe-pinned revision table, and raw source-fetch commands extracted from the B
 .\packaging\windows\test-ffmpeg-source-audit.ps1 -Version 0.1.0
 ```
 
+The Linux/Docker source collector has a separate fail-closed license-candidate stage. After a
+partial or full collection, run `inventory-ffmpeg-source-licenses.sh` against its output, then run
+`test-ffmpeg-source-license-inventory.sh` and `test-ffmpeg-source-license-review.sh`. Generated
+candidate rows remain pending until their source identity, SPDX expression, and binary notice
+obligation are added to the tracked `ffmpeg-source-license-review.tsv`. The initial reviewed row is
+the real pinned OpenH264 archive, and its required BSD notice is hash-anchored in the packaged
+`THIRD_PARTY_NOTICES.md`; full-graph and codec patent review remain incomplete.
+
 See [`../../docs/FFMPEG_DISTRIBUTION.md`](../../docs/FFMPEG_DISTRIBUTION.md) for the exact binary
 identity, upstream checklist mapping, and remaining corresponding-source/publication gates. The
 audit kit is CI evidence; it must not be published or described as complete corresponding source.

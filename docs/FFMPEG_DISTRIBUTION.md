@@ -51,6 +51,14 @@ into FFmpeg.
   fail-closed status flags, and reused the same archive on a second run. The ignored evidence is in
   `.test-runs/ffmpeg-source-collector-runtime`; this proves collector execution/resume, not the full
   graph.
+- [x] `inventory-ffmpeg-source-licenses.sh` now checksum-validates a collection, extracts
+  filename-based license/notice candidates without writing archive paths to disk, and emits a
+  deterministic candidate inventory plus a fail-closed review template. Its synthetic acceptance
+  test covers multi-candidate, missing-candidate, no-source, stale-output, checksum-tamper, and
+  schema-tamper cases. The real OpenH264 archive yielded its exact `LICENSE` with SHA-256
+  `dd5c1c96…`; the tracked review records `BSD-2-Clause` and the binary notice obligation, while
+  a unique hash anchor proves the complete notice is present in the packaged third-party notice,
+  and full-graph and codec patent review remain explicitly open.
 - [ ] Execute the tracked fetch commands and archive every enabled external dependency source at its
   recipe-pinned revision.
 - [ ] Record the applicable license and notice for every enabled dependency, including libraries
@@ -117,6 +125,21 @@ Remove `--plan-only` for the resumable full collection. `--stage` accepts one ex
 `enabled-stages.txt` for a smaller diagnostic run. A successful download writes a plan, per-stage
 archives, a source manifest, and checksums, while continuing to state that corresponding-source and
 public-release gates are false. License/notice review and binary correspondence still follow.
+
+After any partial or full collection, generate the deterministic candidate inventory and validate
+the independently tracked reviewed rows:
+
+```bash
+bash packaging/windows/inventory-ffmpeg-source-licenses.sh /path/to/collection
+bash packaging/windows/test-ffmpeg-source-license-inventory.sh
+bash packaging/windows/test-ffmpeg-source-license-review.sh
+```
+
+`license-review-template.tsv` is generated evidence, not an approval. Promote a row into
+`ffmpeg-source-license-review.tsv` only after checking the extracted text, pinned source identity,
+SPDX expression, and binary notice requirement. The validator rejects source identities outside the
+pinned graph, malformed checksums, unresolved notice requirements, duplicate evidence, and
+undocumented reviews. It does not claim that a filename search found every applicable term.
 
 Primary references:
 
