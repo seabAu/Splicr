@@ -9,6 +9,11 @@ $ErrorActionPreference = "Stop"
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $StudioWeb = Join-Path $Root "studio-web"
 $VendorBin = Join-Path $PSScriptRoot "vendor\ffmpeg\bin"
+$PackagedLicenseManifest = Join-Path $PSScriptRoot "ffmpeg-packaged-license-files.tsv"
+$PackagedLicenseRecords = @(Import-Csv -LiteralPath $PackagedLicenseManifest -Delimiter "`t")
+$RequiredMetadataNames = @(
+    $PackagedLicenseRecords | ForEach-Object { Split-Path $_.package_path -Leaf }
+)
 $Dist = Join-Path $Root "dist"
 $Portable = Join-Path $Dist "SPLICR Studio"
 
@@ -26,7 +31,8 @@ try {
     New-Item -ItemType Directory -Force -Path $VendorBin | Out-Null
     Get-ChildItem -LiteralPath $VendorBin -File -ErrorAction SilentlyContinue | Remove-Item -Force
     $VendorMetadataRoot = Split-Path $VendorBin -Parent
-    foreach ($Metadata in @("LICENSE.txt", "SOURCE_INFO.txt")) {
+    $MetadataNames = @("LICENSE.txt", "SOURCE_INFO.txt") + $RequiredMetadataNames
+    foreach ($Metadata in $MetadataNames) {
         $StaleMetadata = Join-Path $VendorMetadataRoot $Metadata
         if (Test-Path -LiteralPath $StaleMetadata) {
             Remove-Item -LiteralPath $StaleMetadata -Force
@@ -44,11 +50,14 @@ try {
             $_.Name -in @("ffmpeg.exe", "ffprobe.exe") -or $_.Extension -eq ".dll"
         } | Copy-Item -Destination $VendorBin -Force
         $FfmpegRoot = Split-Path $ResolvedFfmpegBin -Parent
-        foreach ($Metadata in @("LICENSE.txt", "SOURCE_INFO.txt")) {
+        foreach ($Metadata in $MetadataNames) {
             $Source = Join-Path $FfmpegRoot $Metadata
             $Destination = Join-Path $VendorMetadataRoot $Metadata
             if (Test-Path -LiteralPath $Source) {
                 Copy-Item -LiteralPath $Source -Destination $Destination -Force
+            }
+            elseif ($Metadata -in $RequiredMetadataNames) {
+                throw "Required dependency license metadata was not found beside -FfmpegBin: $Metadata"
             }
         }
     }

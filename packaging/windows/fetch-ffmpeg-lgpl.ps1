@@ -10,6 +10,7 @@ $ExpectedSha256 = "735bae484ba2c3342bfb34df477b9c6b0f43f9819f4d2fde011be293ee1b6
 $Url = "https://github.com/BtbN/FFmpeg-Builds/releases/download/$ReleaseTag/$ArchiveName"
 $Archive = Join-Path $Destination $ArchiveName
 $Extracted = Join-Path $Destination ([IO.Path]::GetFileNameWithoutExtension($ArchiveName))
+$PackagedLicenseManifest = Join-Path $PSScriptRoot "ffmpeg-packaged-license-files.tsv"
 
 function Get-Sha256([string]$Path) {
     $Stream = [IO.File]::OpenRead($Path)
@@ -47,6 +48,22 @@ foreach ($Tool in @("ffmpeg.exe", "ffprobe.exe")) {
         throw "Pinned FFmpeg archive is missing $Tool"
     }
 }
+$PackagedLicenseRecords = @(Import-Csv -LiteralPath $PackagedLicenseManifest -Delimiter "`t")
+foreach ($Record in $PackagedLicenseRecords) {
+    if ($Record.package_path -notmatch '^ffmpeg/[A-Za-z0-9._-]+$' -or
+        $Record.source_url -notmatch '^https://' -or
+        $Record.revision -notmatch '^[0-9a-f]{40}$' -or
+        $Record.sha256 -notmatch '^[0-9a-f]{64}$') {
+        throw "Invalid packaged FFmpeg license manifest record: $($Record.package_path)"
+    }
+    $LicenseName = Split-Path $Record.package_path -Leaf
+    $LicensePath = Join-Path $Extracted $LicenseName
+    Invoke-WebRequest -Uri $Record.source_url -OutFile $LicensePath -UseBasicParsing
+    $ActualLicenseSha256 = Get-Sha256 $LicensePath
+    if ($ActualLicenseSha256 -ne $Record.sha256) {
+        throw "Pinned license hash mismatch for $($Record.package_path): expected $($Record.sha256), received $ActualLicenseSha256"
+    }
+}
 @(
     "Provider: BtbN/FFmpeg-Builds"
     "Release tag: $ReleaseTag"
@@ -54,6 +71,11 @@ foreach ($Tool in @("ffmpeg.exe", "ffprobe.exe")) {
     "Asset URL: $Url"
     "SHA-256: $ExpectedSha256"
     "Variant: Windows x64 LGPL shared"
+    ""
+    "Additional packaged dependency licenses:"
+    $PackagedLicenseRecords | ForEach-Object {
+        "$($_.package_path) | revision $($_.revision) | SHA-256 $($_.sha256) | $($_.source_url)"
+    }
 ) | Set-Content -LiteralPath (Join-Path $Extracted "SOURCE_INFO.txt") -Encoding UTF8
 
 Write-Output $Bin

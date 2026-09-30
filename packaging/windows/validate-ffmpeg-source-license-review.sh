@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -gt 3 ]]; then
-    echo "usage: $0 [REVIEW_FILE [THIRD_PARTY_NOTICES_FILE [CANDIDATE_INVENTORY_FILE]]]" >&2
+if [[ $# -gt 4 ]]; then
+    echo "usage: $0 [REVIEW_FILE [THIRD_PARTY_NOTICES_FILE [CANDIDATE_INVENTORY_FILE [PACKAGED_LICENSE_FILES]]]]" >&2
     exit 2
 fi
 
@@ -13,14 +13,39 @@ revisions_path="$graph_root/source-revisions.tsv"
 stages_path="$graph_root/enabled-stages.txt"
 notices_path="${2:-$script_root/THIRD_PARTY_NOTICES.md}"
 inventory_path="${3:-}"
+packaged_licenses_path="${4:-$script_root/ffmpeg-packaged-license-files.tsv}"
 
-for required in "$review_path" "$revisions_path" "$stages_path" "$notices_path"; do
+for required in "$review_path" "$revisions_path" "$stages_path" "$notices_path" "$packaged_licenses_path"; do
     [[ -f "$required" ]] || { echo "Required review input not found: $required" >&2; exit 1; }
 done
 if [[ -n "$inventory_path" && ! -f "$inventory_path" ]]; then
     echo "Candidate inventory not found: $inventory_path" >&2
     exit 1
 fi
+
+expected_packaged_licenses_header=$'package_path\tsource_url\trevision\tsha256'
+[[ "$(head -n 1 "$packaged_licenses_path")" == "$expected_packaged_licenses_header" ]] || {
+    echo "Unexpected packaged license file manifest header" >&2
+    exit 1
+}
+declare -A packaged_license_hashes=()
+declare -A packaged_license_revisions=()
+declare -A packaged_license_references=()
+while IFS=$'\t' read -r package_path source_url package_revision package_sha256 extra; do
+    [[ "$package_path" != "package_path" ]] || continue
+    [[ -z "${extra:-}" && "$package_path" =~ ^ffmpeg/[A-Za-z0-9._-]+$ && \
+        "$source_url" == https://* && "$package_revision" =~ ^[0-9a-f]{40}$ && \
+        "$package_sha256" =~ ^[0-9a-f]{64}$ ]] || {
+        echo "Invalid packaged license file manifest row: $package_path" >&2
+        exit 1
+    }
+    [[ -z "${packaged_license_hashes[$package_path]:-}" ]] || {
+        echo "Duplicate packaged license file manifest path: $package_path" >&2
+        exit 1
+    }
+    packaged_license_hashes["$package_path"]="$package_sha256"
+    packaged_license_revisions["$package_path"]="$package_revision"
+done < "$packaged_licenses_path"
 
 expected_header=$'stage\tlocator_variable\trevision\tarchive_sha256\tcandidate_path\tcandidate_sha256\tcandidate_final_newline\tcandidate_disposition\tspdx_expression\tbinary_notice_requirement\tnotice_anchor\treview_status\treview_notes'
 [[ "$(head -n 1 "$review_path")" == "$expected_header" ]] || {
@@ -30,6 +55,7 @@ expected_header=$'stage\tlocator_variable\trevision\tarchive_sha256\tcandidate_p
 
 reviewed_count=0
 shipped_license_count=0
+shipped_notice_count=0
 not_built_count=0
 declare -A seen_records=()
 declare -A inventory_records=()
@@ -114,7 +140,9 @@ while IFS=$'\t' read -r stage locator_variable revision archive_sha256 candidate
         echo "Review row has an invalid candidate newline marker: $stage" >&2
         exit 1
     }
-    [[ "$candidate_disposition" == "shipped-license" || "$candidate_disposition" == "not-built" ]] || {
+    [[ "$candidate_disposition" == "shipped-license" || \
+        "$candidate_disposition" == "shipped-notice" || \
+        "$candidate_disposition" == "not-built" ]] || {
         echo "Review row has an unresolved candidate disposition: $stage $candidate_path" >&2
         exit 1
     }
@@ -125,7 +153,7 @@ while IFS=$'\t' read -r stage locator_variable revision archive_sha256 candidate
             exit 1
         }
         not_built_count=$((not_built_count + 1))
-    else
+    elif [[ "$candidate_disposition" == "shipped-license" ]]; then
         [[ -n "$spdx_expression" && "$spdx_expression" != "-" && "$spdx_expression" != *$'\t'* ]] || {
             echo "Shipped review row is missing an SPDX expression: $stage" >&2
             exit 1
@@ -135,20 +163,48 @@ while IFS=$'\t' read -r stage locator_variable revision archive_sha256 candidate
             exit 1
         }
         shipped_license_count=$((shipped_license_count + 1))
+    else
+        [[ "$spdx_expression" == "-" && "$binary_notice_requirement" == "informational" && \
+            -n "$notice_anchor" && "$notice_anchor" != "-" ]] || {
+            echo "A shipped supplemental notice must be informational and hash-anchored: $stage $candidate_path" >&2
+            exit 1
+        }
+        shipped_notice_count=$((shipped_notice_count + 1))
     fi
-    if [[ "$candidate_disposition" == "shipped-license" && "$binary_notice_requirement" == "required" ]]; then
+    if [[ "$candidate_disposition" == "shipped-notice" || \
+        "$candidate_disposition" == "shipped-license" && "$binary_notice_requirement" == "required" ]]; then
         [[ -n "$notice_anchor" ]] || {
             echo "Required binary notice has no package-notice anchor: $stage" >&2
             exit 1
         }
-        grep -Fq "$notice_anchor" "$notices_path" || {
-            echo "Required binary notice is absent from THIRD_PARTY_NOTICES.md: $stage" >&2
-            exit 1
-        }
-        if [[ "$candidate_final_newline" == "yes" ]]; then
-            notice_sha256="$(extract_notice_block "$notice_anchor" | sha256sum | cut -d' ' -f1)"
+        if [[ "$notice_anchor" == file:* ]]; then
+            packaged_path="${notice_anchor#file:}"
+            [[ -n "${packaged_license_hashes[$packaged_path]:-}" ]] || {
+                echo "Required binary notice has no packaged license manifest record: $stage $packaged_path" >&2
+                exit 1
+            }
+            [[ "${packaged_license_revisions[$packaged_path]}" == "$revision" ]] || {
+                echo "Packaged license revision differs from the reviewed source: $stage $packaged_path" >&2
+                exit 1
+            }
+            grep -Fq "$packaged_path" "$notices_path" || {
+                echo "Packaged license file is absent from THIRD_PARTY_NOTICES.md: $stage $packaged_path" >&2
+                exit 1
+            }
+            notice_sha256="${packaged_license_hashes[$packaged_path]}"
+            packaged_license_references["$packaged_path"]=$((
+                ${packaged_license_references[$packaged_path]:-0} + 1
+            ))
         else
-            notice_sha256="$(extract_notice_block "$notice_anchor" | head -c -1 | sha256sum | cut -d' ' -f1)"
+            grep -Fq "$notice_anchor" "$notices_path" || {
+                echo "Required binary notice is absent from THIRD_PARTY_NOTICES.md: $stage" >&2
+                exit 1
+            }
+            if [[ "$candidate_final_newline" == "yes" ]]; then
+                notice_sha256="$(extract_notice_block "$notice_anchor" | sha256sum | cut -d' ' -f1)"
+            else
+                notice_sha256="$(extract_notice_block "$notice_anchor" | head -c -1 | sha256sum | cut -d' ' -f1)"
+            fi
         fi
         [[ "$notice_sha256" == "$candidate_sha256" ]] || {
             echo "Packaged binary notice text differs from the reviewed source candidate: $stage" >&2
@@ -183,6 +239,12 @@ while IFS=$'\t' read -r stage locator_variable revision archive_sha256 candidate
 done < "$review_path"
 
 [[ "$reviewed_count" -gt 0 ]] || { echo "FFmpeg source license review contains no records" >&2; exit 1; }
+for packaged_path in "${!packaged_license_hashes[@]}"; do
+    [[ -n "${packaged_license_references[$packaged_path]:-}" ]] || {
+        echo "Packaged license file has no reviewed source candidate: $packaged_path" >&2
+        exit 1
+    }
+done
 if [[ -n "$inventory_path" ]]; then
     for inventory_key in "${!inventory_records[@]}"; do
         [[ -n "${reviewed_inventory_records[$inventory_key]:-}" ]] || {
@@ -192,8 +254,9 @@ if [[ -n "$inventory_path" ]]; then
     done
 fi
 source_locator_count="$(($(wc -l < "$revisions_path") - 1))"
-printf 'Validated %s reviewed FFmpeg source candidate(s): %s shipped license(s), %s not built; %s pinned source locator(s) exist and full-graph review remains open.\n' \
-    "$reviewed_count" "$shipped_license_count" "$not_built_count" "$source_locator_count"
+printf 'Validated %s reviewed FFmpeg source candidate(s): %s shipped license(s), %s supplemental notice(s), %s not built; %s pinned source locator(s) exist and full-graph review remains open.\n' \
+    "$reviewed_count" "$shipped_license_count" "$shipped_notice_count" "$not_built_count" \
+    "$source_locator_count"
 if [[ -n "$inventory_path" ]]; then
     printf 'All %s filename-based candidate(s) in the supplied inventory have an exact reviewed disposition.\n' \
         "$inventory_candidate_count"

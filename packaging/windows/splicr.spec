@@ -15,10 +15,17 @@ datas = [
     (str(ROOT / "packaging" / "windows" / "THIRD_PARTY_NOTICES.md"), "."),
     (str(ROOT / "packaging" / "windows" / "vendor" / "ffmpeg" / "BUILD_INFO.txt"), "."),
 ]
-for metadata in ("LICENSE.txt", "SOURCE_INFO.txt"):
+packaged_license_manifest = ROOT / "packaging" / "windows" / "ffmpeg-packaged-license-files.tsv"
+packaged_license_names = []
+for line in packaged_license_manifest.read_text(encoding="utf-8").splitlines()[1:]:
+    package_path, _source_url, _revision, _sha256 = line.split("\t")
+    packaged_license_names.append(Path(package_path).name)
+for metadata in ("LICENSE.txt", "SOURCE_INFO.txt", *packaged_license_names):
     candidate = ROOT / "packaging" / "windows" / "vendor" / "ffmpeg" / metadata
     if candidate.is_file():
         datas.append((str(candidate), "ffmpeg"))
+    elif metadata in packaged_license_names:
+        raise SystemExit(f"Missing required dependency license metadata: {candidate}")
 binaries = []
 for executable in ("ffmpeg.exe", "ffprobe.exe"):
     candidate = VENDOR / executable

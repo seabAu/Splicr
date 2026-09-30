@@ -113,6 +113,8 @@ $ChecksumsName = "SPLICR-Studio-$Version-SHA256SUMS.txt"
 $PortableZip = Join-Path $ArtifactsDir $PortableName
 $Installer = Join-Path $ArtifactsDir $InstallerName
 $Checksums = Join-Path $ArtifactsDir $ChecksumsName
+$PackagedLicenseManifest = Join-Path $PSScriptRoot "ffmpeg-packaged-license-files.tsv"
+$PackagedLicenseRecords = @(Import-Csv -LiteralPath $PackagedLicenseManifest -Delimiter "`t")
 
 foreach ($RequiredArtifact in @($PortableZip, $Installer, $Checksums)) {
     Assert-Condition (Test-Path -LiteralPath $RequiredArtifact -PathType Leaf) `
@@ -238,6 +240,23 @@ try {
         Assert-Condition (Test-Path -LiteralPath $RequiredPayload -PathType Leaf) `
             "Installed package is missing: $RequiredPayload"
     }
+    $ValidatedDependencyLicenses = @()
+    foreach ($Record in $PackagedLicenseRecords) {
+        Assert-Condition ($Record.package_path -match '^ffmpeg/[A-Za-z0-9._-]+$') `
+            "Invalid packaged FFmpeg license path: $($Record.package_path)"
+        Assert-Condition ($Record.sha256 -match '^[0-9a-f]{64}$') `
+            "Invalid packaged FFmpeg license SHA-256: $($Record.package_path)"
+        $LicensePath = Join-Path $InternalDir ($Record.package_path -replace '/', '\\')
+        Assert-Condition (Test-Path -LiteralPath $LicensePath -PathType Leaf) `
+            "Installed package is missing dependency license: $($Record.package_path)"
+        Assert-Condition ((Get-Sha256 $LicensePath) -eq $Record.sha256) `
+            "Installed dependency license hash differs from its pinned source: $($Record.package_path)"
+        $ValidatedDependencyLicenses += [ordered]@{
+            file = $Record.package_path
+            revision = $Record.revision
+            sha256 = $Record.sha256
+        }
+    }
     $FfmpegDlls = @(Get-ChildItem -LiteralPath $FfmpegDir -Filter "*.dll" -File)
     Assert-Condition ($FfmpegDlls.Count -ge 5) "Installed FFmpeg shared-library payload is incomplete"
     $InstalledPayload = Get-TreeManifest $InstallDir -ExcludeUninstaller
@@ -323,6 +342,7 @@ try {
         installed_payload_matches_portable = $true
         installed_package_smoke = $true
         lgpl_shared_configuration = $true
+        dependency_license_files = $true
         openh264_h264_aac_mp4 = $true
         uninstall_removed_application = $true
         uninstall_preserved_user_data = $true
@@ -350,6 +370,7 @@ try {
             ffmpeg = $FfmpegFirstLine
             source_sha256 = $SourceShaLine.Substring("SHA-256:".Length).Trim()
             shared_dll_count = $FfmpegDlls.Count
+            dependency_licenses = $ValidatedDependencyLicenses
         }
         upgrade = $UpgradeEvidence
         checks = $Checks

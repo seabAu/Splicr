@@ -693,6 +693,12 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   archive reuse, and a 12 GiB host/container reserve passed full-plan and negative tests. A real
   three-stage batch reused every accumulated archive, and all five detected candidates reconcile
   exactly to three shipped-license records or two recipe-proven not-built dispositions.
+- [x] 2026-09-30 — Four more graph-pinned source stages (mingw-std-threads, libopus, libunibreak,
+  and snappy) were collected in one bounded batch, then TwoLAME was reviewed separately. Eight of
+  92 source locators now reconcile 12 detected candidates into eight shipped licenses, one
+  supplemental notice, and three recipe-proven not-built records. A package-wide license manifest
+  now fetches and hash-verifies TwoLAME's exact LGPL-2.1-or-later `COPYING` file; Windows build and
+  artifact acceptance require it because FFmpeg's LGPLv3 file is not equivalent.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
@@ -700,10 +706,12 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
 
 - **Active milestone:** Milestone 9 — real-world acceptance and release hardening, including the
   remaining Milestones 2/3/5/7 live-environment evidence.
-- **Next implementation slice:** execute and record the remaining credential and clean-VM checks in
-  `docs/RELEASE_CHECKLIST.md`. Gemini/Deepgram credentials, the clean-VM matrix,
-  current-commit GitHub Actions, FFmpeg corresponding-source/compliance publication,
-  malware/signing evidence, and audible sentence-seam acceptance remain.
+- **Next implementation slice:** continue the bounded FFmpeg source/license review in
+  `docs/FFMPEG_DISTRIBUTION.md`, while preserving the remaining credential and clean-VM checks in
+  `docs/RELEASE_CHECKLIST.md`. Eight of 92 source locators are reviewed. Gemini/Deepgram
+  credentials, the clean-VM matrix, current-commit GitHub Actions, complete FFmpeg corresponding
+  source/compliance publication, malware/signing evidence, and audible sentence-seam acceptance
+  remain.
 - **Clean-VM routing:** the current workstation has no Windows Sandbox binary or Hyper-V,
   VirtualBox, VMware, or QEMU management CLI. The clean-VM matrix must run on a separate disposable
   Windows environment; local package-harness results are not a substitute.

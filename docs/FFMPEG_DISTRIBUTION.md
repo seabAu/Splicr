@@ -73,6 +73,18 @@ into FFmpeg.
   the root `./LICENSE` (`e32ff4e0…`) records `Zlib` and no mandatory binary notice; the source archive
   retains that notice. The root recipe runs zlib's own configure/make targets, so unrelated
   `contrib/dotzlib` and `contrib/minizip` candidate licenses are not classified as shipped code.
+- [x] A bounded four-stage run fetched mingw-std-threads, libopus, libunibreak, and snappy at their
+  graph-pinned revisions, then reconciled all six detected candidates. Required BSD notices are
+  reproduced exactly; the Opus collaboration/patent-reference notice is retained without claiming
+  a patent determination; and snappy testdata terms are classified not-built because the recipe
+  disables tests, benchmarks, and fuzzing. Successful fetch output is now concise, while a failed
+  stage retains and tails a bounded diagnostic log.
+- [x] A separate TwoLAME run brought the reviewed total to eight of 92 source locators and 12
+  candidates: eight shipped licenses, one supplemental notice, and three recipe-proven not-built
+  candidates. Because TwoLAME is LGPL-2.1-or-later and FFmpeg's bundled license is LGPLv3, the
+  package now downloads and hash-verifies the exact pinned TwoLAME `COPYING` file through
+  `ffmpeg-packaged-license-files.tsv`. The build and artifact acceptance harness require that exact
+  file and reject a changed SHA-256.
 - [ ] Execute the tracked fetch commands and archive every enabled external dependency source at its
   recipe-pinned revision.
 - [ ] Record the applicable license and notice for every enabled dependency, including libraries

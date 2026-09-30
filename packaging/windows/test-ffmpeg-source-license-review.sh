@@ -76,8 +76,38 @@ if bash "$validator" "$review" "$tampered_notices" >/dev/null 2>&1; then
     exit 1
 fi
 
+tampered_packaged_licenses="$work_root/tampered-packaged-licenses.tsv"
+sed 's/257a842724705950b07da76ce0e22ffa80ec77b3e9dfc6702522ac342409da0f/0000000000000000000000000000000000000000000000000000000000000000/' \
+    "$script_root/ffmpeg-packaged-license-files.tsv" > "$tampered_packaged_licenses"
+if bash "$validator" "$review" "$script_root/THIRD_PARTY_NOTICES.md" "" \
+    "$tampered_packaged_licenses" >/dev/null 2>&1; then
+    echo "Review validator accepted a packaged license file hash that differs from its reviewed source" >&2
+    exit 1
+fi
+
+tampered_packaged_revision="$work_root/tampered-packaged-revision.tsv"
+sed 's/6fced852d4d5cfad58cf9dbe3ea619b08e87d398/0000000000000000000000000000000000000000/g' \
+    "$script_root/ffmpeg-packaged-license-files.tsv" > "$tampered_packaged_revision"
+if bash "$validator" "$review" "$script_root/THIRD_PARTY_NOTICES.md" "" \
+    "$tampered_packaged_revision" >/dev/null 2>&1; then
+    echo "Review validator accepted a packaged license revision outside its reviewed source" >&2
+    exit 1
+fi
+
+orphan_packaged_license="$work_root/orphan-packaged-license.tsv"
+cp "$script_root/ffmpeg-packaged-license-files.tsv" "$orphan_packaged_license"
+printf 'ffmpeg/ORPHAN.txt\thttps://example.invalid/ORPHAN.txt\t%s\t%s\n' \
+    '1111111111111111111111111111111111111111' \
+    '2222222222222222222222222222222222222222222222222222222222222222' \
+    >> "$orphan_packaged_license"
+if bash "$validator" "$review" "$script_root/THIRD_PARTY_NOTICES.md" "" \
+    "$orphan_packaged_license" >/dev/null 2>&1; then
+    echo "Review validator accepted a packaged license file with no reviewed source candidate" >&2
+    exit 1
+fi
+
 unexpected_optional_anchor="$work_root/unexpected-optional-anchor.tsv"
-sed $'2s/\tnot-required\t-\treviewed\t/\tnot-required\tUnexpected anchor\treviewed\t/' \
+sed $'0,/\tnot-required\t-\treviewed\t/s//\tnot-required\tUnexpected anchor\treviewed\t/' \
     "$review" > "$unexpected_optional_anchor"
 if bash "$validator" "$unexpected_optional_anchor" >/dev/null 2>&1; then
     echo "Review validator accepted a misleading anchor for a non-required binary notice" >&2
@@ -85,7 +115,7 @@ if bash "$validator" "$unexpected_optional_anchor" >/dev/null 2>&1; then
 fi
 
 misclassified_not_built="$work_root/misclassified-not-built.tsv"
-sed $'3s/\tnot-built\t-\tnot-applicable\t-\treviewed\t/\tnot-built\tBSL-1.0\trequired\tUnexpected anchor\treviewed\t/' \
+sed $'0,/\tnot-built\t-\tnot-applicable\t-\treviewed\t/s//\tnot-built\tBSL-1.0\trequired\tUnexpected anchor\treviewed\t/' \
     "$review" > "$misclassified_not_built"
 if bash "$validator" "$misclassified_not_built" >/dev/null 2>&1; then
     echo "Review validator accepted shipped-license claims for a not-built candidate" >&2

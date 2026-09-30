@@ -32,11 +32,13 @@ Use `-SkipInstaller` to build only the portable ZIP. `build.ps1` rebuilds the Re
 FFmpeg/FFprobe and required shared DLLs into the private app bundle, builds the one-directory
 executable, creates checksums, records the exact bundled media-tool build, and then compiles the
 installer. The fetcher pins the BtbN release tag, asset name, and SHA-256 digest; it also creates a
-`SOURCE_INFO.txt` record. Generated vendor tools and build outputs are ignored by Git. Every package
-includes `THIRD_PARTY_NOTICES.md`, generated `BUILD_INFO.txt`, and the FFmpeg `LICENSE.txt` and
-`SOURCE_INFO.txt` beside the bundled media tools. The build locates Inno Setup from `PATH` or its
-standard per-user and machine-wide installation directories, so installer builds do not require an
-administrator-only Inno installation.
+`SOURCE_INFO.txt` record. Required external-library license files are declared once in
+`ffmpeg-packaged-license-files.tsv`; the fetcher downloads exact revision URLs and rejects a hash
+mismatch. Generated vendor tools and build outputs are ignored by Git. Every package includes
+`THIRD_PARTY_NOTICES.md`, generated `BUILD_INFO.txt`, the FFmpeg `LICENSE.txt` and
+`SOURCE_INFO.txt`, and each manifest-listed dependency license beside the bundled media tools. The
+build locates Inno Setup from `PATH` or its standard per-user and machine-wide installation
+directories, so installer builds do not require an administrator-only Inno installation.
 
 Omitting `-FfmpegBin` retains the legacy behavior of copying `ffmpeg.exe` and `ffprobe.exe` from
 `PATH`; that fallback does not discover or copy shared DLLs and must be reviewed independently.
@@ -106,14 +108,16 @@ The Linux/Docker source collector has a separate fail-closed license-candidate s
 partial or full collection, run `inventory-ffmpeg-source-licenses.sh` against its output, then run
 `test-ffmpeg-source-license-inventory.sh` and `test-ffmpeg-source-license-review.sh`. Generated
 candidate rows remain pending until their source identity, SPDX expression, and binary notice
-obligation are added to the tracked `ffmpeg-source-license-review.tsv`. The initial reviewed row is
-the real pinned OpenH264 archive; subsequent incremental runs review pinned libogg and zlib. The two
-required BSD notices are hash-anchored byte-for-byte in the packaged `THIRD_PARTY_NOTICES.md`; zlib
-does not mandate a binary notice. Its two unrelated contrib candidates are explicitly marked
-not-built from the root recipe rather than silently ignored. The validator can reconcile every
-generated candidate to exactly one reviewed disposition. Repeated `--stage` selections permit
-ordered bounded batches, with a 12 GiB default reserve guarding both host output and collector
-workspace filesystems. Full-graph and codec patent review remain incomplete.
+obligation are added to the tracked `ffmpeg-source-license-review.tsv`. The reviewed set currently
+covers eight of 92 source locators and 12 detected candidates. Required BSD notices are
+hash-anchored byte-for-byte in `THIRD_PARTY_NOTICES.md`; TwoLAME's exact pinned
+LGPL-2.1-or-later `COPYING` file is separately manifest-bound and packaged because FFmpeg's LGPLv3
+file is not a substitute. Optional-notice and recipe-proven not-built candidates remain explicit
+rather than silently ignored. The validator can reconcile every generated candidate to exactly one
+reviewed disposition. Repeated `--stage` selections permit ordered bounded batches, with a 12 GiB
+default reserve guarding both host output and collector workspace filesystems. Successful fetches
+stay quiet while failures retain and print a bounded diagnostic log. Full-graph and codec patent
+review remain incomplete.
 
 See [`../../docs/FFMPEG_DISTRIBUTION.md`](../../docs/FFMPEG_DISTRIBUTION.md) for the exact binary
 identity, upstream checklist mapping, and remaining corresponding-source/publication gates. The

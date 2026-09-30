@@ -257,7 +257,20 @@ while IFS=$'\t' read -r stage slug expected_sha archive_name; do
     (
         trap 'rm -rf -- "$stage_work"' EXIT
         cd "$stage_work"
-        eval "set -e; $command_text"
+        log_root="/output/.collector-logs"
+        log_path="$log_root/$slug.log"
+        mkdir -p "$log_root"
+        if ! (
+            set -e
+            eval "$command_text"
+        ) > "$log_path.tmp" 2>&1; then
+            mv "$log_path.tmp" "$log_path.failed"
+            echo "Source fetch failed for $stage; retained diagnostic log: $log_path.failed" >&2
+            tail -n 100 "$log_path.failed" >&2
+            exit 1
+        fi
+        rm -f "$log_path.tmp"
+        echo "Fetched $stage"
         tar --sort=name --mtime='@0' --owner=0 --group=0 --numeric-owner \
             -I 'xz -T1 -9e' -cpf "$target.tmp" .
         mv "$target.tmp" "$target"
