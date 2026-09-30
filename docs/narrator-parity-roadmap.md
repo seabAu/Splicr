@@ -725,7 +725,8 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   with nonstandard names into deterministic inventory. All five MIT-bearing primary headers used by
   FFmpeg 9 are exact manifest-bound package files; the ten sdk/13.0 and sdk/11.1 candidates are
   recipe-proven not built for this FFmpeg 9 payload. Real `0.1.0-dev.9` portable and installed-
-  package acceptance verified all 11 manifest-bound dependency files.
+  package acceptance verified all 11 manifest-bound dependency files. Hosted browser run
+  `36735091359` passed all six Studio journeys on acceptance-record commit `1653ec9`.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
