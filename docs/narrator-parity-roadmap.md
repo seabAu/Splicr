@@ -451,8 +451,8 @@ sequence, cancellation cleanup, deterministic archives, API validation, and the 
   Start-menu/browser use, real project/profile/media migration, Windows Settings, and a genuinely
   clean VM remain manual release evidence.
 - [ ] Verify Chromium acceptance in GitHub Actions and retain failure traces/screenshots/video. The
-  workflow runs for pull requests, `main`, and release tags and retains Playwright diagnostics on
-  failure; link a green release-commit run in the evidence record.
+  workflow runs for pull requests, `main`, `codex/**` integration branches, and release tags, and
+  retains Playwright diagnostics on failure; link a green release-commit run in the evidence record.
 - [x] Update user documentation, migration notes, third-party notices, and release checklist.
   `CHANGELOG.md`, the Windows packaging guide, the release checklist, and the FFmpeg notice now
   record data migration/rollback, external engine ownership, live-evidence gaps, and the pinned
