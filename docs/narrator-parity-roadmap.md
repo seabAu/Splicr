@@ -718,7 +718,8 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   librubberband consumer are absent. A collected ffnvcodec stage remains pending a dedicated
   embedded-header notice review and is not counted as completed. Real `0.1.0-dev.8` portable and
   installed-package acceptance passed with all six dependency files verified by exact manifest
-  revision and SHA-256.
+  revision and SHA-256. Hosted browser run `36728460149` passed all six Studio journeys on
+  acceptance-record commit `a4617bc`.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
