@@ -557,6 +557,53 @@ revision `0e20d2c291853f196c68922a264bcd8471d75b68`. Its exact BSD-3-Clause noti
 `5a8dcb7da222df8a81b6e334000f859248196335e2d28e1db9f3c552827d7cdf`. This source-license record
 does not assert patent clearance for AVS3; patent review remains a separate public-release gate.
 
+## Brotli
+
+The bundled FFmpeg dependency graph statically incorporates Brotli at pinned revision
+`a3abcbee0d945e51dddeec81e647ffe0cde182c2` through JPEG XL. Its exact MIT notice is packaged as
+`ffmpeg/BROTLI-LICENSE.txt` with SHA-256
+`3d180008e36922a4e8daec11c34c7af264fed5962d07924aea928c38e8663c94`.
+
+## JPEG XL and Highway
+
+The bundled FFmpeg dependency graph statically incorporates JPEG XL at pinned revision
+`b87738951c1254cd8cccaa6d47712ba735da56d8`. Its exact BSD-3-Clause notice is packaged as
+`ffmpeg/LIBJXL-LICENSE.txt` with SHA-256
+`8405932022a556380c2d8c272eff154a923feb197233f348ce5f7334fb0a5ede`. The implementation's exact
+additional Google patent grant is packaged as `ffmpeg/LIBJXL-PATENTS.txt` with SHA-256
+`91915f8ae056a68a3c5bdf05d9f6f78bb6903e27a8ca3a8434c9e4ac87300575`; preserving it does not
+assert independent JPEG XL patent clearance.
+
+The recipe fetches and compiles Highway submodule
+`457c891775a7397bdb0376bb1031e6e027af1c48`. Exact Apache-2.0 and BSD-3-Clause texts are packaged as
+`ffmpeg/HIGHWAY-APACHE-2.0.txt` (SHA-256
+`43070e2d4e532684de521b885f385d0841030efa2b1a20bafb76133a5e1379c1`) and
+`ffmpeg/HIGHWAY-BSD-3-CLAUSE.txt` (SHA-256
+`d25e82e26acd42ca3ccc9993622631163425b869b9e16284226d534cff6470f2`). JPEG XL's disabled tools,
+tests, examples, and benchmarks exclude the APNG extras, HEVC reference configuration, and Debian
+packaging candidates.
+
+## Mbed TLS and TF-PSA-Crypto
+
+The bundled FFmpeg dependency graph statically incorporates Mbed TLS at pinned release tag
+`v4.2.0` under its offered Apache-2.0 or GPL-2.0-or-later terms. The exact dual-license file is
+packaged as `ffmpeg/MBEDTLS-LICENSE.txt` with SHA-256
+`9b405ef4c89342f5eae1dd828882f931747f71001cfba7d114801039b52ad09b`.
+
+Mbed TLS compiles TF-PSA-Crypto submodule `73c5da561c8e5253db7b1fb440eda86fde8d8024`; its exact
+dual-license file is packaged as `ffmpeg/TF-PSA-CRYPTO-LICENSE.txt` with SHA-256
+`da8c58f05f135a9d15e9ffad4ecf854cfcc1f014c8abfd75ba05f62630ccc118`. The two framework
+submodules supply build-time generators only and are not installed or linked. Experimental
+mldsa-native support is disabled in the shipped configuration, including its custom-backend example.
+
+## librist
+
+The bundled FFmpeg dependency graph statically incorporates librist at pinned revision
+`4f45ef8f78983892d52ccd52d9f675435b23738f`. Its exact BSD-2-Clause notice is packaged as
+`ffmpeg/LIBRIST-COPYING.txt` with SHA-256
+`b9841591a3452ee30033d8e3586c7b1244a0b2fc1dc6cb04576957c313cb2792`. The recipe links the
+separately reviewed external Mbed TLS build and explicitly disables librist's vendored copy.
+
 Advanced audiogram rendering also includes these Python libraries in the frozen desktop package:
 
 - NumPy, distributed under the BSD 3-Clause license: https://numpy.org/doc/stable/license.html

@@ -101,6 +101,7 @@ jobs:
           uv sync --frozen --extra dev
           uv run ruff check .
           uv run pytest -q
+          .\packaging\windows\test-fetch-ffmpeg-lgpl.ps1
           $ffmpegBin = .\packaging\windows\fetch-ffmpeg-lgpl.ps1
           .\packaging\windows\build.ps1 `
             -Version "${{ steps.version.outputs.version }}" `

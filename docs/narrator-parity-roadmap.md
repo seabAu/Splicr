@@ -768,6 +768,15 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   `0.1.0-dev.13` portable and installed-package acceptance independently verified all 45 files plus
   the existing media and lifecycle checks. Hosted browser run `36757811792` passed all six Studio
   journeys in 50.3 seconds on acceptance-record commit `32deb7a`; AVS3 patent review remains open.
+- [x] 2026-09-30 — A bounded Brotli, JPEG XL, Mbed TLS, and librist review raised coverage to 39 of
+  92 source locators and reconciled all 140 candidates: 51 shipped licenses, twelve supplemental
+  notices, 68 recipe-proven not-built records, and nine build-only/not-shipped records. Eight new
+  manifest-bound files preserve the compiled MIT, BSD, Apache, dual Apache/GPL, and JPEG XL patent-
+  grant terms. Disabled JPEG XL extras, experimental ML-DSA, and librist's vendored Mbed TLS are
+  excluded; both Mbed TLS framework submodules are build-time-only. The validator now supports the
+  graph-pinned `v4.2.0` release tag while rejecting unsafe arbitrary refs. The PowerShell downloader
+  independently fetched and SHA-256-verified all 53 manifest files, while exact-batch, tracked,
+  synthetic, and negative reconciliation suites passed. Real package acceptance remains next.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
@@ -777,7 +786,7 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   remaining Milestones 2/3/5/7 live-environment evidence.
 - **Next implementation slice:** continue the bounded FFmpeg source/license review in
   `docs/FFMPEG_DISTRIBUTION.md`, while preserving the remaining credential and clean-VM checks in
-  `docs/RELEASE_CHECKLIST.md`. Thirty-five of 92 source locators are reviewed. Gemini/Deepgram
+  `docs/RELEASE_CHECKLIST.md`. Thirty-nine of 92 source locators are reviewed. Gemini/Deepgram
   credentials, the clean-VM matrix, complete FFmpeg corresponding
   source/compliance publication, malware/signing evidence, and audible sentence-seam acceptance
   remain.

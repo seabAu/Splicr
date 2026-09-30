@@ -94,6 +94,15 @@ if bash "$validator" "$review" "$script_root/THIRD_PARTY_NOTICES.md" "" \
     exit 1
 fi
 
+unsafe_packaged_tag="$work_root/unsafe-packaged-tag.tsv"
+sed $'s/\tv4\\.2\\.0\t/\tv4.2.0;unsafe\t/' \
+    "$script_root/ffmpeg-packaged-license-files.tsv" > "$unsafe_packaged_tag"
+if bash "$validator" "$review" "$script_root/THIRD_PARTY_NOTICES.md" "" \
+    "$unsafe_packaged_tag" >/dev/null 2>&1; then
+    echo "Review validator accepted an unsafe packaged license release tag" >&2
+    exit 1
+fi
+
 orphan_packaged_license="$work_root/orphan-packaged-license.tsv"
 cp "$script_root/ffmpeg-packaged-license-files.tsv" "$orphan_packaged_license"
 printf 'ffmpeg/ORPHAN.txt\thttps://example.invalid/ORPHAN.txt\t%s\t%s\n' \

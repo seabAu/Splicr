@@ -156,6 +156,18 @@ into FFmpeg.
   an immutable GitHub mirror at the identical SourceForge commit. Real `0.1.0-dev.13` portable and
   installed-package acceptance independently verified every one of those 45 files by exact revision
   and SHA-256, plus the existing media and lifecycle checks. AVS3 patent review remains open.
+- [x] A bounded Brotli, JPEG XL, Mbed TLS, and librist run brought coverage to 39 of 92 locators and
+  140 candidates: 51 shipped licenses, twelve supplemental notices, 68 not-built candidates, and
+  nine build-only/not-shipped candidates. Eight new manifest-bound files preserve Brotli's MIT
+  notice; JPEG XL's BSD terms and patent grant; Highway's Apache and BSD terms; Mbed TLS and
+  TF-PSA-Crypto's dual Apache/GPL terms; and librist's BSD notice. Exact recipe/source evidence
+  excludes disabled JPEG XL tools/tests/examples/benchmarks, experimental ML-DSA, and librist's
+  vendored Mbed TLS. Mbed TLS's two framework submodules are build-time-only. The manifest validator
+  now accepts graph-pinned semantic release tags such as `v4.2.0` while rejecting unsafe arbitrary
+  refs, and the PowerShell downloader independently fetched and SHA-256-verified all 53 manifest
+  files; librist uses a commit-pinned, byte-identical GitHub mirror because the canonical host returns
+  an anti-bot page to automated clients. Exact-batch, tracked, synthetic, and negative reconciliation
+  suites pass. Real package acceptance remains the next gate, and codec patent review remains open.
 - [ ] Execute the tracked fetch commands and archive every enabled external dependency source at its
   recipe-pinned revision.
 - [ ] Record the applicable license and notice for every enabled dependency, including libraries
