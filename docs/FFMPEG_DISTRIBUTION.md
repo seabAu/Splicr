@@ -179,7 +179,9 @@ into FFmpeg.
   build metadata remain only in the intermediate prefix. The inventory now resolves safe relative
   in-archive license symlinks, with deterministic positive coverage and negative escape rejection.
   The downloader independently fetched and SHA-256-verified all 60 manifest files, and exact-batch,
-  tracked, synthetic, and negative reconciliation suites pass. Real package acceptance remains next.
+  tracked, synthetic, and negative reconciliation suites pass. Real `0.1.0-dev.15` portable and
+  installed-package acceptance independently verified all 60 files plus the existing media and
+  lifecycle checks. Hosted browser acceptance remains pending on the acceptance-record commit.
 - [ ] Execute the tracked fetch commands and archive every enabled external dependency source at its
   recipe-pinned revision.
 - [ ] Record the applicable license and notice for every enabled dependency, including libraries
