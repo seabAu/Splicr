@@ -141,8 +141,9 @@ into FFmpeg.
   PCRE2's unused CMake scripts; PCRE2 JIT defaults off, so absent SLJIT is not incorporated. The
   downloader independently fetched and SHA-256-verified all 34 manifest files. Byte-identical,
   immutable GitHub mirror commits avoid Code.Videolan and GitLab automated-client challenges while
-  exact hashes retain correspondence to the collected source. Real package acceptance remains the
-  next gate.
+  exact hashes retain correspondence to the collected source. Real `0.1.0-dev.12` portable and
+  installed-package acceptance independently verified every one of those 34 files by exact revision
+  and SHA-256, plus the existing media and lifecycle checks.
 - [ ] Execute the tracked fetch commands and archive every enabled external dependency source at its
   recipe-pinned revision.
 - [ ] Record the applicable license and notice for every enabled dependency, including libraries
