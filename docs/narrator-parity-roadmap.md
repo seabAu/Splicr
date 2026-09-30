@@ -734,7 +734,8 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   LCEVCdec's Clear BSD plus explicit no-patent-license notice. The exact recipes prove 11 auxiliary
   candidates are excluded, and the fetcher plus fail-closed reconciliation suites passed. Real
   `0.1.0-dev.10` portable and installed-package acceptance verified all 19 manifest-bound legal
-  files plus the existing media and lifecycle checks.
+  files plus the existing media and lifecycle checks. Hosted browser run `36741351275` passed all
+  six Studio journeys on acceptance-record commit `a561216`.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
