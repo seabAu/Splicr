@@ -744,7 +744,8 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   The exact recipes exclude eight test, example, optional-WebSocket, and packaging candidates. The
   fetcher plus fail-closed reconciliation suites passed. Real `0.1.0-dev.11` portable and installed-
   package acceptance verified all 29 manifest-bound legal files plus the existing media and
-  lifecycle checks; hosted browser acceptance on the exact acceptance-record commit remains next.
+  lifecycle checks. Hosted browser run `36747089346` passed all six Studio journeys on acceptance-
+  record commit `d4d76f7`.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
