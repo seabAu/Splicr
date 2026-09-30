@@ -790,7 +790,8 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   fetched and SHA-256-verified all 60 manifest files, and exact-batch, tracked, synthetic, and
   negative reconciliation suites pass. Real `0.1.0-dev.15` portable and installed-package acceptance
   independently verified all 60 files plus the existing media and lifecycle checks. Hosted browser
-  acceptance remains pending on the acceptance-record commit.
+  run `36765143610` passed all six Studio journeys in 43.6 seconds on acceptance-record commit
+  `8e33227`.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
