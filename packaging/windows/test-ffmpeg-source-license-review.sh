@@ -14,6 +14,29 @@ trap 'rm -rf -- "$work_root"' EXIT
 
 bash "$validator" "$review"
 
+candidate_inventory="$work_root/candidate-inventory.tsv"
+printf 'stage\tsource_status\tarchive_name\tarchive_sha256\tcandidate_path\tcandidate_sha256\textracted_path\n' \
+    > "$candidate_inventory"
+awk -F '\t' 'BEGIN { OFS = "\t" } NR > 1 { print $1, "collected", "synthetic.tar.xz", $4, $5, $6, "synthetic/" NR ".txt" }' \
+    "$review" >> "$candidate_inventory"
+bash "$validator" "$review" "$script_root/THIRD_PARTY_NOTICES.md" "$candidate_inventory"
+
+missing_candidate_review="$work_root/missing-candidate-review.tsv"
+head -n -1 "$review" > "$missing_candidate_review"
+if bash "$validator" "$missing_candidate_review" "$script_root/THIRD_PARTY_NOTICES.md" \
+    "$candidate_inventory" >/dev/null 2>&1; then
+    echo "Review validator accepted a candidate inventory with no reviewed disposition" >&2
+    exit 1
+fi
+
+missing_inventory_candidate="$work_root/missing-inventory-candidate.tsv"
+sed '4d' "$candidate_inventory" > "$missing_inventory_candidate"
+if bash "$validator" "$review" "$script_root/THIRD_PARTY_NOTICES.md" \
+    "$missing_inventory_candidate" >/dev/null 2>&1; then
+    echo "Review validator accepted a reviewed candidate absent from its supplied inventory" >&2
+    exit 1
+fi
+
 tampered_revision="$work_root/tampered-revision.tsv"
 sed 's/8b2d28faade10d74d99ac80e199aef664c9c5a3b/0000000000000000000000000000000000000000/' \
     "$review" > "$tampered_revision"
@@ -58,6 +81,14 @@ sed $'2s/\tnot-required\t-\treviewed\t/\tnot-required\tUnexpected anchor\treview
     "$review" > "$unexpected_optional_anchor"
 if bash "$validator" "$unexpected_optional_anchor" >/dev/null 2>&1; then
     echo "Review validator accepted a misleading anchor for a non-required binary notice" >&2
+    exit 1
+fi
+
+misclassified_not_built="$work_root/misclassified-not-built.tsv"
+sed $'3s/\tnot-built\t-\tnot-applicable\t-\treviewed\t/\tnot-built\tBSL-1.0\trequired\tUnexpected anchor\treviewed\t/' \
+    "$review" > "$misclassified_not_built"
+if bash "$validator" "$misclassified_not_built" >/dev/null 2>&1; then
+    echo "Review validator accepted shipped-license claims for a not-built candidate" >&2
     exit 1
 fi
 

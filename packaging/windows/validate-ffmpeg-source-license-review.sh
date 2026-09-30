@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -gt 2 ]]; then
-    echo "usage: $0 [REVIEW_FILE [THIRD_PARTY_NOTICES_FILE]]" >&2
+if [[ $# -gt 3 ]]; then
+    echo "usage: $0 [REVIEW_FILE [THIRD_PARTY_NOTICES_FILE [CANDIDATE_INVENTORY_FILE]]]" >&2
     exit 2
 fi
 
@@ -12,19 +12,60 @@ review_path="${1:-$script_root/ffmpeg-source-license-review.tsv}"
 revisions_path="$graph_root/source-revisions.tsv"
 stages_path="$graph_root/enabled-stages.txt"
 notices_path="${2:-$script_root/THIRD_PARTY_NOTICES.md}"
+inventory_path="${3:-}"
 
 for required in "$review_path" "$revisions_path" "$stages_path" "$notices_path"; do
     [[ -f "$required" ]] || { echo "Required review input not found: $required" >&2; exit 1; }
 done
+if [[ -n "$inventory_path" && ! -f "$inventory_path" ]]; then
+    echo "Candidate inventory not found: $inventory_path" >&2
+    exit 1
+fi
 
-expected_header=$'stage\tlocator_variable\trevision\tarchive_sha256\tcandidate_path\tcandidate_sha256\tcandidate_final_newline\tspdx_expression\tbinary_notice_requirement\tnotice_anchor\treview_status\treview_notes'
+expected_header=$'stage\tlocator_variable\trevision\tarchive_sha256\tcandidate_path\tcandidate_sha256\tcandidate_final_newline\tcandidate_disposition\tspdx_expression\tbinary_notice_requirement\tnotice_anchor\treview_status\treview_notes'
 [[ "$(head -n 1 "$review_path")" == "$expected_header" ]] || {
     echo "Unexpected FFmpeg source license review header" >&2
     exit 1
 }
 
 reviewed_count=0
+shipped_license_count=0
+not_built_count=0
 declare -A seen_records=()
+declare -A inventory_records=()
+declare -A inventory_stages=()
+declare -A reviewed_inventory_records=()
+inventory_candidate_count=0
+
+if [[ -n "$inventory_path" ]]; then
+    expected_inventory_header=$'stage\tsource_status\tarchive_name\tarchive_sha256\tcandidate_path\tcandidate_sha256\textracted_path'
+    [[ "$(head -n 1 "$inventory_path")" == "$expected_inventory_header" ]] || {
+        echo "Unexpected license candidate inventory header" >&2
+        exit 1
+    }
+    while IFS=$'\t' read -r inventory_stage source_status archive_name inventory_archive_sha256 \
+        inventory_candidate_path inventory_candidate_sha256 extracted_path extra; do
+        [[ "$inventory_stage" != "stage" ]] || continue
+        [[ -z "${extra:-}" ]] || {
+            echo "Candidate inventory row has unexpected extra fields: $inventory_stage" >&2
+            exit 1
+        }
+        [[ -n "$inventory_stage" ]] || { echo "Candidate inventory row has no stage" >&2; exit 1; }
+        inventory_stages["$inventory_stage"]=1
+        [[ -n "$inventory_candidate_path" ]] || continue
+        inventory_key="$inventory_stage|$inventory_archive_sha256|$inventory_candidate_path|$inventory_candidate_sha256"
+        [[ -z "${inventory_records[$inventory_key]:-}" ]] || {
+            echo "Duplicate candidate inventory record: $inventory_key" >&2
+            exit 1
+        }
+        inventory_records["$inventory_key"]=1
+        inventory_candidate_count=$((inventory_candidate_count + 1))
+    done < "$inventory_path"
+    [[ "$inventory_candidate_count" -gt 0 ]] || {
+        echo "Candidate inventory contains no filename-based candidates" >&2
+        exit 1
+    }
+fi
 
 extract_notice_block() {
     local anchor="$1"
@@ -38,8 +79,8 @@ extract_notice_block() {
 }
 
 while IFS=$'\t' read -r stage locator_variable revision archive_sha256 candidate_path \
-    candidate_sha256 candidate_final_newline spdx_expression binary_notice_requirement \
-    notice_anchor review_status review_notes extra; do
+    candidate_sha256 candidate_final_newline candidate_disposition spdx_expression \
+    binary_notice_requirement notice_anchor review_status review_notes extra; do
     [[ "$stage" != "stage" ]] || continue
     [[ -z "${extra:-}" ]] || { echo "Review row has unexpected extra fields: $stage" >&2; exit 1; }
     [[ -n "$stage" && -n "$locator_variable" && -n "$revision" ]] || {
@@ -73,15 +114,29 @@ while IFS=$'\t' read -r stage locator_variable revision archive_sha256 candidate
         echo "Review row has an invalid candidate newline marker: $stage" >&2
         exit 1
     }
-    [[ -n "$spdx_expression" && "$spdx_expression" != *$'\t'* ]] || {
-        echo "Review row is missing an SPDX expression: $stage" >&2
+    [[ "$candidate_disposition" == "shipped-license" || "$candidate_disposition" == "not-built" ]] || {
+        echo "Review row has an unresolved candidate disposition: $stage $candidate_path" >&2
         exit 1
     }
-    [[ "$binary_notice_requirement" == "required" || "$binary_notice_requirement" == "not-required" ]] || {
-        echo "Review row has an unresolved binary notice requirement: $stage" >&2
-        exit 1
-    }
-    if [[ "$binary_notice_requirement" == "required" ]]; then
+    if [[ "$candidate_disposition" == "not-built" ]]; then
+        [[ "$spdx_expression" == "-" && "$binary_notice_requirement" == "not-applicable" && \
+            "$notice_anchor" == "-" ]] || {
+            echo "A not-built candidate must not make shipped-license or notice claims: $stage $candidate_path" >&2
+            exit 1
+        }
+        not_built_count=$((not_built_count + 1))
+    else
+        [[ -n "$spdx_expression" && "$spdx_expression" != "-" && "$spdx_expression" != *$'\t'* ]] || {
+            echo "Shipped review row is missing an SPDX expression: $stage" >&2
+            exit 1
+        }
+        [[ "$binary_notice_requirement" == "required" || "$binary_notice_requirement" == "not-required" ]] || {
+            echo "Review row has an unresolved binary notice requirement: $stage" >&2
+            exit 1
+        }
+        shipped_license_count=$((shipped_license_count + 1))
+    fi
+    if [[ "$candidate_disposition" == "shipped-license" && "$binary_notice_requirement" == "required" ]]; then
         [[ -n "$notice_anchor" ]] || {
             echo "Required binary notice has no package-notice anchor: $stage" >&2
             exit 1
@@ -99,7 +154,7 @@ while IFS=$'\t' read -r stage locator_variable revision archive_sha256 candidate
             echo "Packaged binary notice text differs from the reviewed source candidate: $stage" >&2
             exit 1
         }
-    else
+    elif [[ "$candidate_disposition" == "shipped-license" ]]; then
         [[ "$notice_anchor" == "-" ]] || {
             echo "A not-required binary notice must use '-' as its anchor: $stage" >&2
             exit 1
@@ -116,10 +171,30 @@ while IFS=$'\t' read -r stage locator_variable revision archive_sha256 candidate
         exit 1
     }
     seen_records[$record_key]=1
+    if [[ -n "$inventory_path" && -n "${inventory_stages[$stage]:-}" ]]; then
+        inventory_key="$stage|$archive_sha256|$candidate_path|$candidate_sha256"
+        [[ -n "${inventory_records[$inventory_key]:-}" ]] || {
+            echo "Reviewed candidate is absent from the supplied inventory: $stage $candidate_path" >&2
+            exit 1
+        }
+        reviewed_inventory_records["$inventory_key"]=1
+    fi
     reviewed_count=$((reviewed_count + 1))
 done < "$review_path"
 
 [[ "$reviewed_count" -gt 0 ]] || { echo "FFmpeg source license review contains no records" >&2; exit 1; }
+if [[ -n "$inventory_path" ]]; then
+    for inventory_key in "${!inventory_records[@]}"; do
+        [[ -n "${reviewed_inventory_records[$inventory_key]:-}" ]] || {
+            echo "Candidate inventory record has no reviewed disposition: $inventory_key" >&2
+            exit 1
+        }
+    done
+fi
 source_locator_count="$(($(wc -l < "$revisions_path") - 1))"
-printf 'Validated %s reviewed FFmpeg source license record(s) against %s pinned source locator(s); full-graph review remains open.\n' \
-    "$reviewed_count" "$source_locator_count"
+printf 'Validated %s reviewed FFmpeg source candidate(s): %s shipped license(s), %s not built; %s pinned source locator(s) exist and full-graph review remains open.\n' \
+    "$reviewed_count" "$shipped_license_count" "$not_built_count" "$source_locator_count"
+if [[ -n "$inventory_path" ]]; then
+    printf 'All %s filename-based candidate(s) in the supplied inventory have an exact reviewed disposition.\n' \
+        "$inventory_candidate_count"
+fi

@@ -109,7 +109,11 @@ candidate rows remain pending until their source identity, SPDX expression, and 
 obligation are added to the tracked `ffmpeg-source-license-review.tsv`. The initial reviewed row is
 the real pinned OpenH264 archive; subsequent incremental runs review pinned libogg and zlib. The two
 required BSD notices are hash-anchored byte-for-byte in the packaged `THIRD_PARTY_NOTICES.md`; zlib
-does not mandate a binary notice. Full-graph and codec patent review remain incomplete.
+does not mandate a binary notice. Its two unrelated contrib candidates are explicitly marked
+not-built from the root recipe rather than silently ignored. The validator can reconcile every
+generated candidate to exactly one reviewed disposition. Repeated `--stage` selections permit
+ordered bounded batches, with a 12 GiB default reserve guarding both host output and collector
+workspace filesystems. Full-graph and codec patent review remain incomplete.
 
 See [`../../docs/FFMPEG_DISTRIBUTION.md`](../../docs/FFMPEG_DISTRIBUTION.md) for the exact binary
 identity, upstream checklist mapping, and remaining corresponding-source/publication gates. The

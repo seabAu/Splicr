@@ -689,6 +689,10 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   is optional for binary distribution, and excluded unrelated contrib licenses based on the actual
   root build recipe. Three of 92 pinned source locators now have source/license evidence; full
   collection, review, codec patent analysis, correspondence, and publication remain open.
+- [x] 2026-09-30 — Source compliance work became safely batchable: ordered repeated stage selection,
+  archive reuse, and a 12 GiB host/container reserve passed full-plan and negative tests. A real
+  three-stage batch reused every accumulated archive, and all five detected candidates reconcile
+  exactly to three shipped-license records or two recipe-proven not-built dispositions.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 

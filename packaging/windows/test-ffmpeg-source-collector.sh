@@ -25,6 +25,8 @@ duplicate_archives="$(tail -n +2 "$full_output/collection-plan.tsv" | cut -f4 | 
 [[ -z "$duplicate_archives" ]] || { echo "Plan contains duplicate archive names" >&2; exit 1; }
 grep -Fq 'State: planned-only' "$full_output/COLLECTION_INFO.txt"
 grep -Fq 'Scope: full-graph' "$full_output/COLLECTION_INFO.txt"
+grep -Fq 'Pending source-bearing stage count: 85' "$full_output/COLLECTION_INFO.txt"
+grep -Fq 'Minimum free-space reserve: 12 GiB' "$full_output/COLLECTION_INFO.txt"
 grep -Fq 'Corresponding source complete: false' "$full_output/COLLECTION_INFO.txt"
 grep -Fq 'Public release gate satisfied: false' "$full_output/COLLECTION_INFO.txt"
 grep -Fq \
@@ -44,6 +46,43 @@ partial_count="$(($(wc -l < "$partial_output/collection-plan.tsv") - 1))"
 [[ "$partial_count" -eq 1 ]] || { echo "Expected one planned stage, found $partial_count" >&2; exit 1; }
 grep -Fq 'Scope: single-stage' "$partial_output/COLLECTION_INFO.txt"
 grep -Fq $'scripts.d/50-openh264.sh\t' "$partial_output/collection-plan.tsv"
+
+batch_output="$work_root/batch"
+bash "$collector" "$btbn_root" "$batch_output" \
+    --stage scripts.d/25-libogg.sh \
+    --stage scripts.d/20-zlib.sh \
+    --min-free-gib 8 \
+    --plan-only
+batch_count="$(($(wc -l < "$batch_output/collection-plan.tsv") - 1))"
+[[ "$batch_count" -eq 2 ]] || { echo "Expected two planned batch stages, found $batch_count" >&2; exit 1; }
+grep -Fq 'Scope: stage-batch' "$batch_output/COLLECTION_INFO.txt"
+grep -Fq 'Selected stage count: 2' "$batch_output/COLLECTION_INFO.txt"
+grep -Fq 'Minimum free-space reserve: 8 GiB' "$batch_output/COLLECTION_INFO.txt"
+[[ "$(sed -n '2p' "$batch_output/collection-plan.tsv" | cut -f1)" == 'scripts.d/25-libogg.sh' ]]
+[[ "$(sed -n '3p' "$batch_output/collection-plan.tsv" | cut -f1)" == 'scripts.d/20-zlib.sh' ]]
+
+if bash "$collector" "$btbn_root" "$work_root/duplicate" \
+    --stage scripts.d/25-libogg.sh \
+    --stage scripts.d/25-libogg.sh \
+    --plan-only >/dev/null 2>&1; then
+    echo "Collector accepted a duplicate selected stage" >&2
+    exit 1
+fi
+
+if bash "$collector" "$btbn_root" "$work_root/invalid-reserve" \
+    --stage scripts.d/25-libogg.sh \
+    --min-free-gib invalid \
+    --plan-only >/dev/null 2>&1; then
+    echo "Collector accepted an invalid free-space reserve" >&2
+    exit 1
+fi
+
+if bash "$collector" "$btbn_root" "$work_root/impossible-reserve" \
+    --stage scripts.d/25-libogg.sh \
+    --min-free-gib 999999 >/dev/null 2>&1; then
+    echo "Collector ignored an impossible free-space reserve" >&2
+    exit 1
+fi
 
 if bash "$collector" "$btbn_root" "$work_root/unknown" \
     --stage scripts.d/not-enabled.sh --plan-only >/dev/null 2>&1; then

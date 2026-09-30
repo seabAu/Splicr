@@ -59,6 +59,11 @@ into FFmpeg.
   `dd5c1c96…`; the tracked review records `BSD-2-Clause` and the binary notice obligation, while
   a unique hash anchor proves the complete notice is present in the packaged third-party notice,
   and full-graph and codec patent review remain explicitly open.
+- [x] The collector accepts ordered repeated `--stage` arguments for bounded batches, records the
+  batch scope, reuses valid prior archives, and enforces a configurable 12 GiB free-space reserve
+  on both the output filesystem and collector workspace before uncached work. Plan acceptance
+  rejects duplicates, invalid reserves, and an intentionally impossible reserve. A real combined
+  run reused OpenH264, libogg, and zlib without downloading them again.
 - [x] A second incremental real-source run fetched libogg commit
   `06a5e0262cdc28aa4ae6797627a783b5010440f0` into a 500,976-byte normalized archive. The inventory
   found `./COPYING` at SHA-256 `d2ab5758…`; the tracked review records `BSD-3-Clause`, and CI proves
@@ -130,10 +135,12 @@ bash packaging/windows/test-ffmpeg-source-collector.sh \
   /path/to/FFmpeg-Builds-20ad148c3b69a862b061eb7e6cc7b61d896bcfef
 ```
 
-Remove `--plan-only` for the resumable full collection. `--stage` accepts one exact path from
-`enabled-stages.txt` for a smaller diagnostic run. A successful download writes a plan, per-stage
-archives, a source manifest, and checksums, while continuing to state that corresponding-source and
-public-release gates are false. License/notice review and binary correspondence still follow.
+Remove `--plan-only` for the resumable full collection. Repeat `--stage` with exact paths from
+`enabled-stages.txt` for an ordered bounded batch. `--min-free-gib` changes the default 12 GiB
+reserve; set it to zero only in a separately capacity-controlled environment. A successful download
+writes a plan, per-stage archives, a source manifest, and checksums, while continuing to state that
+corresponding-source and public-release gates are false. License/notice review and binary
+correspondence still follow.
 
 After any partial or full collection, generate the deterministic candidate inventory and validate
 the independently tracked reviewed rows:
@@ -148,7 +155,10 @@ bash packaging/windows/test-ffmpeg-source-license-review.sh
 `ffmpeg-source-license-review.tsv` only after checking the extracted text, pinned source identity,
 SPDX expression, and binary notice requirement. The validator rejects source identities outside the
 pinned graph, malformed checksums, unresolved notice requirements, duplicate evidence, and
-undocumented reviews. It does not claim that a filename search found every applicable term.
+undocumented reviews. Pass a generated `license-candidate-inventory.tsv` as the validator's third
+optional input to require an exact reviewed disposition for every detected candidate. A disposition
+may identify a shipped license or document, with recipe evidence, that a source subtree is not
+built. It does not claim that a filename search found every applicable term.
 
 Primary references:
 

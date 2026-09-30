@@ -6,8 +6,10 @@ usage() {
 usage: collect-ffmpeg-source-graph.sh BTBN_REPOSITORY OUTPUT_DIRECTORY [options]
 
 Options:
-  --stage STAGE  Collect or plan one exact enabled stage instead of the full graph.
-  --plan-only    Verify the recipe and write a deterministic plan without using Docker.
+  --stage STAGE       Collect or plan one exact enabled stage instead of the full graph. Repeat to
+                      select an ordered batch.
+  --min-free-gib GIB  Keep at least this many GiB free before each uncached stage (default: 12).
+  --plan-only         Verify the recipe and write a deterministic plan without using Docker.
 EOF
     exit 2
 }
@@ -20,13 +22,25 @@ btbn_root="$1"
 output_root="$2"
 shift 2
 
-selected_stage=""
+selected_stages=()
+minimum_free_gib=12
 plan_only=false
 while [[ $# -gt 0 ]]; do
     case "$1" in
     --stage)
-        [[ $# -ge 2 && -z "$selected_stage" ]] || usage
-        selected_stage="$2"
+        [[ $# -ge 2 && -n "$2" ]] || usage
+        for selected_stage in "${selected_stages[@]}"; do
+            [[ "$selected_stage" != "$2" ]] || {
+                echo "Stage was selected more than once: $2" >&2
+                exit 1
+            }
+        done
+        selected_stages+=("$2")
+        shift 2
+        ;;
+    --min-free-gib)
+        [[ $# -ge 2 && "$2" =~ ^[0-9]+$ ]] || usage
+        minimum_free_gib="$2"
         shift 2
         ;;
     --plan-only)
@@ -62,17 +76,46 @@ if [[ ${#enabled_stages[@]} -eq 0 ]]; then
 fi
 
 stages=("${enabled_stages[@]}")
-if [[ -n "$selected_stage" ]]; then
-    found=false
-    for stage in "${enabled_stages[@]}"; do
-        if [[ "$stage" == "$selected_stage" ]]; then
-            found=true
-            break
-        fi
+if [[ ${#selected_stages[@]} -gt 0 ]]; then
+    stages=()
+    for selected_stage in "${selected_stages[@]}"; do
+        found=false
+        for stage in "${enabled_stages[@]}"; do
+            if [[ "$stage" == "$selected_stage" ]]; then
+                found=true
+                break
+            fi
+        done
+        $found || {
+            echo "Stage is not in the tracked enabled graph: $selected_stage" >&2
+            exit 1
+        }
+        stages+=("$selected_stage")
     done
-    $found || { echo "Stage is not in the tracked enabled graph: $selected_stage" >&2; exit 1; }
-    stages=("$selected_stage")
 fi
+
+minimum_free_kib=$((minimum_free_gib * 1024 * 1024))
+
+available_kib() {
+    local path="$1"
+    df -Pk "$path" | awk 'NR == 2 { print $4 }'
+}
+
+require_free_space() {
+    local path="$1"
+    local label="$2"
+    local free_kib
+    free_kib="$(available_kib "$path")"
+    [[ "$free_kib" =~ ^[0-9]+$ ]] || {
+        echo "Could not determine free space for $label: $path" >&2
+        exit 1
+    }
+    if (( free_kib < minimum_free_kib )); then
+        printf 'Source collection requires a %s GiB free-space reserve; %s has %.2f GiB free.\n' \
+            "$minimum_free_gib" "$label" "$(awk -v kib="$free_kib" 'BEGIN { print kib / 1024 / 1024 }')" >&2
+        exit 1
+    fi
+}
 
 tracked_command() {
     local stage="$1"
@@ -124,8 +167,21 @@ for stage in "${stages[@]}"; do
     source_stage_count=$((source_stage_count + 1))
 done
 
+pending_stage_count=0
+while IFS=$'\t' read -r stage slug command_sha256 archive_name; do
+    [[ -n "$stage" ]] || continue
+    archive_path="$output_root/stages/$archive_name"
+    if ! [[ -s "$archive_path" ]] || ! xz -t "$archive_path" 2>/dev/null; then
+        pending_stage_count=$((pending_stage_count + 1))
+    fi
+done < "$runner_plan_path"
+
 collection_scope="full-graph"
-[[ -n "$selected_stage" ]] && collection_scope="single-stage"
+if [[ ${#selected_stages[@]} -eq 1 ]]; then
+    collection_scope="single-stage"
+elif [[ ${#selected_stages[@]} -gt 1 ]]; then
+    collection_scope="stage-batch"
+fi
 collection_state="planned-only"
 
 write_info() {
@@ -137,6 +193,8 @@ Runner image: $runner_image
 Tracked enabled stage count: ${#enabled_stages[@]}
 Selected stage count: ${#stages[@]}
 Selected source-bearing stage count: $source_stage_count
+Pending source-bearing stage count: $pending_stage_count
+Minimum free-space reserve: $minimum_free_gib GiB
 Corresponding source complete: false
 Public release gate satisfied: false
 EOF
@@ -150,6 +208,9 @@ if $plan_only; then
     exit 0
 fi
 
+if [[ "$pending_stage_count" -gt 0 && "$minimum_free_kib" -gt 0 ]]; then
+    require_free_space "$output_root" "output filesystem"
+fi
 command -v docker >/dev/null 2>&1 || { echo "Docker is required for source collection" >&2; exit 1; }
 mkdir -p "$output_root/stages"
 
@@ -178,6 +239,20 @@ while IFS=$'\t' read -r stage slug expected_sha archive_name; do
     fi
     rm -f "$target" "$target.tmp"
 
+    if [[ "$SPLICR_MIN_FREE_KIB" -gt 0 ]]; then
+        for filesystem in /output /tmp; do
+            free_kib="$(df -Pk "$filesystem" | awk 'NR == 2 { print $4 }')"
+            [[ "$free_kib" =~ ^[0-9]+$ ]] || {
+                echo "Could not determine free space inside the collector: $filesystem" >&2
+                exit 1
+            }
+            if (( free_kib < SPLICR_MIN_FREE_KIB )); then
+                echo "Free-space reserve reached before collecting $stage on $filesystem" >&2
+                exit 1
+            fi
+        done
+    fi
+
     stage_work="$(mktemp -d)"
     (
         trap 'rm -rf -- "$stage_work"' EXIT
@@ -197,6 +272,7 @@ if ! docker info -f '{{println .SecurityOptions}}' 2>/dev/null | grep -q rootles
 fi
 
 docker run --rm "${uid_args[@]}" \
+    -e "SPLICR_MIN_FREE_KIB=$minimum_free_kib" \
     -v "$btbn_root:/btbn:ro" \
     -v "$output_root:/output" \
     -v "$work_root:/collector:ro" \
