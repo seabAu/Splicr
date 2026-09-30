@@ -12,6 +12,7 @@ from splicr.desktop import (
     available_port,
     desktop_data_dir,
     find_running_splicr,
+    main,
     package_smoke_test,
     prepare_desktop_environment,
 )
@@ -92,3 +93,35 @@ def test_package_smoke_test_initializes_routes_assets_worker_and_media_tools(
     monkeypatch.setenv("SPLICR_DATA_DIR", str(tmp_path / "data"))
 
     assert package_smoke_test() == 0
+
+
+@pytest.mark.parametrize(
+    ("arguments", "open_browser"),
+    [([], True), (["--no-browser"], False)],
+)
+def test_frozen_entrypoint_controls_browser_launch(
+    arguments: list[str],
+    open_browser: bool,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[bool] = []
+    monkeypatch.setattr(sys, "argv", ["SPLICR Studio.exe", *arguments])
+    monkeypatch.setattr(
+        "splicr.desktop.run_desktop",
+        lambda *, open_browser: calls.append(open_browser) or 23,
+    )
+
+    with pytest.raises(SystemExit) as raised:
+        main()
+
+    assert raised.value.code == 23
+    assert calls == [open_browser]
+
+
+def test_frozen_entrypoint_rejects_unknown_arguments(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(sys, "argv", ["SPLICR Studio.exe", "--unknown"])
+
+    with pytest.raises(SystemExit, match="usage: SPLICR Studio.exe"):
+        main()

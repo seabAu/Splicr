@@ -625,6 +625,13 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   `b2bb391bd572b695c094e4f668085a79c22f0bb53c2d40586d3d55ef5cdd76cd`. This is an internal-only
   candidate because installer/clean-VM/signing/malware-scan evidence and public-compatible FFmpeg
   licensing remain open.
+- [x] 2026-09-29 — Real frozen lifecycle-window acceptance passed. The packaged launcher now
+  exposes its existing no-browser behavior as `--no-browser`, with deterministic argument tests.
+  The actual `0.1.0-dev.4` executable started a healthy private service on port 8765, accepted a
+  normal close request through its Tk window, exited with code 0, and made `/health` unreachable.
+  Full regression passed 543 tests with seven intentional live skips. The 220,688,920-byte ZIP's
+  independently verified SHA-256 is
+  `502cef393d5a4b306f9884e41ac32c91da693e3b5fe23d310b70cabfb7405e57`.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 

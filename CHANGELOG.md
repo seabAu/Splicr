@@ -19,7 +19,8 @@ public release tags begin; the current section describes the unreleased Narrator
 - Voice design/cloning, sentence-level non-destructive revision, subtitles/chapters, audio
   conversion, intro/outro finishing, and formula/polar/transparent audiogram rendering.
 - Windows portable/installer build automation with bundled FFmpeg discovery, checksums, build
-  metadata, supervised browser acceptance, and packaged-executable smoke tests.
+  metadata, supervised browser acceptance, packaged-executable smoke tests, and a headless
+  `--no-browser` launcher mode for deployment and lifecycle acceptance.
 
 ### Changed
 

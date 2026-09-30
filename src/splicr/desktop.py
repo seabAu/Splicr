@@ -294,9 +294,14 @@ def package_smoke_test() -> int:
 
 
 def main() -> None:
-    if sys.argv[1:] == ["--package-smoke-test"]:
+    arguments = sys.argv[1:]
+    if arguments == ["--package-smoke-test"]:
         raise SystemExit(package_smoke_test())
-    raise SystemExit(run_desktop())
+    if arguments not in ([], ["--no-browser"]):
+        raise SystemExit(
+            "usage: SPLICR Studio.exe [--no-browser | --package-smoke-test]"
+        )
+    raise SystemExit(run_desktop(open_browser=arguments != ["--no-browser"]))
 
 
 if __name__ == "__main__":
