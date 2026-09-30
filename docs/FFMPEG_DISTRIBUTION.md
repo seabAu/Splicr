@@ -63,6 +63,11 @@ into FFmpeg.
   `06a5e0262cdc28aa4ae6797627a783b5010440f0` into a 500,976-byte normalized archive. The inventory
   found `./COPYING` at SHA-256 `d2ab5758…`; the tracked review records `BSD-3-Clause`, and CI proves
   its complete required binary notice is present through a unique hash anchor.
+- [x] A third incremental run fetched zlib commit
+  `767c4c947852e143f582c85f14cf573411df1b35` into a 2,854,928-byte normalized archive. Review of
+  the root `./LICENSE` (`e32ff4e0…`) records `Zlib` and no mandatory binary notice; the source archive
+  retains that notice. The root recipe runs zlib's own configure/make targets, so unrelated
+  `contrib/dotzlib` and `contrib/minizip` candidate licenses are not classified as shipped code.
 - [ ] Execute the tracked fetch commands and archive every enabled external dependency source at its
   recipe-pinned revision.
 - [ ] Record the applicable license and notice for every enabled dependency, including libraries

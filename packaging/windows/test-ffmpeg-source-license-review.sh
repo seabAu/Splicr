@@ -31,14 +31,14 @@ if bash "$validator" "$duplicate" >/dev/null 2>&1; then
 fi
 
 unresolved_notice="$work_root/unresolved-notice.tsv"
-sed $'2s/\trequired\t/\treview-needed\t/' "$review" > "$unresolved_notice"
+sed $'0,/\trequired\t/s//\treview-needed\t/' "$review" > "$unresolved_notice"
 if bash "$validator" "$unresolved_notice" >/dev/null 2>&1; then
     echo "Review validator accepted an unresolved notice requirement" >&2
     exit 1
 fi
 
 missing_notice_anchor="$work_root/missing-notice-anchor.tsv"
-sed $'2s/\tlibogg source license SHA-256: [0-9a-f]*\t/\tMissing packaged notice anchor\t/' \
+sed $'0,/\tlibogg source license SHA-256: [0-9a-f]*\t/s//\tMissing packaged notice anchor\t/' \
     "$review" > "$missing_notice_anchor"
 if bash "$validator" "$missing_notice_anchor" >/dev/null 2>&1; then
     echo "Review validator accepted a required notice absent from the package notice file" >&2
@@ -50,6 +50,14 @@ sed '0,/Copyright (c) 2002, Xiph.org Foundation/s//Copyright (c) 2003, Xiph.org 
     "$script_root/THIRD_PARTY_NOTICES.md" > "$tampered_notices"
 if bash "$validator" "$review" "$tampered_notices" >/dev/null 2>&1; then
     echo "Review validator accepted packaged notice text that differs from its reviewed source" >&2
+    exit 1
+fi
+
+unexpected_optional_anchor="$work_root/unexpected-optional-anchor.tsv"
+sed $'2s/\tnot-required\t-\treviewed\t/\tnot-required\tUnexpected anchor\treviewed\t/' \
+    "$review" > "$unexpected_optional_anchor"
+if bash "$validator" "$unexpected_optional_anchor" >/dev/null 2>&1; then
+    echo "Review validator accepted a misleading anchor for a non-required binary notice" >&2
     exit 1
 fi
 

@@ -107,9 +107,9 @@ partial or full collection, run `inventory-ffmpeg-source-licenses.sh` against it
 `test-ffmpeg-source-license-inventory.sh` and `test-ffmpeg-source-license-review.sh`. Generated
 candidate rows remain pending until their source identity, SPDX expression, and binary notice
 obligation are added to the tracked `ffmpeg-source-license-review.tsv`. The initial reviewed row is
-the real pinned OpenH264 archive; a second incremental run reviews pinned libogg. Both required BSD
-notices are hash-anchored in the packaged `THIRD_PARTY_NOTICES.md`; full-graph and codec patent
-review remain incomplete.
+the real pinned OpenH264 archive; subsequent incremental runs review pinned libogg and zlib. The two
+required BSD notices are hash-anchored byte-for-byte in the packaged `THIRD_PARTY_NOTICES.md`; zlib
+does not mandate a binary notice. Full-graph and codec patent review remain incomplete.
 
 See [`../../docs/FFMPEG_DISTRIBUTION.md`](../../docs/FFMPEG_DISTRIBUTION.md) for the exact binary
 identity, upstream checklist mapping, and remaining corresponding-source/publication gates. The
