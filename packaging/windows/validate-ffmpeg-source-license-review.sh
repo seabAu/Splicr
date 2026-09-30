@@ -221,7 +221,7 @@ while IFS=$'\t' read -r stage locator_variable revision archive_sha256 candidate
         exit 1
     }
 
-    record_key="$stage|$locator_variable|$revision|$candidate_sha256"
+    record_key="$stage|$locator_variable|$revision|$candidate_path|$candidate_sha256"
     [[ -z "${seen_records[$record_key]:-}" ]] || {
         echo "Duplicate FFmpeg source license review record: $record_key" >&2
         exit 1

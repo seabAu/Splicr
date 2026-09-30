@@ -85,6 +85,14 @@ into FFmpeg.
   package now downloads and hash-verifies the exact pinned TwoLAME `COPYING` file through
   `ffmpeg-packaged-license-files.tsv`. The build and artifact acceptance harness require that exact
   file and reject a changed SHA-256.
+- [x] A bounded AMF, libffi, libpng, and OpenJPEG run brought the reviewed total to 12 of 92 source
+  locators and 27 candidates: 12 shipped licenses, one supplemental notice, and 14 recipe-proven
+  not-built candidates. AMF's MIT license and OpenJPEG's BSD-2-Clause license are now exact
+  URL/revision/SHA-256-bound package files; their upstream patent-rights caveats remain visible and
+  are not presented as patent clearance. libffi's root MIT notice is hash-anchored in the combined
+  notices, while its MSVC/Sun/test build-tool license is excluded by the actual GNU cross-build.
+  libpng's root `libpng-2.0` license is recorded, and its CI/workflow/contrib candidates are excluded
+  from the root static-library build based on the pinned recipe and source metadata.
 - [ ] Execute the tracked fetch commands and archive every enabled external dependency source at its
   recipe-pinned revision.
 - [ ] Record the applicable license and notice for every enabled dependency, including libraries

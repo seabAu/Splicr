@@ -701,6 +701,12 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   artifact acceptance require it because FFmpeg's LGPLv3 file is not equivalent. The real
   `0.1.0-dev.6` portable/installer acceptance passed with the manifest-bound license in both
   payloads, and hosted browser run `36670631733` passed commit `636a46a`.
+- [x] 2026-09-30 — A bounded AMF, libffi, libpng, and OpenJPEG batch raised exact source/license
+  coverage to 12 of 92 locators. All 27 detected candidates now reconcile to 12 shipped licenses,
+  one supplemental notice, or 14 recipe-proven not-built records. AMF and OpenJPEG use exact
+  manifest-bound package license files; libffi's required MIT notice is hash-anchored in the
+  combined notices; and libpng's root `libpng-2.0` license and non-built CI/contrib candidates are
+  explicit. Patent-rights caveats remain visible and unresolved rather than being overclaimed.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
@@ -710,7 +716,7 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   remaining Milestones 2/3/5/7 live-environment evidence.
 - **Next implementation slice:** continue the bounded FFmpeg source/license review in
   `docs/FFMPEG_DISTRIBUTION.md`, while preserving the remaining credential and clean-VM checks in
-  `docs/RELEASE_CHECKLIST.md`. Eight of 92 source locators are reviewed. Gemini/Deepgram
+  `docs/RELEASE_CHECKLIST.md`. Twelve of 92 source locators are reviewed. Gemini/Deepgram
   credentials, the clean-VM matrix, current-commit GitHub Actions, complete FFmpeg corresponding
   source/compliance publication, malware/signing evidence, and audible sentence-seam acceptance
   remain.

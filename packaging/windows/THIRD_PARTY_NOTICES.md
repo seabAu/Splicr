@@ -265,6 +265,65 @@ LGPL-2.1-or-later. The exact upstream `COPYING` file from that revision is packa
 `ffmpeg/TWOLAME-COPYING.txt` with SHA-256
 `257a842724705950b07da76ce0e22ffa80ec77b3e9dfc6702522ac342409da0f`.
 
+## AMD Advanced Media Framework headers
+
+The bundled FFmpeg dependency graph includes AMD Advanced Media Framework headers at pinned source
+revision `6277e353fd625121a8f627b1d0540323ef372a49`. The exact upstream `LICENSE.txt`, including its
+standards and patent-rights notice plus MIT terms, is packaged as `ffmpeg/AMF-LICENSE.txt` with
+SHA-256 `eb297397aaa455b5668ab67d216b83828466152dab123fa92384c6ec16b74170`.
+
+This preserves AMD's upstream notice but does not constitute an independent patent scope,
+royalty, or enforceability determination.
+
+## libffi
+
+The bundled FFmpeg dependency graph includes libffi at pinned source revision
+`bc553867367246d140cd156f060bd0409f57f157`.
+
+libffi source license SHA-256: 17b64dc60f3b6897a60f971e288b973f655c2edcdf08b25f3c3dd5549857881c
+
+```text
+libffi - Copyright (c) 1996-2026  Anthony Green, Red Hat, Inc and others.
+See source files for details.
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+``Software''), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED ``AS IS'', WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+```
+
+## libpng
+
+The bundled FFmpeg dependency graph includes libpng at pinned source revision
+`964b4135949703b705fc760fc3fb546b86e5ab47` under `libpng-2.0`. The upstream license appreciates
+product acknowledgment but does not require a binary notice; its complete source notice remains in
+the corresponding-source archive at SHA-256
+`bdb0a645ea18c60507d0368379b1ac5474b92255fcc2d115e07486a7672ba526`.
+
+## OpenJPEG
+
+The bundled FFmpeg dependency graph includes OpenJPEG at pinned source revision
+`8314119b067c0fc77834731168daaebd379fdb12`. Its exact BSD-2-Clause license and patent-rights caveat
+are packaged as `ffmpeg/OPENJPEG-LICENSE.txt` with SHA-256
+`a6af136f3e15038a666b61f376612a07d9a4e48cb7c01adbf3e33b3f14ab49b6`.
+
+This preserves the upstream patent-rights caveat but does not constitute an independent patent
+scope or enforceability determination.
+
 Advanced audiogram rendering also includes these Python libraries in the frozen desktop package:
 
 - NumPy, distributed under the BSD 3-Clause license: https://numpy.org/doc/stable/license.html
