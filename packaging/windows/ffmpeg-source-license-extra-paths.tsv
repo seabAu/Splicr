@@ -14,3 +14,4 @@ scripts.d/50-ffnvcodec.sh	./ffnvcodec3/include/ffnvcodec/dynlink_cuviddec.h
 scripts.d/50-ffnvcodec.sh	./ffnvcodec3/include/ffnvcodec/dynlink_loader.h
 scripts.d/50-ffnvcodec.sh	./ffnvcodec3/include/ffnvcodec/dynlink_nvcuvid.h
 scripts.d/50-ffnvcodec.sh	./ffnvcodec3/include/ffnvcodec/nvEncodeAPI.h
+scripts.d/50-soxr.sh	./src/pffft.c

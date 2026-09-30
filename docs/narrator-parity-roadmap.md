@@ -757,6 +757,15 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   `0.1.0-dev.12` portable and installed-package acceptance verified all 34 manifest-bound legal files
   plus the existing media and lifecycle checks. Hosted browser run `36753606918` passed all six
   Studio journeys in 41.7 seconds on acceptance-record commit `2b54b3c`.
+- [x] 2026-09-30 — A bounded Little CMS, OpenAL Soft, SoX Resampler, and uavs3d review raised
+  coverage to 35 of 92 source locators and reconciled all 123 candidates: 44 shipped licenses,
+  eleven supplemental notices, 61 recipe-proven not-built records, and seven build-only/not-shipped
+  records. Eleven new manifest-bound files preserve the compiled MIT, LGPL, BSD, Apache, fmt, GSL,
+  and embedded PFFFT terms. SoXR's source-embedded notice is now a deterministic supplemental
+  candidate. Disabled jpgicc/LSR tests are excluded, while the separately built GPL-3.0 Little CMS
+  plugins are unincorporated static archives absent from the package. The fetcher plus exact-batch,
+  tracked, synthetic, and negative reconciliation suites passed for all 45 manifest files. Real
+  Windows package acceptance remains the next gate; AVS3 patent review remains open.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
@@ -766,7 +775,7 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   remaining Milestones 2/3/5/7 live-environment evidence.
 - **Next implementation slice:** continue the bounded FFmpeg source/license review in
   `docs/FFMPEG_DISTRIBUTION.md`, while preserving the remaining credential and clean-VM checks in
-  `docs/RELEASE_CHECKLIST.md`. Thirty-one of 92 source locators are reviewed. Gemini/Deepgram
+  `docs/RELEASE_CHECKLIST.md`. Thirty-five of 92 source locators are reviewed. Gemini/Deepgram
   credentials, the clean-VM matrix, complete FFmpeg corresponding
   source/compliance publication, malware/signing evidence, and audible sentence-seam acceptance
   remain.

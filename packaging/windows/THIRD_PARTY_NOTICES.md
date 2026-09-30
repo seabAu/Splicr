@@ -499,6 +499,64 @@ demos, GTK, libpng, and OpenMP support. The manifest uses immutable mirror commi
 `85467ec308f8621a5410c007491797b7b1847601` because GitLab's raw endpoint presents an automated-
 client challenge; the packaged bytes exactly match the reviewed source revision above.
 
+## Little CMS
+
+The bundled FFmpeg dependency graph statically incorporates Little CMS at pinned revision
+`a0b0d7a69b13b461bdbd9cff9f7f1d59ccd1858c`. Its exact MIT license is packaged as
+`ffmpeg/LCMS2-LICENSE.txt` with SHA-256
+`6dbd60437f8ef91d8de1f08ad75882547fd4931bfcc3566a0735f28db1484d31`.
+
+The upstream recipe also builds GPL-3.0 fast-float and threaded plugins as separate static archives.
+FFmpeg does not reference either plugin entry point, ordinary static linking does not pull their
+objects into the media DLLs, and the archives themselves are not shipped. The disabled utilities
+also exclude the separately licensed jpgicc source.
+
+## OpenAL Soft
+
+The bundled FFmpeg dependency graph statically incorporates OpenAL Soft at pinned revision
+`c89b8cf7bba4822f230c69f0a6696a52e5322dca`. Compiled sources select GNU Library GPL version 2 or
+later; the exact version-2 text is packaged as `ffmpeg/OPENAL-SOFT-COPYING.txt` with SHA-256
+`d808ce217e5b611854da622b57ec29fe545584c48bc5352fae72a4b6e5074a15`.
+
+OpenAL Soft also compiles several bundled components whose exact terms are packaged beside it:
+
+- modified PFFFT/UCAR BSD-3-Clause notice: `ffmpeg/OPENAL-SOFT-PFFFT-LICENSE.txt`, SHA-256
+  `64056328b3e7bc104e24ef96accc1a7abead156f0c02d1b87c97e3f3a28030de`;
+- Apache-2.0 common-header terms: `ffmpeg/OPENAL-SOFT-APACHE-2.0.txt`, SHA-256
+  `cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30`;
+- BSD-3-Clause mixer/effect contributions: `ffmpeg/OPENAL-SOFT-BSD-3-CLAUSE.txt`, SHA-256
+  `b5a08cf98996dd83aa906a72c163600f6cb17a65ce546a553815a1267abd43ff`;
+- bundled fmt MIT terms and optional binary-object exception:
+  `ffmpeg/OPENAL-SOFT-FMT-LICENSE.txt`, SHA-256
+  `07580f2a3b35709ce703d523f447b242f6dfec7582a8c0df102c7fa2849375f8`; and
+- bundled Microsoft GSL MIT terms: `ffmpeg/OPENAL-SOFT-GSL-LICENSE.txt`, SHA-256
+  `4c21dc82a1c7186ea754fd59d504c00947953a3401fe8e24eaa44109ef8e2555`.
+
+## SoX Resampler
+
+The bundled FFmpeg dependency graph statically incorporates SoX Resampler at pinned revision
+`945b592b70470e29f917f4de89b4281fbbd540c0` under LGPL-2.1-or-later. Its exact LGPL-2.1 text is
+packaged as `ffmpeg/SOXR-COPYING.LGPL.txt` with SHA-256
+`f2f118b9029ec1871b953639ecc46651b2fc7b62e295e6cf3ef2ac4c9a058b33`, and its exact licensing
+declaration is packaged as `ffmpeg/SOXR-LICENCE.txt` with SHA-256
+`dc98676341fdcd29d9f279c9679d6a75288785b174ded8d1b2e316c366166135`.
+
+The enabled SIMD resampler compiles SoXR's embedded PFFFT implementation. Its source file carries
+the required UCAR/PFFFT BSD-3-Clause notice and is preserved exactly as
+`ffmpeg/SOXR-PFFFT-NOTICE.c` with SHA-256
+`2949635f6107983832a7fcb6b7a539b43022fdd64d6cc01904ff5f7d792bb4c4`. The manifest uses the
+immutable GitHub mirror at the identical upstream commit because the recipe's canonical remote is
+SourceForge; the packaged bytes exactly match the collected source archive. The GPL-2.0 LSR test
+suite is excluded because the recipe disables tests.
+
+## uavs3d
+
+The bundled FFmpeg dependency graph statically incorporates the 10-bit uavs3d decoder at pinned
+revision `0e20d2c291853f196c68922a264bcd8471d75b68`. Its exact BSD-3-Clause notice is packaged as
+`ffmpeg/UAVS3D-COPYING.txt` with SHA-256
+`5a8dcb7da222df8a81b6e334000f859248196335e2d28e1db9f3c552827d7cdf`. This source-license record
+does not assert patent clearance for AVS3; patent review remains a separate public-release gate.
+
 Advanced audiogram rendering also includes these Python libraries in the frozen desktop package:
 
 - NumPy, distributed under the BSD 3-Clause license: https://numpy.org/doc/stable/license.html

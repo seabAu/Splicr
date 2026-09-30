@@ -123,12 +123,13 @@ Get-Content .\dist\SPLICR-Studio-0.1.0-SHA256SUMS.txt
   source revisions, and fetch commands are versioned and validated. A digest-pinned, graph-verifying,
   resumable source collector and plan acceptance test now exist. A real pinned-image OpenH264 run
   verified archive integrity, the expected commit/license, checksums, fail-closed state, and resume
-  reuse. Incremental bounded runs now cover 31 of 92 source locators and reconcile 108 detected
+  reuse. Incremental bounded runs now cover 35 of 92 source locators and reconcile 123 detected
   license/notice candidates; the package manifest carries exact pinned ffnvcodec, dav1d, FriBidi,
   TwoLAME, AMF, OpenJPEG, Game Music Emu, GMP, Kvazaar, LCEVCdec, libvpx, libwebp, libzmq, and
-  OpenCORE AMR, libudfread, oneVPL, PCRE2, and pixman legal files rather than treating FFmpeg's own
-  license as equivalent. Build-only static libraries absent from the distributed binary are tracked
-  separately from source trees that recipes never build. The remaining full-graph run,
+  OpenCORE AMR, libudfread, oneVPL, PCRE2, pixman, Little CMS, OpenAL Soft, SoX Resampler, and
+  uavs3d legal files rather than treating FFmpeg's own license as equivalent. Build-only static
+  libraries absent from the distributed binary are tracked separately from source trees that recipes
+  never build. The remaining full-graph run,
   notice review, correspondence validation, and hosted source link remain open in
   [`FFMPEG_DISTRIBUTION.md`](FFMPEG_DISTRIBUTION.md).
 - [ ] Scan the installer and portable archive with the organization's selected malware scanner.
