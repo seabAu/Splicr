@@ -57,6 +57,7 @@ reviewed_count=0
 shipped_license_count=0
 shipped_notice_count=0
 not_built_count=0
+build_only_count=0
 declare -A seen_records=()
 declare -A inventory_records=()
 declare -A inventory_stages=()
@@ -142,17 +143,22 @@ while IFS=$'\t' read -r stage locator_variable revision archive_sha256 candidate
     }
     [[ "$candidate_disposition" == "shipped-license" || \
         "$candidate_disposition" == "shipped-notice" || \
-        "$candidate_disposition" == "not-built" ]] || {
+        "$candidate_disposition" == "not-built" || \
+        "$candidate_disposition" == "build-only" ]] || {
         echo "Review row has an unresolved candidate disposition: $stage $candidate_path" >&2
         exit 1
     }
-    if [[ "$candidate_disposition" == "not-built" ]]; then
+    if [[ "$candidate_disposition" == "not-built" || "$candidate_disposition" == "build-only" ]]; then
         [[ "$spdx_expression" == "-" && "$binary_notice_requirement" == "not-applicable" && \
             "$notice_anchor" == "-" ]] || {
-            echo "A not-built candidate must not make shipped-license or notice claims: $stage $candidate_path" >&2
+            echo "A non-shipped candidate must not make shipped-license or notice claims: $stage $candidate_path" >&2
             exit 1
         }
-        not_built_count=$((not_built_count + 1))
+        if [[ "$candidate_disposition" == "not-built" ]]; then
+            not_built_count=$((not_built_count + 1))
+        else
+            build_only_count=$((build_only_count + 1))
+        fi
     elif [[ "$candidate_disposition" == "shipped-license" ]]; then
         [[ -n "$spdx_expression" && "$spdx_expression" != "-" && "$spdx_expression" != *$'\t'* ]] || {
             echo "Shipped review row is missing an SPDX expression: $stage" >&2
@@ -164,9 +170,10 @@ while IFS=$'\t' read -r stage locator_variable revision archive_sha256 candidate
         }
         shipped_license_count=$((shipped_license_count + 1))
     else
-        [[ "$spdx_expression" == "-" && "$binary_notice_requirement" == "informational" && \
+        [[ "$spdx_expression" == "-" && \
+            ( "$binary_notice_requirement" == "informational" || "$binary_notice_requirement" == "required" ) && \
             -n "$notice_anchor" && "$notice_anchor" != "-" ]] || {
-            echo "A shipped supplemental notice must be informational and hash-anchored: $stage $candidate_path" >&2
+            echo "A shipped supplemental notice must be required or informational and hash-anchored: $stage $candidate_path" >&2
             exit 1
         }
         shipped_notice_count=$((shipped_notice_count + 1))
@@ -254,8 +261,8 @@ if [[ -n "$inventory_path" ]]; then
     done
 fi
 source_locator_count="$(($(wc -l < "$revisions_path") - 1))"
-printf 'Validated %s reviewed FFmpeg source candidate(s): %s shipped license(s), %s supplemental notice(s), %s not built; %s pinned source locator(s) exist and full-graph review remains open.\n' \
-    "$reviewed_count" "$shipped_license_count" "$shipped_notice_count" "$not_built_count" \
+printf 'Validated %s reviewed FFmpeg source candidate(s): %s shipped license(s), %s supplemental notice(s), %s not built, %s build-only/not shipped; %s pinned source locator(s) exist and full-graph review remains open.\n' \
+    "$reviewed_count" "$shipped_license_count" "$shipped_notice_count" "$not_built_count" "$build_only_count" \
     "$source_locator_count"
 if [[ -n "$inventory_path" ]]; then
     printf 'All %s filename-based candidate(s) in the supplied inventory have an exact reviewed disposition.\n' \

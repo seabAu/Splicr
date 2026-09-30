@@ -324,6 +324,26 @@ are packaged as `ffmpeg/OPENJPEG-LICENSE.txt` with SHA-256
 This preserves the upstream patent-rights caveat but does not constitute an independent patent
 scope or enforceability determination.
 
+## dav1d
+
+The bundled FFmpeg dependency graph statically incorporates dav1d at pinned source revision
+`9711965b60bb692ae24004659acf61f5c7d9ed61`. Its exact BSD-2-Clause terms are packaged as
+`ffmpeg/DAV1D-COPYING.txt` with SHA-256
+`dd92c3c2247c5651606fc23a5e2d6a1ebc5ace9a3e49cbde0e12f05ad1cb1ee5`.
+
+The accompanying Alliance for Open Media Patent License 1.0 requires reproduction with binary
+implementations. Its exact pinned text is packaged as `ffmpeg/DAV1D-PATENTS.txt` with SHA-256
+`335eca574598bf4ca181b12f708d6669e5a5e78c8e1513e5b35fa1f03901484b`.
+Preserving that upstream patent license is not an independent patent scope, validity, or
+enforceability determination.
+
+## FriBidi
+
+The bundled FFmpeg dependency graph statically incorporates FriBidi at pinned source revision
+`4c914a92e94a9fe4f30ae83a1130099841566448` under LGPL-2.1-or-later. Its exact upstream `COPYING`
+file is packaged as `ffmpeg/FRIBIDI-COPYING.txt` with SHA-256
+`20e50fe7aae3e56378ebf0417d9de904f55a0e61e4df315333e632a4d3555d95`.
+
 Advanced audiogram rendering also includes these Python libraries in the frozen desktop package:
 
 - NumPy, distributed under the BSD 3-Clause license: https://numpy.org/doc/stable/license.html

@@ -122,4 +122,24 @@ if bash "$validator" "$misclassified_not_built" >/dev/null 2>&1; then
     exit 1
 fi
 
+if grep -Fq $'\tbuild-only\t' "$review"; then
+    misclassified_build_only="$work_root/misclassified-build-only.tsv"
+    sed $'0,/\tbuild-only\t-\tnot-applicable\t-\treviewed\t/s//\tbuild-only\tGPL-2.0-or-later\trequired\tUnexpected anchor\treviewed\t/' \
+        "$review" > "$misclassified_build_only"
+    if bash "$validator" "$misclassified_build_only" >/dev/null 2>&1; then
+        echo "Review validator accepted shipped-license claims for a build-only candidate" >&2
+        exit 1
+    fi
+fi
+
+if grep -Fq $'\tshipped-notice\t-\trequired\t' "$review"; then
+    unresolved_required_notice="$work_root/unresolved-required-notice.tsv"
+    sed $'0,/\tshipped-notice\t-\trequired\t/s//\tshipped-notice\t-\tnot-applicable\t/' \
+        "$review" > "$unresolved_required_notice"
+    if bash "$validator" "$unresolved_required_notice" >/dev/null 2>&1; then
+        echo "Review validator accepted a required supplemental notice as not applicable" >&2
+        exit 1
+    fi
+fi
+
 printf 'FFmpeg source license review validation passed tracked and negative cases.\n'

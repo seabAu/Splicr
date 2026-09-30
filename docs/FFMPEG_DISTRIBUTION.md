@@ -95,6 +95,19 @@ into FFmpeg.
   from the root static-library build based on the pinned recipe and source metadata. Real
   `0.1.0-dev.7` portable and installed-package acceptance independently verified all three
   manifest-bound dependency licenses by revision and SHA-256.
+- [x] A bounded dav1d, FFTW3, FriBidi, and libsamplerate run brought the reviewed total to 16 of 92
+  source locators and 35 candidates: 14 shipped licenses, two supplemental notices, 14 not-built
+  candidates, and five build-only/not-shipped candidates. Exact dav1d BSD and AOMedia patent-license
+  files plus FriBidi's LGPL-2.1-or-later file are manifest-bound package payloads. The packaged
+  FFmpeg configuration proves dav1d and FriBidi are enabled, while FFTW3 and libsamplerate are only
+  built into the toolchain and are not incorporated: libfftw3/libsamplerate are absent and their
+  librubberband consumer is disabled. The review schema now distinguishes that state from source
+  trees that recipes never build. Real `0.1.0-dev.8` portable and installed-package acceptance verified
+  all six manifest-bound dependency files by exact revision and SHA-256, including both dav1d files
+  and FriBidi's license.
+  A checksum-verified ffnvcodec archive is retained but not counted;
+  its license terms are embedded in headers across three version branches and need a dedicated
+  extraction/reconciliation pass rather than a false filename-based disposition.
 - [ ] Execute the tracked fetch commands and archive every enabled external dependency source at its
   recipe-pinned revision.
 - [ ] Record the applicable license and notice for every enabled dependency, including libraries

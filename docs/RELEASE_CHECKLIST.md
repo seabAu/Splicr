@@ -101,12 +101,12 @@ Get-Content .\dist\SPLICR-Studio-0.1.0-SHA256SUMS.txt
 ```
 
 - [x] Portable ZIP, per-user installer, checksum file, `BUILD_INFO.txt`, third-party notices, and
-  bundled FFmpeg license/source provenance are present. Verified for `0.1.0-dev.7` after a complete
+  bundled FFmpeg license/source provenance are present. Verified for `0.1.0-dev.8` after a complete
   PyInstaller/Inno Setup 6.7.3 build with the pinned LGPL-shared media-tool archive.
-- [x] Recompute every SHA-256 digest and compare it with the checksum file. The `0.1.0-dev.7`
+- [x] Recompute every SHA-256 digest and compare it with the checksum file. The `0.1.0-dev.8`
   acceptance harness verified the manifest; final hashes are recorded in the evidence table below.
 - [x] Run `packaging/windows/test-package.ps1` against the exact portable ZIP and installer. The
-  `0.1.0-dev.7` run verified checksums, a Unicode/spaces portable path, an unchanged portable tree,
+  `0.1.0-dev.8` run verified checksums, a Unicode/spaces portable path, an unchanged portable tree,
   redirected mutable state, installed package smoke, exact portable/install parity, the pinned
   shared FFmpeg configuration and dependency licenses, a real OpenH264/AAC MP4, application
   removal, and preserved user data. The packaging workflow runs this gate before upload and retains
@@ -123,9 +123,11 @@ Get-Content .\dist\SPLICR-Studio-0.1.0-SHA256SUMS.txt
   source revisions, and fetch commands are versioned and validated. A digest-pinned, graph-verifying,
   resumable source collector and plan acceptance test now exist. A real pinned-image OpenH264 run
   verified archive integrity, the expected commit/license, checksums, fail-closed state, and resume
-  reuse. Incremental bounded runs now cover 12 of 92 source locators and reconcile 27 detected
-  license/notice candidates; the package also carries exact pinned TwoLAME, AMF, and OpenJPEG
-  license files rather than treating FFmpeg's own license as equivalent. The remaining full-graph run,
+  reuse. Incremental bounded runs now cover 16 of 92 source locators and reconcile 35 detected
+  license/notice candidates; the package carries exact pinned dav1d, FriBidi, TwoLAME, AMF, and
+  OpenJPEG legal files rather than treating FFmpeg's own license as equivalent. Build-only static
+  libraries absent from the distributed binary are tracked separately from source trees that recipes
+  never build. The remaining full-graph run,
   notice review, correspondence validation, and hosted source link remain open in
   [`FFMPEG_DISTRIBUTION.md`](FFMPEG_DISTRIBUTION.md).
 - [ ] Scan the installer and portable archive with the organization's selected malware scanner.
@@ -216,6 +218,7 @@ clean-VM evidence.
 | 2026-09-30 | `71ac44c`, `24b9b6b`, `bbd9854`, plus bounded-batch review | Docker Desktop Linux engine through WSL | FFmpeg dependency source/license evidence | A deterministic synthetic suite passed multi-candidate extraction, missing-candidate/no-source handling, stale-output cleanup, checksum/schema rejection, and repeat output. Real checksum-verified OpenH264, libogg, and zlib archives yielded `BSD-2-Clause`, `BSD-3-Clause`, and `Zlib` shipped-license records. CI byte-compares both mandatory binary notices to reviewed source hashes; zlib's acknowledgment is optional. Its Boost and Info-ZIP contrib candidates are explicitly recipe-proven not built. The real ordered three-stage batch reused every archive, and exact reconciliation covers all five detected candidates. The collector now maintains a default 12 GiB host/container reserve. Three of 92 locators are reviewed; the full graph remains open. |
 | 2026-09-30 | `636a46a` / `0.1.0-dev.6` | Docker Desktop Linux engine through WSL, Windows development workstation, and GitHub Actions `windows-2025` | Eight-source license reconciliation, packaged dependency license, artifact acceptance, and browser acceptance | Eight cached graph-pinned source archives reconciled all 12 detected candidates to eight shipped licenses, one supplemental notice, and three recipe-proven not-built records. The real fetcher downloaded TwoLAME's exact LGPL-2.1-or-later `COPYING` file and verified SHA-256 `257a8427…`; the portable ZIP and installed payload both carried it. Package acceptance passed checksums, immutable portable smoke, redirected state, exact install parity, shared LGPL configuration, a real OpenH264/AAC MP4, uninstall removal, and user-data preservation. Portable: 183,855,038 bytes, SHA-256 `0aff4344c3bb0d3cca1dac385bff66a3d3cd91a852e2ca02e35e448909a93866`. Installer: 119,682,747 bytes, SHA-256 `240d3eb2a03533e87b02f6afcf32685ef65095b92c53bf2d3ff67feeb75da038`. Hosted browser run [`36670631733`](https://github.com/seabAu/Splicr/actions/runs/36670631733) passed the exact commit. Full source review/publication, clean-VM, signing, and malware gates remain open. |
 | 2026-09-30 | `80898b0` / `f0666c4` / `0.1.0-dev.7` | Docker Desktop Linux engine through WSL, Windows development workstation, and GitHub Actions `windows-2025` | Twelve-source license reconciliation, artifact acceptance, and browser acceptance | The AMF, libffi, libpng, and OpenJPEG batch raised exact review coverage to 12 of 92 source locators and reconciled all 27 detected candidates: 12 shipped licenses, one supplemental notice, and 14 recipe-proven not-built records. The portable and installed payloads independently matched exact manifest-bound AMF (`eb297397…`), OpenJPEG (`a6af136f…`), and TwoLAME (`257a8427…`) license files. Acceptance passed checksums, immutable portable smoke, redirected state, exact install parity, shared LGPL configuration, a real OpenH264/AAC MP4, uninstall removal, and user-data preservation. Portable: 183,857,130 bytes, SHA-256 `ab56228909d21da25ff76747bb8dc7bf100428deebbdcc19f1014f204ea3ae3d`. Installer: 119,691,072 bytes, SHA-256 `086d942cb8637bb2b381ca1811562bcc5dd8ae5ff412be729c03c13aac48683f`. Hosted browser run [`36722600815`](https://github.com/seabAu/Splicr/actions/runs/36722600815) passed all six Studio journeys on the exact acceptance-record commit. Full source review/publication, clean-VM, signing, and malware gates remain open. |
+| 2026-09-30 | `0.1.0-dev.8` working tree | Docker Desktop Linux engine through WSL and Windows development workstation | Sixteen-source license reconciliation and artifact acceptance | The dav1d, FFTW3, FriBidi, and libsamplerate batch raised exact review coverage to 16 of 92 source locators and reconciled all 35 detected candidates: 14 shipped licenses, two supplemental notices, 14 recipe-proven not-built records, and five build-only/not-shipped records. The portable and installed payloads independently matched all six manifest-bound dependency files, including dav1d's BSD license (`dd92c3c2…`) and required AOMedia patent license (`335eca57…`) plus FriBidi's LGPL-2.1-or-later text (`20e50fe7…`). Acceptance passed checksums, immutable portable smoke, redirected state, exact install parity, shared LGPL configuration, a real OpenH264/AAC MP4, uninstall removal, and user-data preservation. Portable: 183,871,741 bytes, SHA-256 `3782043b33e9b61cde8a4667de8030f7ba8df2b09cc0556bf3b8e7fd040ff438`. Installer: 119,689,131 bytes, SHA-256 `c4ce94060f09755fdbad461804191e4b2dc50e93710fca2827eb03b0d3d28529`. Hosted browser acceptance on the exact final commit remains pending. Full source review/publication, clean-VM, signing, and malware gates remain open. |
 | Pending | Pending | Clean Windows x64 VM | Fresh install / upgrade / uninstall / portable | Record artifact hashes, Windows version, install paths, and observations here. |
 | Pending | Pending | GitHub Actions `windows-2025` | Package workflow | Link the successful package run and approved retained artifacts when available. |
 

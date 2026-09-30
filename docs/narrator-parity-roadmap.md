@@ -710,6 +710,15 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   `0.1.0-dev.7` portable/installer acceptance passed with exact AMF, OpenJPEG, and TwoLAME license
   identity verified in both payloads against the manifest. Hosted browser run `36722600815` passed
   all six Studio journeys on acceptance-record commit `f0666c4`.
+- [x] 2026-09-30 — A bounded dav1d, FFTW3, FriBidi, and libsamplerate batch raised exact review
+  coverage to 16 of 92 locators and 35 candidates: 14 shipped licenses, two supplemental notices,
+  14 not-built records, and five build-only/not-shipped records. Exact dav1d BSD/AOMedia patent and
+  FriBidi LGPL-2.1-or-later files are now manifest-bound package payloads. The packaged FFmpeg
+  configuration verifies dav1d/FriBidi are enabled while FFTW3/libsamplerate and their disabled
+  librubberband consumer are absent. A collected ffnvcodec stage remains pending a dedicated
+  embedded-header notice review and is not counted as completed. Real `0.1.0-dev.8` portable and
+  installed-package acceptance passed with all six dependency files verified by exact manifest
+  revision and SHA-256.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
@@ -719,7 +728,7 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   remaining Milestones 2/3/5/7 live-environment evidence.
 - **Next implementation slice:** continue the bounded FFmpeg source/license review in
   `docs/FFMPEG_DISTRIBUTION.md`, while preserving the remaining credential and clean-VM checks in
-  `docs/RELEASE_CHECKLIST.md`. Twelve of 92 source locators are reviewed. Gemini/Deepgram
+  `docs/RELEASE_CHECKLIST.md`. Sixteen of 92 source locators are reviewed. Gemini/Deepgram
   credentials, the clean-VM matrix, complete FFmpeg corresponding
   source/compliance publication, malware/signing evidence, and audible sentence-seam acceptance
   remain.
