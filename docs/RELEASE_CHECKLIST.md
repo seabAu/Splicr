@@ -98,11 +98,12 @@ Requirements are listed in [`../packaging/windows/README.md`](../packaging/windo
 Get-Content .\dist\SPLICR-Studio-0.1.0-SHA256SUMS.txt
 ```
 
-- [ ] Portable ZIP, per-user installer, checksum file, `BUILD_INFO.txt`, and third-party notices are
-  present. The `0.1.0-dev.4` portable ZIP, checksum, build provenance, and notices are present; the
-  installer is pending because Inno Setup is not installed on the development workstation.
+- [x] Portable ZIP, per-user installer, checksum file, `BUILD_INFO.txt`, and third-party notices are
+  present. Verified for `0.1.0-dev.4` after a complete PyInstaller/Inno Setup 6.7.3 build.
 - [x] Recompute every SHA-256 digest and compare it with the checksum file. Verified independently
-  with `certutil` for `0.1.0-dev.4`: `502cef393d5a4b306f9884e41ac32c91da693e3b5fe23d310b70cabfb7405e57`.
+  with `certutil` for `0.1.0-dev.4`: portable ZIP
+  `669f9f607e9f35d6fe8741af5fb646a3378b62305248ee2873d195abf42afbeb`; installer
+  `5d630e34271a0a1a2f57128c73474577f58e427460d6310bb4797518012a0ff2`.
 - [ ] Scan the installer and portable archive with the organization's selected malware scanner.
   Microsoft Defender's command-line scan returned `0x80004005` because the product/feature is
   disabled on this workstation; no scan result is claimed.
@@ -177,7 +178,7 @@ snapshot before the first install.
 | 2026-09-29 | Audio8 lifecycle harness working tree | Windows development workstation with CUDA | Real Audio8 clone/resume | Python 3.12.14, Transformers 4.57.6, PyTorch/Torchaudio 2.11.0+cu128, Audio8 0.6B, RTX 5070 Ti; exact-transcript cloning, forced restart, completed-checkpoint preservation, and canonical WAV assembly passed. The live run also verified the current upstream processor/decoder API compatibility fix. Post-fix regression: 538 passed, 6 intentional opt-in live skips. |
 | 2026-09-29 | Privacy/seam acceptance working tree | Windows development workstation | Privacy, real Edge seam, deterministic release gate | Diagnostic path redaction and the existing write-only secret/profile/browser audit passed. Real Edge source/revised WAVs and splice provenance were retained outside source control for listening. Current deterministic gates: 539 Python passed / 7 opt-in live skips; 8 frontend unit tests; Vite build; 6 Chromium journeys; 42 real FFmpeg/FFprobe tests. |
 | 2026-09-29 | `dc6b965` / `0.1.0-dev.3` | Windows development workstation | Multi-gigabyte range-read and internal portable candidate | Full regression passed 540 Python tests with 7 intentional opt-in live skips. A sparse 3.9 GB canonical WAV returned bounded 1 KB ranges from the beginning, midpoint, and end. PyInstaller packaged smoke passed after extraction to a Unicode/spaces path. An isolated rerun left all 1,121 packaged files unchanged and wrote state only to the redirected per-user data root. Portable ZIP size: 220,690,342 bytes; independently verified SHA-256: `b2bb391bd572b695c094e4f668085a79c22f0bb53c2d40586d3d55ef5cdd76cd`. Internal acceptance only: installer, clean VM, signing, malware scan, and public-compatible FFmpeg licensing remain open. |
-| 2026-09-29 | `0.1.0-dev.4` working tree | Windows development workstation | Frozen lifecycle-window acceptance | The frozen launcher gained and tested `--no-browser`. Its real Tk lifecycle window started a healthy private service on port 8765, accepted the normal close event, exited with code 0, and left `/health` unreachable. Full regression: 543 passed, 7 intentional live skips. ZIP size: 220,688,920 bytes; independently verified SHA-256: `502cef393d5a4b306f9884e41ac32c91da693e3b5fe23d310b70cabfb7405e57`. Internal acceptance only; clean-VM and public-release gates remain open. |
+| 2026-09-29 | `0.1.0-dev.4` working tree | Windows development workstation | Frozen lifecycle and per-user installer acceptance | The frozen launcher gained and tested `--no-browser`. Its real Tk lifecycle window started a healthy private service on port 8765, accepted the normal close event, exited with code 0, and left `/health` unreachable. Inno Setup 6.7.3 built the per-user installer after SPLICR was fixed to discover user-scope installs and preserve a one-item path array. An isolated silent install placed the executable, notices, and build metadata; package smoke returned 0; silent uninstall returned 0, removed the application directory, and preserved external user data. Full regression: 543 passed, 7 intentional live skips. Portable: 220,689,908 bytes, SHA-256 `669f9f607e9f35d6fe8741af5fb646a3378b62305248ee2873d195abf42afbeb`. Installer: 151,418,758 bytes, SHA-256 `5d630e34271a0a1a2f57128c73474577f58e427460d6310bb4797518012a0ff2`. Internal acceptance only; clean-VM and public-release gates remain open. |
 | Pending | Pending | Clean Windows x64 VM | Fresh install / upgrade / uninstall / portable | Record artifact hashes, Windows version, install paths, and observations here. |
 | Pending | Pending | GitHub Actions `windows-2025` | Browser/package workflows | Link successful workflow runs and retained failure artifacts when applicable. |
 

@@ -629,9 +629,15 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   exposes its existing no-browser behavior as `--no-browser`, with deterministic argument tests.
   The actual `0.1.0-dev.4` executable started a healthy private service on port 8765, accepted a
   normal close request through its Tk window, exited with code 0, and made `/health` unreachable.
-  Full regression passed 543 tests with seven intentional live skips. The 220,688,920-byte ZIP's
-  independently verified SHA-256 is
-  `502cef393d5a4b306f9884e41ac32c91da693e3b5fe23d310b70cabfb7405e57`.
+  Full regression passed 543 tests with seven intentional live skips.
+- [x] 2026-09-29 — The complete per-user installer candidate built and passed an isolated local
+  install/smoke/uninstall cycle. SPLICR now discovers Inno Setup 6 from `PATH`, user-scope, and
+  machine-scope installs without scalar-array corruption. The silent install placed the executable,
+  notices, and build provenance; packaged smoke returned 0; uninstall returned 0, removed app files,
+  and preserved external user data. The 220,689,908-byte portable ZIP SHA-256 is
+  `669f9f607e9f35d6fe8741af5fb646a3378b62305248ee2873d195abf42afbeb`; the 151,418,758-byte
+  installer SHA-256 is `5d630e34271a0a1a2f57128c73474577f58e427460d6310bb4797518012a0ff2`.
+  Clean-VM fresh/upgrade/uninstall acceptance remains open.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
@@ -640,7 +646,7 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
 - **Active milestone:** Milestone 9 — real-world acceptance and release hardening, including the
   remaining Milestones 2/3/5/7 live-environment evidence.
 - **Next implementation slice:** execute and record the remaining credential and clean-VM checks in
-  `docs/RELEASE_CHECKLIST.md`. Gemini/Deepgram credentials, the installer and clean-VM matrix,
+  `docs/RELEASE_CHECKLIST.md`. Gemini/Deepgram credentials, the clean-VM matrix,
   current-commit GitHub Actions, public-compatible FFmpeg licensing, malware/signing evidence, and
   audible sentence-seam acceptance remain.
 - **Known unrelated worktree item:** `LICENSE.txt` is untracked and not part of this roadmap unless

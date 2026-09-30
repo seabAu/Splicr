@@ -41,6 +41,8 @@ public release tags begin; the current section describes the unreleased Narrator
 - faster-whisper works with PyAV 19 through a worker-scoped compatibility shim.
 - Provider diagnostics recursively redact credentials, audio payloads, sensitive headers, and local
   private paths before persistence or display.
+- Windows packaging discovers Inno Setup from `PATH`, user-scope, and machine-scope installations;
+  a single discovered compiler path no longer collapses to its first character in PowerShell.
 
 ### Migration and configuration
 

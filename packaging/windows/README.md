@@ -31,7 +31,9 @@ FFmpeg/FFprobe into the private app bundle, builds the one-directory executable,
 records the exact bundled media-tool build, and then compiles the installer. Generated vendor tools
 and build outputs are ignored by Git. Every package also includes `THIRD_PARTY_NOTICES.md` and the
 generated `BUILD_INFO.txt`; release publishers remain responsible for satisfying the license terms
-of the particular FFmpeg build placed on `PATH`.
+of the particular FFmpeg build placed on `PATH`. The build locates Inno Setup from `PATH` or its
+standard per-user and machine-wide installation directories, so installer builds do not require an
+administrator-only Inno installation.
 
 The development workstation currently resolves a `www.gyan.dev` FFmpeg 9.0 full build configured
 with `--enable-gpl --enable-version3`. Treat packages produced from that binary as internal

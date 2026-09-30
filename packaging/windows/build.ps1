@@ -67,10 +67,15 @@ try {
     Compress-Archive -LiteralPath $Portable -DestinationPath $PortableZip -CompressionLevel Optimal
 
     if (-not $SkipInstaller) {
+        $IsccOnPath = Get-Command ISCC.exe -ErrorAction SilentlyContinue
         $IsccCandidates = @(
-            (Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\ISCC.exe"),
-            (Join-Path $env:ProgramFiles "Inno Setup 6\ISCC.exe")
-        ) | Where-Object { $_ -and (Test-Path -LiteralPath $_) }
+            @(
+                $(if ($IsccOnPath) { $IsccOnPath.Source }),
+                (Join-Path $env:LOCALAPPDATA "Programs\Inno Setup 6\ISCC.exe"),
+                (Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\ISCC.exe"),
+                (Join-Path $env:ProgramFiles "Inno Setup 6\ISCC.exe")
+            ) | Where-Object { $_ -and (Test-Path -LiteralPath $_) } | Select-Object -Unique
+        )
         if (-not $IsccCandidates) {
             throw "Inno Setup 6 was not found. Install it or pass -SkipInstaller."
         }
