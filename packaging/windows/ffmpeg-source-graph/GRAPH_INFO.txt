@@ -1,0 +1,5 @@
+Generator: BtbN/FFmpeg-Builds generate.sh
+Target: win64
+Variant: lgpl-shared
+Add-in: 9.0
+Enabled stage count: 90

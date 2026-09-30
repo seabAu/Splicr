@@ -28,8 +28,9 @@ public release tags begin; the current section describes the unreleased Narrator
   cleanup, preserved user data, exact installed-payload contents, and optional prior-version upgrade
   preflight before CI uploads the release candidate and its evidence JSON.
 - A fail-closed FFmpeg primary-source audit kit with checksum-pinned FFmpeg, OpenH264, and BtbN
-  recipe snapshots. Its manifest explicitly keeps the public corresponding-source gate open until
-  the enabled external dependency graph, notices, and hosted source link are complete.
+  recipe snapshots plus the exact 90-stage enabled graph, pinned revision table, and source-fetch
+  commands. Its manifest explicitly keeps the public corresponding-source gate open until those
+  dependency sources, notices, and the hosted source link are complete.
 
 ### Changed
 

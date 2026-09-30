@@ -93,9 +93,11 @@ The packaging workflow also creates and validates an explicitly incomplete FFmpe
 audit kit. It pins the exact FFmpeg, OpenH264, and BtbN recipe snapshots without pretending that
 those three archives alone cover every external library compiled into the distributed FFmpeg DLLs.
 The generator writes a separate SHA-256 sidecar and the validator checks both the outer archive and
-every pinned source archive inside it.
+every pinned source archive inside it. The kit also carries the exact 90-stage enabled build graph,
+recipe-pinned revision table, and raw source-fetch commands extracted from the BtbN generator.
 
 ```powershell
+.\packaging\windows\test-ffmpeg-source-graph.ps1
 .\packaging\windows\prepare-ffmpeg-source-audit.ps1 -Version 0.1.0
 .\packaging\windows\test-ffmpeg-source-audit.ps1 -Version 0.1.0
 ```

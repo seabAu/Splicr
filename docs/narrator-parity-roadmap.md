@@ -664,8 +664,9 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
 - [x] 2026-09-29 — FFmpeg source compliance moved from an unstructured release note to an executable,
   fail-closed audit. The exact FFmpeg, OpenH264, and BtbN recipe snapshots are hash-pinned; CI builds
   and validates an explicitly incomplete primary-source audit kit, and its manifest cannot claim
-  corresponding-source completeness. The enabled external dependency graph, notices,
-  correspondence proof, and hosted source URL remain open in `docs/FFMPEG_DISTRIBUTION.md`.
+  corresponding-source completeness. The exact 90-stage enabled graph, pinned revision table, and
+  source-fetch commands are now versioned and validated. Fetching those sources, their notices,
+  correspondence proof, and the hosted source URL remain open in `docs/FFMPEG_DISTRIBUTION.md`.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 

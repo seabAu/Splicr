@@ -64,7 +64,11 @@ try {
         "THIRD_PARTY_NOTICES.md",
         "BUILD_INFO.txt",
         "BINARY_SOURCE_INFO.txt",
-        "SOURCE_MANIFEST.json"
+        "SOURCE_MANIFEST.json",
+        "dependency-graph\enabled-stages.txt",
+        "dependency-graph\source-revisions.tsv",
+        "dependency-graph\source-commands.txt",
+        "dependency-graph\GRAPH_INFO.txt"
     )) {
         Assert-Condition (Test-Path -LiteralPath (Join-Path $KitRoot $RelativePath) -PathType Leaf) `
             "Audit archive is missing $RelativePath"
@@ -85,6 +89,8 @@ try {
         Assert-Condition ((Get-Sha256 $SourcePath) -eq $Archive.sha256) `
             "Audit archive hash mismatch for $($Archive.filename)"
     }
+    & (Join-Path $PSScriptRoot "test-ffmpeg-source-graph.ps1") `
+        -GraphDirectory (Join-Path $KitRoot "dependency-graph") | Out-Null
     Write-Output "FFmpeg primary-source audit kit passed. Public corresponding-source gate remains open."
 }
 finally {

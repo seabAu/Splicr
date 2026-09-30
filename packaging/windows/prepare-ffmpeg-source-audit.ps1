@@ -14,6 +14,7 @@ $Root = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $LockPath = Join-Path $PSScriptRoot "ffmpeg-source-lock.json"
 $ReadmePath = Join-Path $PSScriptRoot "FFMPEG_SOURCE_AUDIT_README.md"
 $NoticesPath = Join-Path $PSScriptRoot "THIRD_PARTY_NOTICES.md"
+$GraphPath = Join-Path $PSScriptRoot "ffmpeg-source-graph"
 $OutputDirectory = if ($OutputDirectory) {
     [IO.Path]::GetFullPath($OutputDirectory)
 }
@@ -80,6 +81,9 @@ function Copy-Or-DownloadArchive([object]$Archive, [string]$Destination) {
 foreach ($RequiredFile in @($LockPath, $ReadmePath, $NoticesPath, $BuildInfoPath, $SourceInfoPath)) {
     Assert-Condition (Test-Path -LiteralPath $RequiredFile -PathType Leaf) "Missing required file: $RequiredFile"
 }
+Assert-Condition (Test-Path -LiteralPath $GraphPath -PathType Container) `
+    "Missing required source graph: $GraphPath"
+& (Join-Path $PSScriptRoot "test-ffmpeg-source-graph.ps1") -GraphDirectory $GraphPath | Out-Null
 
 $Lock = Get-Content -Raw -LiteralPath $LockPath | ConvertFrom-Json
 Assert-Condition ($Lock.completeness.corresponding_source_complete -eq $false) `
@@ -128,6 +132,7 @@ try {
     Copy-Item -LiteralPath $NoticesPath -Destination (Join-Path $KitRoot "THIRD_PARTY_NOTICES.md")
     Copy-Item -LiteralPath $BuildInfoPath -Destination (Join-Path $KitRoot "BUILD_INFO.txt")
     Copy-Item -LiteralPath $SourceInfoPath -Destination (Join-Path $KitRoot "BINARY_SOURCE_INFO.txt")
+    Copy-Item -LiteralPath $GraphPath -Destination (Join-Path $KitRoot "dependency-graph") -Recurse
 
     $Manifest = [ordered]@{
         schema_version = 1
@@ -136,6 +141,7 @@ try {
         status = "audit-only-incomplete-external-dependency-sources"
         binary = $Lock.binary
         primary_source_archives = $Lock.primary_source_archives
+        dependency_graph = $Lock.dependency_graph
         completeness = $Lock.completeness
     }
     $Manifest | ConvertTo-Json -Depth 10 | Set-Content `

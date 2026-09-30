@@ -4,8 +4,9 @@ This archive is an **audit aid, not a complete corresponding-source distribution
 
 It pins and verifies the exact FFmpeg source commit, OpenH264 source commit, and BtbN build-recipe
 snapshot associated with SPLICR Studio's current Windows FFmpeg binary. It also preserves the
-binary's reported configure line and download provenance. `SOURCE_MANIFEST.json` records every hash
-and keeps `public_release_gate_satisfied` set to `false`.
+binary's reported configure line, download provenance, exact 90-stage enabled build graph,
+recipe-pinned source revisions, and raw source-fetch commands. `SOURCE_MANIFEST.json` records every
+hash and keeps `public_release_gate_satisfied` set to `false`.
 
 Why the gate remains open: the BtbN LGPL-shared FFmpeg DLLs were configured with numerous external
 libraries. Some are statically incorporated into the FFmpeg DLLs. FFmpeg's own compliance checklist

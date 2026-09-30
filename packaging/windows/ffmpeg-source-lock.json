@@ -37,9 +37,16 @@
       "sha256": "89051de89fd6f128115bc1dfbf49e8aead6100cbe68caa6ed5f8df6533458b86"
     }
   ],
+  "dependency_graph": {
+    "generator": "BtbN/FFmpeg-Builds generate.sh",
+    "enabled_stage_count": 90,
+    "source_locator_count": 92,
+    "tracked_directory": "packaging/windows/ffmpeg-source-graph"
+  },
   "completeness": {
     "primary_sources_pinned": true,
     "build_recipe_pinned": true,
+    "enabled_external_dependency_graph_generated": true,
     "all_enabled_external_dependency_sources_included": false,
     "corresponding_source_complete": false,
     "public_release_gate_satisfied": false

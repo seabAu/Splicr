@@ -35,8 +35,13 @@ into FFmpeg.
 - [x] `prepare-ffmpeg-source-audit.ps1` creates a repeatable, hash-verified primary-source audit kit, and
   `test-ffmpeg-source-audit.ps1` rejects missing/hash-mismatched sources or any false completeness
   claim.
-- [ ] Generate the exact enabled BtbN dependency graph for target `win64`, variant `lgpl-shared`,
-  add-in `9.0`, and archive every enabled external dependency source at its recipe-pinned revision.
+- [x] The exact BtbN generator for target `win64`, variant `lgpl-shared`, add-in `9.0` emitted 90
+  enabled build stages and 92 source locators, each with an exact Git commit, tag, or SVN revision.
+  The tracked graph preserves the ordered stage list, source locator/revision table, and raw
+  source-fetch commands; `test-ffmpeg-source-graph.ps1` rejects a changed count, unpinned revision,
+  duplicate/missing stage, or accidentally enabled libx264/libx265.
+- [ ] Execute the tracked fetch commands and archive every enabled external dependency source at its
+  recipe-pinned revision.
 - [ ] Record the applicable license and notice for every enabled dependency, including libraries
   statically incorporated into FFmpeg's shared DLLs.
 - [ ] Rebuild from the archived sources or otherwise verify that the source set and instructions
