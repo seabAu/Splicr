@@ -65,10 +65,23 @@ Start menu entry while it runs. The harness requires PowerShell 7 (`pwsh`):
 The harness independently verifies the checksum manifest, extracts the portable ZIP to a path with
 spaces, proves portable smoke leaves every package file unchanged, redirects mutable state to a
 separate per-user data root, silently installs the real installer, checks FFmpeg's shared LGPL
-configuration and provenance files, renders and probes an OpenH264/AAC MP4, uninstalls, and proves
-the application directory is removed while user data remains. It writes a machine-readable
+configuration and provenance files, proves the installed payload exactly matches the portable
+payload, renders and probes an OpenH264/AAC MP4, uninstalls, and proves the application directory is
+removed while user data remains. It writes a machine-readable
 `SPLICR-Studio-<version>-Windows-x64-ACCEPTANCE.json` beside the packages. The release workflow
 runs this gate before uploading any artifact.
+
+On a disposable upgrade-test VM, pass the previous release installer to exercise an in-place
+upgrade before the current artifact checks. The harness runs the older package smoke, creates and
+hashes representative external user data, installs the current candidate over it, proves that data
+is byte-identical, and rejects stale application files by comparing the installed payload with the
+current portable package:
+
+```powershell
+.\packaging\windows\test-package.ps1 `
+  -Version 0.2.0 `
+  -PreviousInstaller .\previous\SPLICR-Studio-0.1.0-Windows-x64-setup.exe
+```
 
 This automated harness does not replace the release checklist's interactive clean-VM checks for
 the lifecycle window, browser launch/reuse, real document playback, upgrade migration, Windows

@@ -25,7 +25,8 @@ public release tags begin; the current section describes the unreleased Narrator
   FFmpeg build, including its shared DLLs, license, and exact source/provenance record.
 - A disposable-Windows artifact acceptance harness that verifies checksums, portable isolation,
   installed package smoke, bundled-media configuration, real OpenH264/AAC output, uninstall
-  cleanup, and preserved user data before CI uploads the release candidate and its evidence JSON.
+  cleanup, preserved user data, exact installed-payload contents, and optional prior-version upgrade
+  preflight before CI uploads the release candidate and its evidence JSON.
 
 ### Changed
 

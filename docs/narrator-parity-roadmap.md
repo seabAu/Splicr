@@ -446,8 +446,10 @@ sequence, cancellation cleanup, deterministic archives, API validation, and the 
 - [ ] Test clean Windows installer install, upgrade with existing data/jobs/profiles, uninstall with
   intentional user-data policy, and portable ZIP execution in a clean VM. The reusable PowerShell
   artifact harness now automates the non-interactive subset on a disposable Windows machine and is
-  required before workflow upload; lifecycle/Start-menu/browser use, real project playback,
-  upgrade migration, Windows Settings, and a genuinely clean VM remain manual release evidence.
+  required before workflow upload. Its optional dev.4-to-dev.5 preflight passed both frozen smokes,
+  byte-identical external-data preservation, and exact upgraded-payload comparison. Lifecycle /
+  Start-menu/browser use, real project/profile/media migration, Windows Settings, and a genuinely
+  clean VM remain manual release evidence.
 - [ ] Verify Chromium acceptance in GitHub Actions and retain failure traces/screenshots/video. The
   workflow runs for pull requests, `main`, and release tags and retains Playwright diagnostics on
   failure; link a green release-commit run in the evidence record.
@@ -655,8 +657,10 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   The same `0.1.0-dev.5` portable ZIP and installer passed checksum verification, package smoke,
   Unicode/spaces extraction with an unchanged package tree, redirected state isolation, installed
   shared-library/provenance checks, a real OpenH264 H.264/AAC MP4 probe, uninstall cleanup, and
-  preserved user data. The harness writes a machine-readable acceptance JSON beside the artifacts;
-  the interactive clean-VM and upgrade-migration matrix remains open.
+  preserved user data. An optional dev.4-to-dev.5 run also preserved a byte-identical external data
+  marker and proved the upgraded install matched the current portable payload with no stale files.
+  The harness writes a machine-readable acceptance JSON beside the artifacts; the interactive
+  clean-VM and representative-data upgrade-migration matrix remains open.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 

@@ -4,6 +4,7 @@ param(
     [ValidatePattern('^\d+\.\d+\.\d+([-.][0-9A-Za-z.-]+)?$')]
     [string]$Version,
     [string]$ArtifactsDir = (Join-Path $PSScriptRoot "..\..\dist"),
+    [string]$PreviousInstaller = "",
     [string]$WorkRoot = (Join-Path ([IO.Path]::GetTempPath()) "splicr-package-acceptance"),
     [string]$EvidencePath = "",
     [switch]$KeepWorkRoot
@@ -69,14 +70,16 @@ function Invoke-Captured([string]$FilePath, [string[]]$ArgumentList) {
     return $Output
 }
 
-function Get-TreeManifest([string]$Root) {
+function Get-TreeManifest([string]$Root, [switch]$ExcludeUninstaller) {
     $Prefix = $Root.TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
     return @(
         Get-ChildItem -LiteralPath $Root -File -Recurse |
             Sort-Object -Property FullName |
             ForEach-Object {
                 $RelativePath = $_.FullName.Substring($Prefix.Length)
-                "$RelativePath|$($_.Length)|$(Get-Sha256 $_.FullName)"
+                if (-not $ExcludeUninstaller -or $RelativePath -notmatch '^unins\d+\.(dat|exe|msg)$') {
+                    "$RelativePath|$($_.Length)|$(Get-Sha256 $_.FullName)"
+                }
             }
     )
 }
@@ -173,6 +176,42 @@ try {
     Assert-Condition (Test-Path -LiteralPath $PortableDataDir -PathType Container) `
         "Portable package did not create state under redirected per-user data"
 
+    $InstalledLocalAppData = Join-Path $RunRoot "installed-localappdata"
+    New-Item -ItemType Directory -Path $InstalledLocalAppData | Out-Null
+    $env:LOCALAPPDATA = $InstalledLocalAppData
+    $UpgradeEvidence = $null
+    $UpgradeMarker = $null
+    $UpgradeMarkerSha256 = $null
+    if ($PreviousInstaller) {
+        $PreviousInstaller = (Resolve-Path -LiteralPath $PreviousInstaller).Path
+        $PreviousInstallerSha256 = Get-Sha256 $PreviousInstaller
+        $PreviousInstallLog = Join-Path $RunRoot "previous-install.log"
+        Invoke-Checked $PreviousInstaller @(
+            "/VERYSILENT",
+            "/SUPPRESSMSGBOXES",
+            "/NORESTART",
+            "/SP-",
+            "/DIR=$InstallDir",
+            "/LOG=$PreviousInstallLog"
+        )
+        $Installed = $true
+        $PreviousExecutable = Join-Path $InstallDir "SPLICR Studio.exe"
+        Assert-Condition (Test-Path -LiteralPath $PreviousExecutable -PathType Leaf) `
+            "Previous installer did not install SPLICR Studio.exe"
+        Invoke-Checked $PreviousExecutable @("--package-smoke-test")
+        $PreviousDataDir = Join-Path $InstalledLocalAppData "SPLICR Studio\data"
+        Assert-Condition (Test-Path -LiteralPath $PreviousDataDir -PathType Container) `
+            "Previous package did not create redirected per-user data"
+        $UpgradeMarker = Join-Path $PreviousDataDir "upgrade-preservation-marker.txt"
+        [IO.File]::WriteAllText($UpgradeMarker, "SPLICR upgrade must preserve this file.`n")
+        $UpgradeMarkerSha256 = Get-Sha256 $UpgradeMarker
+        $UpgradeEvidence = [ordered]@{
+            file = [IO.Path]::GetFileName($PreviousInstaller)
+            sha256 = $PreviousInstallerSha256
+            package_smoke = $true
+        }
+    }
+
     $InstallLog = Join-Path $RunRoot "install.log"
     Invoke-Checked $Installer @(
         "/VERYSILENT",
@@ -201,6 +240,12 @@ try {
     }
     $FfmpegDlls = @(Get-ChildItem -LiteralPath $FfmpegDir -Filter "*.dll" -File)
     Assert-Condition ($FfmpegDlls.Count -ge 5) "Installed FFmpeg shared-library payload is incomplete"
+    $InstalledPayload = Get-TreeManifest $InstallDir -ExcludeUninstaller
+    $InstalledPayloadChanges = @(
+        Compare-Object -ReferenceObject $PortableBefore -DifferenceObject $InstalledPayload
+    )
+    Assert-Condition ($InstalledPayloadChanges.Count -eq 0) `
+        "Installed application payload does not exactly match the portable package"
 
     $Ffmpeg = Join-Path $FfmpegDir "ffmpeg.exe"
     $Ffprobe = Join-Path $FfmpegDir "ffprobe.exe"
@@ -216,13 +261,17 @@ try {
     Assert-Condition ($EncoderListing -notmatch '(?m)^\s*V\S*\s+libx264\b') `
         "Bundled FFmpeg unexpectedly exposes libx264"
 
-    $InstalledLocalAppData = Join-Path $RunRoot "installed-localappdata"
-    New-Item -ItemType Directory -Path $InstalledLocalAppData | Out-Null
-    $env:LOCALAPPDATA = $InstalledLocalAppData
     Invoke-Checked $InstalledExecutable @("--package-smoke-test")
     $InstalledDataDir = Join-Path $InstalledLocalAppData "SPLICR Studio\data"
     Assert-Condition (Test-Path -LiteralPath $InstalledDataDir -PathType Container) `
         "Installed package did not create redirected per-user data"
+    if ($UpgradeMarker) {
+        Assert-Condition (Test-Path -LiteralPath $UpgradeMarker -PathType Leaf) `
+            "Upgrade removed pre-existing user data"
+        Assert-Condition ((Get-Sha256 $UpgradeMarker) -eq $UpgradeMarkerSha256) `
+            "Upgrade changed pre-existing user data"
+        $UpgradeEvidence.user_data_preserved = $true
+    }
     $PreservationMarker = Join-Path $InstalledDataDir "uninstall-preservation-marker.txt"
     [IO.File]::WriteAllText($PreservationMarker, "SPLICR uninstall must preserve this file.`n")
 
@@ -266,6 +315,22 @@ try {
     $SourceShaLine = $SourceInfo | Where-Object { $_ -like "SHA-256:*" } | Select-Object -First 1
     Assert-Condition ([bool]$SourceShaLine) "Bundled FFmpeg source record does not contain SHA-256"
     $FfmpegFirstLine = ($FfmpegVersion -split "`r?`n")[0]
+    $Checks = [ordered]@{
+        checksum_manifest = $true
+        portable_package_smoke = $true
+        portable_tree_unchanged = $true
+        portable_per_user_data = $true
+        installed_payload_matches_portable = $true
+        installed_package_smoke = $true
+        lgpl_shared_configuration = $true
+        openh264_h264_aac_mp4 = $true
+        uninstall_removed_application = $true
+        uninstall_preserved_user_data = $true
+    }
+    if ($UpgradeEvidence) {
+        $Checks.upgrade_package_smoke = $true
+        $Checks.upgrade_preserved_user_data = $true
+    }
     $Evidence = [ordered]@{
         schema_version = 1
         version = $Version
@@ -286,17 +351,8 @@ try {
             source_sha256 = $SourceShaLine.Substring("SHA-256:".Length).Trim()
             shared_dll_count = $FfmpegDlls.Count
         }
-        checks = [ordered]@{
-            checksum_manifest = $true
-            portable_package_smoke = $true
-            portable_tree_unchanged = $true
-            portable_per_user_data = $true
-            installed_package_smoke = $true
-            lgpl_shared_configuration = $true
-            openh264_h264_aac_mp4 = $true
-            uninstall_removed_application = $true
-            uninstall_preserved_user_data = $true
-        }
+        upgrade = $UpgradeEvidence
+        checks = $Checks
     }
     $EvidenceDirectory = Split-Path $EvidencePath -Parent
     if ($EvidenceDirectory) {
