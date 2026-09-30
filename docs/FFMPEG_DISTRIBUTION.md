@@ -171,6 +171,15 @@ into FFmpeg.
   all 53 files plus the existing media and lifecycle checks. Hosted browser run `36761944917` passed
   all six Studio journeys in 44.2 seconds on the acceptance-record commit. Codec patent review
   remains open.
+- [x] A bounded LV2, Serd, Zix, Sord, Sratom, and Lilv run brought coverage to 45 of 92 locators and
+  168 candidates: 58 shipped licenses, twelve supplemental notices, 74 not-built candidates, and
+  24 build-only/not-shipped candidates. Seven new manifest-bound files preserve every linked ISC
+  notice, including both Zix texts because their copyright ranges differ. Exact recipes disable
+  documentation, tools, tests, benchmarks, and Python bindings as applicable; LV2 schema assets and
+  build metadata remain only in the intermediate prefix. The inventory now resolves safe relative
+  in-archive license symlinks, with deterministic positive coverage and negative escape rejection.
+  The downloader independently fetched and SHA-256-verified all 60 manifest files, and exact-batch,
+  tracked, synthetic, and negative reconciliation suites pass. Real package acceptance remains next.
 - [ ] Execute the tracked fetch commands and archive every enabled external dependency source at its
   recipe-pinned revision.
 - [ ] Record the applicable license and notice for every enabled dependency, including libraries

@@ -780,6 +780,15 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   package acceptance independently verified all 53 files plus the existing media and lifecycle
   checks. Hosted browser run `36761944917` passed all six Studio journeys in 44.2 seconds on
   acceptance-record commit `be38ad8`.
+- [x] 2026-09-30 — A bounded LV2, Serd, Zix, Sord, Sratom, and Lilv review raised coverage to 45 of
+  92 source locators and reconciled all 168 candidates: 58 shipped licenses, twelve supplemental
+  notices, 74 recipe-proven not-built records, and 24 build-only/not-shipped records. Seven new
+  manifest-bound files preserve the linked ISC notices, including both non-identical Zix texts.
+  Recipe/source evidence excludes disabled documentation, tools, tests, benchmarks, and Python
+  bindings; LV2 schemas and build metadata remain intermediate-only. The inventory now resolves
+  safe relative in-archive license symlinks and rejects escape attempts. The downloader independently
+  fetched and SHA-256-verified all 60 manifest files, and exact-batch, tracked, synthetic, and
+  negative reconciliation suites pass. Real package acceptance remains next.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
@@ -789,7 +798,7 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   remaining Milestones 2/3/5/7 live-environment evidence.
 - **Next implementation slice:** continue the bounded FFmpeg source/license review in
   `docs/FFMPEG_DISTRIBUTION.md`, while preserving the remaining credential and clean-VM checks in
-  `docs/RELEASE_CHECKLIST.md`. Thirty-nine of 92 source locators are reviewed. Gemini/Deepgram
+  `docs/RELEASE_CHECKLIST.md`. Forty-five of 92 source locators are reviewed. Gemini/Deepgram
   credentials, the clean-VM matrix, complete FFmpeg corresponding
   source/compliance publication, malware/signing evidence, and audible sentence-seam acceptance
   remain.

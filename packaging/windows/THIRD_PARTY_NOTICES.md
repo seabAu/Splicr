@@ -604,6 +604,27 @@ The bundled FFmpeg dependency graph statically incorporates librist at pinned re
 `b9841591a3452ee30033d8e3586c7b1244a0b2fc1dc6cb04576957c313cb2792`. The recipe links the
 separately reviewed external Mbed TLS build and explicitly disables librist's vendored copy.
 
+## LV2 and Lilv stack
+
+FFmpeg's enabled LV2 support statically links the pinned Lilv dependency chain. Exact ISC notices
+are packaged for LV2 (`ffmpeg/LV2-COPYING.txt`, SHA-256
+`1e6bb175e193608b767ff25a4ed68b82c4db599491cf0d2694435cf60e9a4841`), Serd
+(`ffmpeg/SERD-COPYING.txt`, `ae223adebe7cc1ee0716e0f926d1ecc8e42c6e4da7e1d7418c9c07fae244bbde`),
+Zix (`ffmpeg/ZIX-COPYING.txt`, `1314cc14fb947491491c517c533ac7de4f6798585f922a472358082c25ac1881`),
+Sord (`ffmpeg/SORD-COPYING.txt`, `ae223adebe7cc1ee0716e0f926d1ecc8e42c6e4da7e1d7418c9c07fae244bbde`),
+Sratom (`ffmpeg/SRATOM-COPYING.txt`, `1d968c655ecad113e128dbf4d4deabd9e30b931b42943b6a681c9cf11d7da5d4`),
+and Lilv (`ffmpeg/LILV-COPYING.txt`,
+`ae223adebe7cc1ee0716e0f926d1ecc8e42c6e4da7e1d7418c9c07fae244bbde`).
+Zix's current REUSE notice contains a newer copyright range than its top-level notice, so
+`ffmpeg/ZIX-ISC.txt` is also packaged with SHA-256
+`010c7513fdccf856edda08d42d2c46ae393e67b3acf97f9e428980cca2f94b7d`.
+
+The recipes disable documentation, tools, tests, benchmarks, and Python bindings as applicable.
+LV2 schema and manifest assets plus Meson/configuration metadata exist only in the intermediate
+build prefix and are not linked or copied into the Windows package. The source inventory resolves
+only safe in-archive license symlinks and rejects absolute, escaping, cyclic, ambiguous, or
+over-deep links.
+
 Advanced audiogram rendering also includes these Python libraries in the frozen desktop package:
 
 - NumPy, distributed under the BSD 3-Clause license: https://numpy.org/doc/stable/license.html

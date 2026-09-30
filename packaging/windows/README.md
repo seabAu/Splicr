@@ -109,17 +109,19 @@ partial or full collection, run `inventory-ffmpeg-source-licenses.sh` against it
 `test-ffmpeg-source-license-inventory.sh` and `test-ffmpeg-source-license-review.sh`. Generated
 candidate rows remain pending until their source identity, SPDX expression, and binary notice
 obligation are added to the tracked `ffmpeg-source-license-review.tsv`. The reviewed set currently
-covers 39 of 92 source locators and 140 detected candidates: 51 shipped licenses, twelve supplemental
-notices, 68 recipe-proven not-built candidates, and nine build-only candidates absent from the
+covers 45 of 92 source locators and 168 detected candidates: 58 shipped licenses, twelve supplemental
+notices, 74 recipe-proven not-built candidates, and 24 build-only candidates absent from the
 distributed binary. Required notices are hash-anchored byte-for-byte in `THIRD_PARTY_NOTICES.md` or
 separately manifest-bound and packaged, including exact files for ffnvcodec, dav1d, FriBidi,
 TwoLAME, AMF, OpenJPEG, Game Music Emu, GMP, Kvazaar, LCEVCdec, libvpx, libwebp, libzmq, and
 OpenCORE AMR, libudfread, oneVPL, PCRE2, pixman, Little CMS, OpenAL Soft, SoX Resampler, and
-uavs3d, Brotli, JPEG XL, Highway, Mbed TLS, TF-PSA-Crypto, and librist. FFmpeg's own license is not
-treated as a substitute for dependency licenses.
+uavs3d, Brotli, JPEG XL, Highway, Mbed TLS, TF-PSA-Crypto, librist, LV2, Serd, Zix, Sord, Sratom,
+and Lilv. FFmpeg's own license is not treated as a substitute for dependency licenses.
 Optional-notice, not-built, and build-only/not-shipped candidates remain explicit
 rather than silently ignored. The validator can reconcile every generated candidate to exactly one
-reviewed disposition. Repeated `--stage` selections permit ordered bounded batches, with a 12 GiB
+reviewed disposition. Inventory extraction resolves only bounded, relative, in-archive license
+symlinks and rejects escaping, absolute, cyclic, ambiguous, or over-deep links. Repeated `--stage`
+selections permit ordered bounded batches, with a 12 GiB
 default reserve guarding both host output and collector workspace filesystems. Successful fetches
 stay quiet while failures retain and print a bounded diagnostic log. Full-graph and codec patent
 review remain incomplete.
