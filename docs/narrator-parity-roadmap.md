@@ -408,7 +408,11 @@ sequence, cancellation cleanup, deterministic archives, API validation, and the 
   the exact persisted plan, rendered a checkpoint, survived a forced service stop, resumed without
   rewriting or re-attempting the completed chunk, assembled canonical WAV, and served range
   playback through the application API.
-- [ ] Run real Qwen voice design/clone with non-default advanced parameters and forced resume.
+- [x] Run real Qwen voice design/clone with non-default advanced parameters and forced resume. On
+  2026-09-29, Python 3.12.14, `qwen-tts 0.1.1`, CUDA PyTorch 2.11.0, VoiceDesign take 2, and the
+  1.7B Base clone model rendered with synthesis seed `424242` plus non-default temperature,
+  subtalker temperature, top-k, top-p, and repetition penalty. The forced restart preserved the
+  complete frozen profile/control snapshot and did not rewrite or re-attempt the completed chunk.
 - [ ] Run real Audio8 clone narration with forced resume.
 - [ ] Confirm local engine processes/models are reused only within their intended job/session scope
   and released after completion/cancel/failure. Deterministic adapter/subprocess coverage now proves
@@ -576,6 +580,11 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   interruption, durable resume without replacing the completed checkpoint, canonical WAV assembly,
   and HTTP range playback all passed through the merged SPLICR service. The expanded full suite
   passed 537 Python tests with five intentional opt-in live-environment skips.
+- [x] 2026-09-29 — Real Qwen3-TTS design/clone/resume acceptance passed with Python 3.12.14,
+  `qwen-tts 0.1.1`, CUDA PyTorch 2.11.0, VoiceDesign take 2, and the 1.7B Base clone model. Seed
+  `424242` and five non-default sampling values remained frozen across a forced process restart;
+  the completed PCM checkpoint retained its attempt count, timestamp, and hash before canonical
+  WAV assembly.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
