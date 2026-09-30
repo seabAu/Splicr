@@ -112,6 +112,15 @@ into FFmpeg.
   FFmpeg 9 are exact URL/revision/SHA-256-bound package files; ten sdk/13.0 and sdk/11.1 header
   candidates are recipe-proven not built for the packaged FFmpeg 9 variant. Real `0.1.0-dev.9`
   portable and installed-package acceptance verified all 11 manifest-bound dependency files.
+- [x] A bounded Game Music Emu, GMP, Kvazaar, and LCEVCdec run brought coverage to 23 of 92
+  locators and 69 candidates: 24 shipped licenses, five supplemental notices, 35 not-built
+  candidates, and five build-only/not-shipped candidates. The package manifest now binds exact GME
+  LGPL and emu2413 MIT terms, GMP's LGPLv3 supplement plus incorporated GPLv3 and preserved GPLv2
+  alternative, Kvazaar's BSD notice, and LCEVCdec's Clear BSD license plus required no-patent-
+  license notice. Recipe options prove GME's GPL MAME alternative, Kvazaar's test/distribution
+  helpers, and LCEVCdec's utility/platform dependencies are not built. The legal-file fetcher
+  independently downloaded and SHA-256-verified all eight new manifest files. Real package
+  acceptance remains the next gate.
 - [ ] Execute the tracked fetch commands and archive every enabled external dependency source at its
   recipe-pinned revision.
 - [ ] Record the applicable license and notice for every enabled dependency, including libraries

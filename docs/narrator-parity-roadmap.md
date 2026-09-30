@@ -727,6 +727,13 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   recipe-proven not built for this FFmpeg 9 payload. Real `0.1.0-dev.9` portable and installed-
   package acceptance verified all 11 manifest-bound dependency files. Hosted browser run
   `36735091359` passed all six Studio journeys on acceptance-record commit `1653ec9`.
+- [x] 2026-09-30 — A bounded Game Music Emu, GMP, Kvazaar, and LCEVCdec review raised coverage to
+  23 of 92 source locators and 69 candidates: 24 shipped licenses, five supplemental notices, 35
+  not-built records, and five build-only/not-shipped records. Eight exact new manifest-bound files
+  preserve GME's LGPL/MIT terms, GMP's LGPLv3 and accompanying GPL texts, Kvazaar's BSD notice, and
+  LCEVCdec's Clear BSD plus explicit no-patent-license notice. The exact recipes prove 11 auxiliary
+  candidates are excluded, and the fetcher plus fail-closed reconciliation suites passed. Real
+  Windows package acceptance remains the next gate.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
@@ -736,7 +743,7 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   remaining Milestones 2/3/5/7 live-environment evidence.
 - **Next implementation slice:** continue the bounded FFmpeg source/license review in
   `docs/FFMPEG_DISTRIBUTION.md`, while preserving the remaining credential and clean-VM checks in
-  `docs/RELEASE_CHECKLIST.md`. Nineteen of 92 source locators are reviewed. Gemini/Deepgram
+  `docs/RELEASE_CHECKLIST.md`. Twenty-three of 92 source locators are reviewed. Gemini/Deepgram
   credentials, the clean-VM matrix, complete FFmpeg corresponding
   source/compliance publication, malware/signing evidence, and audible sentence-seam acceptance
   remain.

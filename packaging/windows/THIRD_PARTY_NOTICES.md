@@ -360,6 +360,52 @@ The bundled FFmpeg dependency graph statically incorporates FriBidi at pinned so
 file is packaged as `ffmpeg/FRIBIDI-COPYING.txt` with SHA-256
 `20e50fe7aae3e56378ebf0417d9de904f55a0e61e4df315333e632a4d3555d95`.
 
+## Game Music Emu
+
+The bundled FFmpeg dependency graph statically incorporates Game Music Emu at pinned revision
+`f68963b1de0633149b05732113d3c3113c6f63a1` under LGPL-2.1-or-later. Its exact upstream license is
+packaged as `ffmpeg/GME-LICENSE.txt` with SHA-256
+`d2efc89fbb7533572a472d34e07964951810a3a4f8d3159ecc2dcaa1452c5c26`.
+
+The default build also compiles the bundled emu2413 implementation. Its exact MIT notice is
+packaged as `ffmpeg/GME-EMU2413-LICENSE.txt` with SHA-256
+`8fb093f26ed0d78c8ca033bbec7063ac5b34c5d2475e6bd121d03ccfaaf2355f`. The alternative GPLv2
+MAME YM2612 implementation is not selected by the pinned recipe.
+
+## GNU MP Library
+
+The bundled FFmpeg dependency graph statically incorporates GMP at pinned revision
+`763b40df71c0f4d5f5d7b33dc55038c8c9377ecf` under its LGPL-3.0-or-later option. The exact LGPL
+supplement and incorporated GPLv3 terms are packaged as `ffmpeg/GMP-COPYING.LESSERv3.txt`
+(SHA-256 `a853c2ffec17057872340eee242ae4d96cbf2b520ae27d903e1b2fef1a5f9d1c`) and
+`ffmpeg/GMP-COPYINGv3.txt` (SHA-256
+`e6037104443f9a7829b2aa7c5370d0789a7bda3ca65a0b904cdc0c2e285d9195`). GMP's alternative
+GPL-2.0-or-later text is preserved for completeness as `ffmpeg/GMP-COPYINGv2.txt` with SHA-256
+`8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643`.
+
+## Kvazaar
+
+The bundled FFmpeg dependency graph statically incorporates Kvazaar at pinned revision
+`2b06691bb5844404c0e703f12a5d7b0fee914ec7`. Its exact BSD-3-Clause license is packaged as
+`ffmpeg/KVAZAAR-LICENSE.txt` with SHA-256
+`3c1dc3d7f8a3d08c14f4fbe9942f45764d8a21a3296e8d83446f33fd65f21c38`.
+
+Preserving this notice does not constitute an independent HEVC patent scope, royalty, or
+enforceability determination.
+
+## LCEVCdec
+
+The bundled FFmpeg dependency graph statically incorporates LCEVCdec at pinned revision
+`17804ac54db8fbb42717f3275b1e73f3c0b067d3` under BSD-3-Clause-Clear. Its exact license is
+packaged as `ffmpeg/LCEVCDEC-LICENSE.md` with SHA-256
+`14358b0ecf6e7036c211c10f0f25563c94483dee7b8c7c954e09e10f3771d0af`.
+
+Upstream's additional licensing information explicitly states that no patent licenses are granted
+and requires the information to be maintained. That exact file is packaged as
+`ffmpeg/LCEVCDEC-COPYING.txt` with SHA-256
+`3afa5369b4fb44e18280b6e0e275971f78bc6eaf5f53553f41f2483fd8b1267e`. Preserving these terms is
+not an independent patent scope, validity, royalty, or enforceability determination.
+
 Advanced audiogram rendering also includes these Python libraries in the frozen desktop package:
 
 - NumPy, distributed under the BSD 3-Clause license: https://numpy.org/doc/stable/license.html
