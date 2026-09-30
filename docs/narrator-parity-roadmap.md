@@ -101,7 +101,7 @@ normalized here so the native and unfinished web interfaces do not become compet
 | Optional components and engines visible before installation | Components workspace and local-engine onboarding; real install acceptance remains Milestone 9. |
 | Queue/batch render | Completed in Milestone 6 with frozen per-item jobs and Library controls. |
 | Sentence/timeline repair | Milestone 5; automated coverage complete, audible live seam check remains. |
-| Audio transcription and guessed chapters | Milestone 7 automated parity complete; real faster-whisper acceptance remains. |
+| Audio transcription and guessed chapters | Milestone 7 complete, including real faster-whisper acceptance. |
 | Still backgrounds, polar layouts, transparency, and safe expressions | Milestone 8. |
 | Installer/proper-app hardening | Portable/installer baseline exists; clean-VM install/upgrade evidence remains Milestone 9. |
 | Remaining component CSS-to-Tailwind cleanup | Non-blocking UI maintenance; browser behavior and accessibility, not framework purity, are the gate. |
@@ -345,8 +345,10 @@ Edge TTS was Narrator's zero-setup online fallback. It is not currently a merged
   atomic artifacts.
 - [x] Unit-test against a faithful fake faster-whisper surface and add an opt-in real-model
   acceptance contract.
-- [ ] Complete the opt-in real-model acceptance run on a supported machine and record its
-  interpreter/model/audio/date/result; mocks and browser fakes cannot close this evidence item.
+- [x] Complete the opt-in real-model acceptance run on a supported machine and record its
+  interpreter/model/audio/date/result. On 2026-09-29, Python 3.13.5 with `faster-whisper 1.2.1`,
+  CTranslate2 4.8.2, PyAV 19.0.0, model `tiny.en`, CPU/int8, and a known Edge-generated English
+  fixture produced segments, word timings, progress, positive duration, and both expected terms.
 
 ## Milestone 8 — advanced audiogram parity
 
@@ -395,7 +397,9 @@ sequence, cancellation cleanup, deterministic archives, API validation, and the 
 - [ ] Run the opt-in live contract against Gemini and record model/voice/date/result.
 - [ ] Run it against Deepgram and record model/voice/date/result.
 - [ ] Run it against Inworld and record model/voice/date/result.
-- [ ] Run the eventual Edge provider against the live service.
+- [x] Run the Edge provider against the live service. On 2026-09-29, `edge-tts 7.2.8`
+  synthesized the acceptance fixture with model `edge-tts` and voice `en-US-AriaNeural`; SPLICR
+  verified non-empty canonical 24 kHz mono signed-16-bit PCM plus word-boundary timing metadata.
 - [ ] Run real Kokoro narration through import -> preview -> render -> resume -> playback.
 - [ ] Run real Qwen voice design/clone with non-default advanced parameters and forced resume.
 - [ ] Run real Audio8 clone narration with forced resume.
@@ -546,6 +550,16 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   The `0.1.0-dev.2` portable build passed its frozen-executable smoke, including bundled
   FFmpeg/FFprobe discovery and a real lazy-loaded NumPy/Pillow advanced audiogram frame; the
   clean-VM install/upgrade/uninstall matrix remains open.
+- [x] 2026-09-29 — Live Edge TTS acceptance passed with `edge-tts 7.2.8`, model `edge-tts`, and
+  voice `en-US-AriaNeural`. The real service returned canonical audio and word timing through the
+  supervised provider/session protocol; no credentials or sensitive fixture text were used.
+- [x] 2026-09-29 — Real faster-whisper acceptance passed with Python 3.13.5,
+  `faster-whisper 1.2.1`, CTranslate2 4.8.2, PyAV 19.0.0, and `tiny.en` on CPU/int8. The live gate
+  recognized both expected terms from a known Edge-generated fixture and returned segments, word
+  timings, progress, and positive duration. The run first exposed PyAV 19's removed metadata
+  keywords; SPLICR now applies a worker-scoped compatibility shim with deterministic regression
+  coverage rather than requiring users to downgrade their isolated environment. The post-fix full
+  suite passed 537 Python tests with four remaining intentional live-environment skips.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
@@ -554,9 +568,8 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
 - **Active milestone:** Milestone 9 — real-world acceptance and release hardening, including the
   remaining Milestones 2/3/5/7 live-environment evidence.
 - **Next implementation slice:** execute and record the credential/model/clean-VM checks in
-  `docs/RELEASE_CHECKLIST.md`. Real
-  Qwen, Edge, faster-whisper, and audible sentence-seam acceptance remains ready when configured
-  environments are available.
+  `docs/RELEASE_CHECKLIST.md`. Real Qwen/Kokoro/Audio8, remote-provider, clean-VM, and audible
+  sentence-seam acceptance remains ready when configured environments are available.
 - **Known unrelated worktree item:** `LICENSE.txt` is untracked and not part of this roadmap unless
   deliberately adopted later.
 
@@ -615,12 +628,12 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   original Library projects. Full Ruff/Python/frontend/build gates and four Chromium journeys pass;
   the batch journey covers creation, progress, pause/resume, reload persistence, mixed failure
   continuation, summary, and per-item download.
-- **2026-09-29:** Completed the automated portion of Milestone 7. Added an isolated, lazy
+- **2026-09-29:** Completed Milestone 7. Added an isolated, lazy
   faster-whisper component and provider-neutral ASR contract; durable restartable/cancellable jobs;
   structured model/download errors; managed audio import; segment and word timing JSON; readable
   paragraph regrouping; per-line Markdown timestamps; SRT/WebVTT; and explicitly labelled guessed
   chapters. Convert exposes a separate Transcribe mode with essential controls first and hardware,
   precision, VAD, word timing, and pause thresholds behind one advanced disclosure. Faithful worker,
-  restart/cancel/atomic-output, API/download, and Chromium import/progress/reload tests pass. The
-  opt-in real-model run remains open until a configured faster-whisper environment and audio fixture
-  supply actual recognition evidence.
+  restart/cancel/atomic-output, API/download, and Chromium import/progress/reload tests pass. Real
+  `tiny.en` CPU/int8 recognition also passed with expected-term, segment, word-timing, progress, and
+  duration evidence; a worker-scoped compatibility shim supports PyAV 19's simplified `open` API.

@@ -54,9 +54,14 @@ uv run pytest -m live_engine tests/test_transcription_live.py
 - [ ] Gemini canonical-audio contract passes.
 - [ ] Deepgram canonical-audio contract passes.
 - [ ] Inworld canonical-audio contract passes.
-- [ ] Edge online-service contract passes.
-- [ ] Configured Kokoro, Qwen3-TTS, Audio8, and faster-whisper environments pass their applicable
-  end-to-end checks.
+- [x] Edge online-service contract passes. Verified 2026-09-29 with `edge-tts 7.2.8`, model
+  `edge-tts`, voice `en-US-AriaNeural`, canonical 24 kHz mono signed-16-bit PCM, and word timings.
+- [ ] Configured Kokoro environment passes its applicable end-to-end checks.
+- [ ] Configured Qwen3-TTS environment passes its applicable end-to-end checks.
+- [ ] Configured Audio8 environment passes its applicable end-to-end checks.
+- [x] Configured faster-whisper environment passes its real-model check. Verified 2026-09-29 with
+  Python 3.13.5, `faster-whisper 1.2.1`, CTranslate2 4.8.2, PyAV 19.0.0, `tiny.en`, CPU/int8, and a
+  known Edge-generated fixture whose two expected terms were recognized with word timings.
 - [ ] Local engine processes and model sessions are released after success, cancel, and failure.
 
 ## 4. Build signed release candidates
@@ -128,6 +133,8 @@ snapshot before the first install.
 | --- | --- | --- | --- | --- |
 | 2026-09-29 | `20cc182` | Windows development workstation | Deterministic Milestone 8 gate | 530 Python passed, 4 intentional live skips; 8 frontend unit and 6 Chromium journeys passed; Vite build and real FFmpeg formula/polar/alpha proof passed. |
 | 2026-09-29 | `0.1.0-dev.2` working tree | Windows development workstation | Deterministic failure and frozen portable-package gate | 536 Python tests passed with 4 intentional live-environment skips. PyInstaller portable build passed its packaged executable smoke, including bundled FFmpeg/FFprobe discovery and an actual lazy-loaded NumPy/Pillow polar/formula/transparent audiogram frame. Portable ZIP SHA-256: `4023d860395f10ff47c2324f592f2e017833227708f8ca7ebb10595b5284fc41`. This is not a substitute for the clean-VM matrix below. |
+| 2026-09-29 | `29c180f` + acceptance-doc update | Windows development workstation | Live Edge TTS contract | `edge-tts 7.2.8`, model `edge-tts`, voice `en-US-AriaNeural`; real service returned canonical 24 kHz mono signed-16-bit PCM and word-boundary timing metadata. |
+| 2026-09-29 | `29c180f` + PyAV compatibility update | Windows development workstation | Real faster-whisper contract | Python 3.13.5, `faster-whisper 1.2.1`, CTranslate2 4.8.2, PyAV 19.0.0, `tiny.en`, CPU/int8; a known Edge-generated fixture produced positive duration, progress, segments, word timings, and both expected terms. Post-fix regression: 537 Python passed, 4 intentional live-environment skips. |
 | Pending | Pending | Clean Windows x64 VM | Fresh install / upgrade / uninstall / portable | Record artifact hashes, Windows version, install paths, and observations here. |
 | Pending | Pending | GitHub Actions `windows-2025` | Browser/package workflows | Link successful workflow runs and retained failure artifacts when applicable. |
 

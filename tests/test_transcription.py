@@ -25,6 +25,7 @@ from splicr.studio.transcription import (
     guess_chapters,
     regroup_paragraphs,
 )
+from splicr.transcription_worker import _configure_pyav_compatibility
 from splicr.transcription_worker import _transcribe as worker_transcribe
 
 
@@ -260,6 +261,28 @@ def test_paragraph_and_guessed_chapter_helpers_are_explicit() -> None:
     assert chapters[0] == {"title": "Opening words", "seconds": 0.0, "guessed": True}
     assert chapters[1]["seconds"] == 5
     assert all(mark["guessed"] is True for mark in chapters)
+
+
+def test_worker_shims_removed_pyav19_metadata_keywords(monkeypatch) -> None:
+    calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
+
+    def fake_open(*args, **kwargs):
+        calls.append((args, kwargs))
+        return "opened"
+
+    fake_av = SimpleNamespace(open=fake_open)
+    monkeypatch.setitem(sys.modules, "av", fake_av)
+    monkeypatch.setattr("splicr.transcription_worker.package_version", lambda _name: "19.0.0")
+
+    assert _configure_pyav_compatibility() is True
+    assert fake_av.open(
+        "source.mp3",
+        mode="r",
+        metadata_encoding="utf-8",
+        metadata_errors="ignore",
+    ) == "opened"
+    assert calls == [(("source.mp3",), {"mode": "r"})]
+    assert _configure_pyav_compatibility() is False
 
 
 def test_worker_matches_faster_whisper_surface_without_loading_real_model(

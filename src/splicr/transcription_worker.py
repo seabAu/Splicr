@@ -11,6 +11,7 @@ import contextlib
 import importlib
 import json
 import sys
+from importlib.metadata import PackageNotFoundError, version as package_version
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -43,6 +44,38 @@ def _error_code(error: BaseException, stage: str) -> str:
     return "recognition_failed"
 
 
+def _configure_pyav_compatibility() -> bool:
+    """Bridge faster-whisper 1.2.x to PyAV 19's simplified ``open`` API.
+
+    faster-whisper 1.2.1 still passes the ``metadata_encoding`` and
+    ``metadata_errors`` keyword arguments that PyAV 19 removed. Isolated engine
+    environments intentionally remain user-managed, so apply the narrow shim in
+    this one-shot worker instead of requiring users to downgrade an otherwise
+    supported dependency. The wrapper disappears with the worker process.
+    """
+
+    try:
+        av = importlib.import_module("av")
+        major_version = int(package_version("av").partition(".")[0])
+    except (AttributeError, ModuleNotFoundError, PackageNotFoundError, TypeError, ValueError):
+        return False
+    if major_version < 19:
+        return False
+
+    original_open = getattr(av, "open", None)
+    if original_open is None or getattr(original_open, "__splicr_pyav19_compat__", False):
+        return False
+
+    def compatible_open(*args: Any, **kwargs: Any) -> Any:
+        kwargs.pop("metadata_encoding", None)
+        kwargs.pop("metadata_errors", None)
+        return original_open(*args, **kwargs)
+
+    setattr(compatible_open, "__splicr_pyav19_compat__", True)
+    av.open = compatible_open
+    return True
+
+
 def _word_payload(word: Any) -> dict[str, object]:
     return {
         "start": float(word.start),
@@ -70,6 +103,7 @@ def _transcribe(payload: Mapping[str, Any]) -> None:
     try:
         with contextlib.redirect_stdout(sys.stderr):
             WhisperModel = getattr(importlib.import_module("faster_whisper"), "WhisperModel")
+            _configure_pyav_compatibility()
 
         audio_path = Path(str(payload.get("audio_path") or "")).resolve()
         if not audio_path.is_file():

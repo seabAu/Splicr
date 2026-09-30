@@ -37,6 +37,8 @@ def test_live_faster_whisper_transcribes_real_audio(tmp_path: Path) -> None:
             audio_path,
             TranscriptionOptions(
                 model=os.getenv("SPLICR_LIVE_TRANSCRIPTION_MODEL", "tiny"),
+                device=os.getenv("SPLICR_LIVE_TRANSCRIPTION_DEVICE", "cpu"),
+                compute_type=os.getenv("SPLICR_LIVE_TRANSCRIPTION_COMPUTE_TYPE", "int8"),
                 word_timestamps=True,
             ),
             on_progress=lambda value, *_: progress.append(value),
@@ -47,4 +49,11 @@ def test_live_faster_whisper_transcribes_real_audio(tmp_path: Path) -> None:
     assert result.segments
     assert result.duration_seconds > 0
     assert any(segment.words for segment in result.segments)
+    transcript = " ".join(segment.text for segment in result.segments).casefold()
+    expected_terms = {
+        term.strip().casefold()
+        for term in os.getenv("SPLICR_LIVE_TRANSCRIPTION_EXPECT", "").split(",")
+        if term.strip()
+    }
+    assert all(term in transcript for term in expected_terms), transcript
     assert progress
