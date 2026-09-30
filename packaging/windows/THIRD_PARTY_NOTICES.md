@@ -406,6 +406,58 @@ and requires the information to be maintained. That exact file is packaged as
 `3afa5369b4fb44e18280b6e0e275971f78bc6eaf5f53553f41f2483fd8b1267e`. Preserving these terms is
 not an independent patent scope, validity, royalty, or enforceability determination.
 
+## libvpx
+
+The bundled FFmpeg dependency graph statically incorporates libvpx at pinned revision
+`5e680f30801d03c21078f8c4b772464752516211`. Its exact BSD-3-Clause license is packaged as
+`ffmpeg/LIBVPX-LICENSE.txt` with SHA-256
+`8267348d5af1262c11d1a08de2f5afc77457755f1ac658627dd9acf71011d615`.
+
+The x86_64 build also incorporates the x86inc assembly include under ISC; its exact notice is
+packaged as `ffmpeg/LIBVPX-X86INC-LICENSE.txt` with SHA-256
+`719d8fa235f2068e0ae6d6a7dceb0a7720d7840f0f0ebed29957989e6ded3cd8`. The accompanying WebM
+additional patent grant is packaged as `ffmpeg/LIBVPX-PATENTS.txt` with SHA-256
+`cc3273e0694ea5896145e0677699b53471b03ea43021ddc50e7923fbb9f5023c`.
+
+## libwebp
+
+The bundled FFmpeg dependency graph statically incorporates libwebp at pinned revision
+`5c168cd23b1872969c38e34b01b04dcf29849288`. Its exact BSD-3-Clause terms are packaged as
+`ffmpeg/LIBWEBP-COPYING.txt` with SHA-256
+`5aec868f669e384a22372a4e8a1a6cd7d44c64cd451f960ca69cc170d1e13acf`. The accompanying WebM
+additional patent grant is packaged as `ffmpeg/LIBWEBP-PATENTS.txt` with SHA-256
+`cc3273e0694ea5896145e0677699b53471b03ea43021ddc50e7923fbb9f5023c`.
+
+Preserving the libvpx and libwebp patent-grant texts is not an independent patent scope,
+validity, royalty, or enforceability determination.
+
+## ZeroMQ
+
+The bundled FFmpeg dependency graph statically incorporates libzmq at pinned revision
+`46493370217ac135246617fa2f6ac819d8b61bfc` under MPL-2.0. Its exact license is packaged as
+`ffmpeg/LIBZMQ-LICENSE.txt` with SHA-256
+`1f256ecad192880510e84ad60474eab7589218784b9a50bc7ceee34c2b91f1d5`.
+
+The Windows recipe selects the epoll compatibility path and compiles wepoll under BSD-2-Clause.
+Its exact notice is packaged as `ffmpeg/LIBZMQ-WEPOLL-LICENSE.txt` with SHA-256
+`3e56262d2c0e9492f113089916ed624e98f88b31dfd6acae24ede59cdfda5a69`. Availability of the
+MPL-covered source remains part of the corresponding-source publication gate.
+
+## OpenCORE AMR
+
+The bundled FFmpeg dependency graph statically incorporates OpenCORE AMR-NB and AMR-WB at pinned
+revision `7dba8c32238418ce0b316a852b2224df586ca896` under Apache-2.0. The complete license and upstream
+attribution notice are packaged as `ffmpeg/OPENCORE-AMR-LICENSE.txt` (SHA-256
+`8b3f1762349248d444ab9acbafe73941254e36e1064954da56bb9ddbd5873ddb`) and
+`ffmpeg/OPENCORE-AMR-NOTICE.txt` (SHA-256
+`d106802b5e406073c1d10fbe9f638234c6973ebce37df71773179642085eb489`).
+
+Upstream explicitly states that the source grant conveys no patent rights. That exact disclaimer is
+packaged as `ffmpeg/OPENCORE-AMR-PATENT-DISCLAIMER.txt` with SHA-256
+`f91a72705d38de34a9749c214a4cbc6ffa1da753b34b2cd11f3d6798f24ae59f`. Preserving these notices
+does not constitute an independent AMR patent scope, validity, royalty, or enforceability
+determination.
+
 Advanced audiogram rendering also includes these Python libraries in the frozen desktop package:
 
 - NumPy, distributed under the BSD 3-Clause license: https://numpy.org/doc/stable/license.html

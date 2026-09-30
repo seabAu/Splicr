@@ -122,6 +122,16 @@ into FFmpeg.
   independently downloaded and SHA-256-verified all eight new manifest files. Real `0.1.0-dev.10`
   portable and installed-package acceptance independently verified all 19 manifest-bound dependency
   files by exact revision and SHA-256, plus the existing media and lifecycle checks.
+- [x] A bounded libvpx, libwebp, libzmq, and OpenCORE AMR run brought coverage to 27 of 92 locators
+  and 87 candidates: 30 shipped licenses, nine supplemental notices, 43 not-built candidates, and
+  five build-only/not-shipped candidates. Ten new manifest-bound files preserve both WebM BSD terms
+  and patent grants, libvpx's compiled x86inc ISC notice, libzmq's MPL-2.0 terms and compiled wepoll
+  BSD notice, and OpenCORE's Apache license, attribution notice, and explicit no-patent-rights
+  disclaimer. Exact recipe paths exclude libvpx test/example dependencies and libzmq SHA-1, Unity,
+  and Debian-packaging candidates. The downloader independently fetched and SHA-256-verified all
+  29 manifest files; immutable GitHub mirror URLs avoid SourceForge's intermittent browser challenge
+  while exact hashes retain correspondence to the collected source. Real package acceptance remains
+  the next gate.
 - [ ] Execute the tracked fetch commands and archive every enabled external dependency source at its
   recipe-pinned revision.
 - [ ] Record the applicable license and notice for every enabled dependency, including libraries

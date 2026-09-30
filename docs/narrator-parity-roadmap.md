@@ -736,6 +736,14 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   `0.1.0-dev.10` portable and installed-package acceptance verified all 19 manifest-bound legal
   files plus the existing media and lifecycle checks. Hosted browser run `36741351275` passed all
   six Studio journeys on acceptance-record commit `a561216`.
+- [x] 2026-09-30 — A bounded libvpx, libwebp, libzmq, and OpenCORE AMR review raised coverage to
+  27 of 92 source locators and reconciled all 87 candidates: 30 shipped licenses, nine supplemental
+  notices, 43 recipe-proven not-built records, and five build-only/not-shipped records. Ten new
+  manifest-bound files preserve the WebM license/patent terms, compiled x86inc and wepoll notices,
+  libzmq's MPL-2.0 terms, and OpenCORE's Apache, attribution, and explicit no-patent-rights texts.
+  The exact recipes exclude eight test, example, optional-WebSocket, and packaging candidates. The
+  fetcher plus fail-closed reconciliation suites passed; real Windows package acceptance remains the
+  next gate.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
