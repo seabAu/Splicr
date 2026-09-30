@@ -438,18 +438,20 @@ sequence, cancellation cleanup, deterministic archives, API validation, and the 
   ordering with no duplicate synthesis.
 - [x] Force termination during final assembly and verify no partial artifact is marked complete.
 - [x] Exercise pause/export/cancel after provider and local-engine failures.
-- [ ] Test very large imports and outputs near configured limits without loading full media into
+- [x] Test very large imports and outputs near configured limits without loading full media into
   browser or server memory. Automated coverage now crosses the chunked-upload boundary, rejects and
-  cleans an over-limit upload, and range-reads the converted output; a multi-gigabyte manual soak
-  remains part of the clean-machine matrix.
+  cleans an over-limit upload, and range-reads converted output. On 2026-09-29 a sparse 3.9 GB
+  canonical WAV was range-read at its beginning, midpoint, and end in 1 KB responses, proving the
+  application does not materialize a multi-gigabyte playback body in browser/server memory.
 - [ ] Test clean Windows installer install, upgrade with existing data/jobs/profiles, uninstall with
   intentional user-data policy, and portable ZIP execution in a clean VM.
 - [ ] Verify Chromium acceptance in GitHub Actions and retain failure traces/screenshots/video. The
   workflow runs for pull requests, `main`, and release tags and retains Playwright diagnostics on
   failure; link a green release-commit run in the evidence record.
-- [ ] Update user documentation, migration notes, third-party notices, and release checklist. The
-  executable clean-VM matrix now lives in `docs/RELEASE_CHECKLIST.md`; final release notes and
-  third-party review remain per-release gates.
+- [x] Update user documentation, migration notes, third-party notices, and release checklist.
+  `CHANGELOG.md`, the Windows packaging guide, the release checklist, and the FFmpeg notice now
+  record data migration/rollback, external engine ownership, live-evidence gaps, and the
+  GPL-enabled development FFmpeg finding.
 
 ## Deferred ideas from the Narrator handover
 

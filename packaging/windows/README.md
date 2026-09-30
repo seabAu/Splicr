@@ -33,6 +33,13 @@ and build outputs are ignored by Git. Every package also includes `THIRD_PARTY_N
 generated `BUILD_INFO.txt`; release publishers remain responsible for satisfying the license terms
 of the particular FFmpeg build placed on `PATH`.
 
+The development workstation currently resolves a `www.gyan.dev` FFmpeg 9.0 full build configured
+with `--enable-gpl --enable-version3`. Treat packages produced from that binary as internal
+acceptance candidates until the publisher either substitutes a compatible LGPL build or includes
+the exact GPL notices, license, corresponding source/source offer, and any other obligations
+identified during release review. `BUILD_INFO.txt` is the authoritative record for each candidate;
+do not infer its license from an earlier build.
+
 The small native lifecycle window owns the local FastAPI process. It opens `/studio/`, can reopen
 the browser or data folder, writes startup diagnostics to `desktop.log`, and shuts the server down
 cleanly when closed. Launching a second copy detects the existing local instance and opens it rather

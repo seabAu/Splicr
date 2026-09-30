@@ -6,6 +6,7 @@ import os
 import shutil
 import struct
 import time
+import uuid
 import wave
 from pathlib import Path
 
@@ -185,6 +186,72 @@ def test_near_limit_audio_upload_streams_to_disk_and_output_supports_ranges(
 
     upload_root = tmp_path / "studio" / "conversion-inputs"
     assert not list(upload_root.glob(".upload-*.part"))
+
+
+@pytest.mark.release_acceptance
+def test_multi_gigabyte_sparse_output_is_range_read_without_full_body(tmp_path: Path) -> None:
+    pcm_bytes = 3_900_000_000
+    settings = Settings(
+        data_dir=tmp_path,
+        pacing_seconds=0,
+        max_output_pcm_bytes=4_000_000_000,
+    )
+    synthesis = SynthesisService(
+        settings=settings,
+        providers=ProviderRegistry([RecordingProvider()]),
+    )
+    synthesis.store.initialize()
+    job_id = uuid.uuid4().hex
+    synthesis.store.create_job_with_chunks(
+        job_id=job_id,
+        provider="fake",
+        model="fake-model",
+        voice="fake-voice",
+        instructions=None,
+        chunks=["A sparse release-acceptance output."],
+    )
+    synthesis.store.mark_job_running(job_id)
+    output = synthesis.storage.output_path(job_id)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    header = struct.pack(
+        "<4sI4s4sIHHIIHH4sI",
+        b"RIFF",
+        pcm_bytes + 36,
+        b"WAVE",
+        b"fmt ",
+        16,
+        1,
+        1,
+        24_000,
+        48_000,
+        2,
+        16,
+        b"data",
+        pcm_bytes,
+    )
+    with output.open("wb") as stream:
+        stream.write(header)
+        stream.truncate(len(header) + pcm_bytes)
+    synthesis.store.mark_job_completed(job_id, str(output.resolve()))
+
+    total_bytes = len(header) + pcm_bytes
+    ranges = (
+        (0, 1023),
+        (total_bytes // 2, total_bytes // 2 + 1023),
+        (total_bytes - 1024, total_bytes - 1),
+    )
+    with TestClient(create_app(settings=settings, service=synthesis)) as client:
+        for start, end in ranges:
+            response = client.get(
+                f"/v1/speech/jobs/{job_id}/audio",
+                headers={"Range": f"bytes={start}-{end}"},
+            )
+            assert response.status_code == 206
+            assert len(response.content) == 1024
+            assert response.headers["content-range"] == f"bytes {start}-{end}/{total_bytes}"
+            assert response.headers["content-length"] == "1024"
+
+    assert output.stat().st_size == total_bytes
 
 
 class FinalReplaceFailureStorage(LocalJobStorage):

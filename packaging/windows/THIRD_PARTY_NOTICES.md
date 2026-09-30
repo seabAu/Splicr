@@ -17,6 +17,12 @@ The release publisher must review the recorded configuration and provide all not
 and corresponding source or source offer required by that particular build before distributing the
 package publicly.
 
+The FFmpeg 9.0 full build used for the 2026-09-29 development acceptance candidate reports
+`--enable-gpl --enable-version3`. That candidate is therefore **not cleared for public download**
+by this notice alone. A public publisher must replace it with a reviewed compatible build or add the
+complete GPLv3 compliance materials for the exact binary. This paragraph records the current audit
+finding; the adjacent generated `BUILD_INFO.txt` remains authoritative for any later candidate.
+
 Advanced audiogram rendering also includes these Python libraries in the frozen desktop package:
 
 - NumPy, distributed under the BSD 3-Clause license: https://numpy.org/doc/stable/license.html
