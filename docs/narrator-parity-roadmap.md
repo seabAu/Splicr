@@ -755,7 +755,8 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   absent SLJIT is not incorporated. The fetcher and fail-closed reconciliation suites passed, using
   byte-identical immutable mirrors around Code.Videolan and GitLab automated-client challenges. Real
   `0.1.0-dev.12` portable and installed-package acceptance verified all 34 manifest-bound legal files
-  plus the existing media and lifecycle checks. Hosted browser acceptance remains the next gate.
+  plus the existing media and lifecycle checks. Hosted browser run `36753606918` passed all six
+  Studio journeys in 41.7 seconds on acceptance-record commit `2b54b3c`.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
