@@ -450,9 +450,12 @@ sequence, cancellation cleanup, deterministic archives, API validation, and the 
   byte-identical external-data preservation, and exact upgraded-payload comparison. Lifecycle /
   Start-menu/browser use, real project/profile/media migration, Windows Settings, and a genuinely
   clean VM remain manual release evidence.
-- [ ] Verify Chromium acceptance in GitHub Actions and retain failure traces/screenshots/video. The
-  workflow runs for pull requests, `main`, `codex/**` integration branches, and release tags, and
-  retains Playwright diagnostics on failure; link a green release-commit run in the evidence record.
+- [x] Verify Chromium acceptance in GitHub Actions and retain failure traces/screenshots/video. The
+  workflow runs for pull requests, `main`, `codex/**` integration branches, and release tags. Failed
+  run `36664605914` published assertion annotations and retained a 19 MB Playwright diagnostics
+  artifact; that evidence exposed missing media tools on the runner. Commit `8f7f18a` provisions the
+  checksum-pinned LGPL FFmpeg/FFprobe bundle, and run `36665161955` passed the full six-journey
+  Chromium suite on `windows-2025`.
 - [x] Update user documentation, migration notes, third-party notices, and release checklist.
   `CHANGELOG.md`, the Windows packaging guide, the release checklist, and the FFmpeg notice now
   record data migration/rollback, external engine ownership, live-evidence gaps, and the pinned
@@ -672,6 +675,10 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   unknown-stage, and tampered-recipe failures. A real OpenH264 run through the pinned image then
   verified archive checksums, exact commit/license content, fail-closed status, and resume reuse;
   the full network collection and legal review remain release gates rather than inferred successes.
+- [x] 2026-09-29 — GitHub-hosted Chromium acceptance became executable on pushed `codex/**`
+  integration branches. The first diagnostic rerun published two specific media-capability failures
+  plus its retained Playwright artifact; provisioning the same pinned LGPL FFmpeg/FFprobe bundle used
+  by packaging fixed both, and public run `36665161955` passed all six Studio journeys.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
