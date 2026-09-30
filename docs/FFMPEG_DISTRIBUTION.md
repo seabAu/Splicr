@@ -40,6 +40,11 @@ into FFmpeg.
   The tracked graph preserves the ordered stage list, source locator/revision table, and raw
   source-fetch commands; `test-ffmpeg-source-graph.ps1` rejects a changed count, unpinned revision,
   duplicate/missing stage, or accidentally enabled libx264/libx265.
+- [x] `collect-ffmpeg-source-graph.sh` verifies each selected recipe's generated fetch command
+  against that graph and plans or collects resumable, normalized per-stage archives with the
+  BtbN downloader image pinned by digest. `test-ffmpeg-source-collector.sh` covers the complete
+  90-stage plan, one-stage selection, unknown-stage rejection, and recipe-tamper rejection. This is
+  collection machinery, not evidence that the full collection has run.
 - [ ] Execute the tracked fetch commands and archive every enabled external dependency source at its
   recipe-pinned revision.
 - [ ] Record the applicable license and notice for every enabled dependency, including libraries
@@ -85,6 +90,27 @@ and notice bundle comparatively large. Two acceptable paths remain:
 The second path must preserve SPLICR's verified Convert, Audiogram, finishing, probing, H.264/AAC,
 and supported input-format behavior. It is not acceptable to reduce the application's promised
 capabilities merely to simplify licensing.
+
+## Full dependency source collection
+
+Use a Linux host with Bash and Docker. First obtain and hash-verify the exact BtbN recipe archive
+listed in `ffmpeg-source-lock.json`, then extract it. A plan-only run performs all recipe-to-graph
+checks without pulling the relatively large downloader image:
+
+```bash
+bash packaging/windows/collect-ffmpeg-source-graph.sh \
+  /path/to/FFmpeg-Builds-20ad148c3b69a862b061eb7e6cc7b61d896bcfef \
+  /path/to/collection \
+  --plan-only
+
+bash packaging/windows/test-ffmpeg-source-collector.sh \
+  /path/to/FFmpeg-Builds-20ad148c3b69a862b061eb7e6cc7b61d896bcfef
+```
+
+Remove `--plan-only` for the resumable full collection. `--stage` accepts one exact path from
+`enabled-stages.txt` for a smaller diagnostic run. A successful download writes a plan, per-stage
+archives, a source manifest, and checksums, while continuing to state that corresponding-source and
+public-release gates are false. License/notice review and binary correspondence still follow.
 
 Primary references:
 

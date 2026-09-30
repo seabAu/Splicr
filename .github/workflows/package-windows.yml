@@ -15,7 +15,40 @@ permissions:
   contents: read
 
 jobs:
+  source-collector-plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out the release commit
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Verify the pinned FFmpeg dependency source plan
+        shell: bash
+        run: |
+          set -euo pipefail
+          lock=packaging/windows/ffmpeg-source-lock.json
+          recipe_url="$(
+            jq -r \
+              '.primary_source_archives[] | select(.name == "BtbN FFmpeg build recipes") | .url' \
+              "$lock"
+          )"
+          recipe_sha="$(
+            jq -r \
+              '.primary_source_archives[] | select(.name == "BtbN FFmpeg build recipes") | .sha256' \
+              "$lock"
+          )"
+          recipe_archive="$RUNNER_TEMP/btbn-build-scripts.zip"
+          recipe_root="$RUNNER_TEMP/btbn-recipes"
+          curl --fail --location --retry 3 "$recipe_url" --output "$recipe_archive"
+          printf '%s  %s\n' "$recipe_sha" "$recipe_archive" | sha256sum --check --strict
+          mkdir -p "$recipe_root"
+          unzip -q "$recipe_archive" -d "$recipe_root"
+          extracted_root="$(find "$recipe_root" -mindepth 1 -maxdepth 1 -type d -print -quit)"
+          test -n "$extracted_root"
+          bash packaging/windows/test-ffmpeg-source-collector.sh "$extracted_root"
+
   package:
+    needs: source-collector-plan
     runs-on: windows-2025
     timeout-minutes: 45
     steps:

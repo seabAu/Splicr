@@ -667,6 +667,10 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   corresponding-source completeness. The exact 90-stage enabled graph, pinned revision table, and
   source-fetch commands are now versioned and validated. Fetching those sources, their notices,
   correspondence proof, and the hosted source URL remain open in `docs/FFMPEG_DISTRIBUTION.md`.
+- [x] 2026-09-29 — The enabled FFmpeg graph gained a digest-pinned, resumable source collector with
+  deterministic per-stage archive plans. Plan acceptance covers all 90 stages plus stage-selection,
+  unknown-stage, and tampered-recipe failures; the full network collection and legal review remain
+  release gates rather than inferred successes.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 

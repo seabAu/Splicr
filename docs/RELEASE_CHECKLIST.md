@@ -119,8 +119,9 @@ Get-Content .\dist\SPLICR-Studio-0.1.0-SHA256SUMS.txt
   but the remaining LGPL compliance publication step is still a public-release gate. The exact
   FFmpeg, OpenH264, and BtbN recipe snapshots are now hash-pinned and assembled into a validated,
   explicitly incomplete primary-source audit kit. The exact 90-stage enabled dependency graph,
-  source revisions, and fetch commands are versioned and validated; fetching/archiving those
-  dependency sources, their notices, final correspondence review, and hosted source link remain open in
+  source revisions, and fetch commands are versioned and validated. A digest-pinned, graph-verifying,
+  resumable source collector and plan acceptance test now exist; the real full-graph run, notice
+  review, correspondence validation, and hosted source link remain open in
   [`FFMPEG_DISTRIBUTION.md`](FFMPEG_DISTRIBUTION.md).
 - [ ] Scan the installer and portable archive with the organization's selected malware scanner.
   Microsoft Defender's command-line scan returned `0x80004005` because the product/feature is

@@ -17,7 +17,8 @@ $StagesPath = Join-Path $GraphDirectory "enabled-stages.txt"
 $RevisionsPath = Join-Path $GraphDirectory "source-revisions.tsv"
 $CommandsPath = Join-Path $GraphDirectory "source-commands.txt"
 $InfoPath = Join-Path $GraphDirectory "GRAPH_INFO.txt"
-foreach ($Path in @($StagesPath, $RevisionsPath, $CommandsPath, $InfoPath)) {
+$CollectorPath = Join-Path $PSScriptRoot "collect-ffmpeg-source-graph.sh"
+foreach ($Path in @($StagesPath, $RevisionsPath, $CommandsPath, $InfoPath, $CollectorPath)) {
     Assert-Condition (Test-Path -LiteralPath $Path -PathType Leaf) "Missing source graph file: $Path"
 }
 
@@ -63,5 +64,13 @@ foreach ($Token in @(
     Assert-Condition ($Info.Contains($Token, [StringComparison]::Ordinal)) `
         "Source graph info is missing: $Token"
 }
+Assert-Condition ($Lock.dependency_graph.collector_image -match `
+    '^ghcr\.io/btbn/ffmpeg-builds/base@sha256:[0-9a-f]{64}$') `
+    "Source collector image must be pinned by digest"
+$CollectorText = Get-Content -Raw -LiteralPath $CollectorPath
+Assert-Condition ($CollectorText.Contains(
+    $Lock.dependency_graph.collector_image,
+    [StringComparison]::Ordinal
+)) "Source collector does not use the image pinned in the source lock"
 
 Write-Output "FFmpeg enabled source graph passed ($($Stages.Count) stages)."

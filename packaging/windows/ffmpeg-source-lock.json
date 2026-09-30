@@ -41,7 +41,8 @@
     "generator": "BtbN/FFmpeg-Builds generate.sh",
     "enabled_stage_count": 90,
     "source_locator_count": 92,
-    "tracked_directory": "packaging/windows/ffmpeg-source-graph"
+    "tracked_directory": "packaging/windows/ffmpeg-source-graph",
+    "collector_image": "ghcr.io/btbn/ffmpeg-builds/base@sha256:ce3051e936d2f67b550efad8c5f07118a14e08f4e15b98e56ce14003e60d54cc"
   },
   "completeness": {
     "primary_sources_pinned": true,
