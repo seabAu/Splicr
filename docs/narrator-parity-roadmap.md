@@ -706,7 +706,9 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   one supplemental notice, or 14 recipe-proven not-built records. AMF and OpenJPEG use exact
   manifest-bound package license files; libffi's required MIT notice is hash-anchored in the
   combined notices; and libpng's root `libpng-2.0` license and non-built CI/contrib candidates are
-  explicit. Patent-rights caveats remain visible and unresolved rather than being overclaimed.
+  explicit. Patent-rights caveats remain visible and unresolved rather than being overclaimed. Real
+  `0.1.0-dev.7` portable/installer acceptance passed with exact AMF, OpenJPEG, and TwoLAME license
+  identity verified in both payloads against the manifest.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 

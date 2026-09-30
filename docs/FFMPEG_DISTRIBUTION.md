@@ -92,7 +92,9 @@ into FFmpeg.
   are not presented as patent clearance. libffi's root MIT notice is hash-anchored in the combined
   notices, while its MSVC/Sun/test build-tool license is excluded by the actual GNU cross-build.
   libpng's root `libpng-2.0` license is recorded, and its CI/workflow/contrib candidates are excluded
-  from the root static-library build based on the pinned recipe and source metadata.
+  from the root static-library build based on the pinned recipe and source metadata. Real
+  `0.1.0-dev.7` portable and installed-package acceptance independently verified all three
+  manifest-bound dependency licenses by revision and SHA-256.
 - [ ] Execute the tracked fetch commands and archive every enabled external dependency source at its
   recipe-pinned revision.
 - [ ] Record the applicable license and notice for every enabled dependency, including libraries
