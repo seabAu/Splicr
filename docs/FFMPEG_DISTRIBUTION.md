@@ -168,7 +168,9 @@ into FFmpeg.
   files; librist uses a commit-pinned, byte-identical GitHub mirror because the canonical host returns
   an anti-bot page to automated clients. Exact-batch, tracked, synthetic, and negative reconciliation
   suites pass. Real `0.1.0-dev.14` portable and installed-package acceptance independently verified
-  all 53 files plus the existing media and lifecycle checks. Codec patent review remains open.
+  all 53 files plus the existing media and lifecycle checks. Hosted browser run `36761944917` passed
+  all six Studio journeys in 44.2 seconds on the acceptance-record commit. Codec patent review
+  remains open.
 - [ ] Execute the tracked fetch commands and archive every enabled external dependency source at its
   recipe-pinned revision.
 - [ ] Record the applicable license and notice for every enabled dependency, including libraries
