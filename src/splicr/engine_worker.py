@@ -401,6 +401,27 @@ class Audio8Runtime:
         characters = max(1, len(text))
         return seconds > 0 and seconds >= (characters / 20.0) * 0.5 and seconds <= characters * 0.5
 
+    @staticmethod
+    def _decoded_waveform(model: Any, generated: Any) -> tuple[Any, int]:
+        """Normalize the current Audio8 decoder contract and its preview predecessor."""
+        codes = getattr(generated, "codes", generated)
+        decoded, length_or_rate = model.decode_audio(codes)
+        configured_rate = getattr(getattr(model, "config", None), "codec_sample_rate", None)
+        if configured_rate is None:
+            # Early preview builds returned ``(waveform, sample_rate)`` directly.
+            return decoded, int(length_or_rate)
+
+        length = int(length_or_rate[0])
+        try:
+            waveform = decoded[0, :length]
+        except (IndexError, TypeError):
+            waveform = decoded[0][:length]
+        for conversion in ("float", "cpu", "numpy"):
+            method = getattr(waveform, conversion, None)
+            if callable(method):
+                waveform = method()
+        return waveform, int(configured_rate)
+
     def synthesize(
         self,
         text: str,
@@ -415,29 +436,51 @@ class Audio8Runtime:
         pieces = []
         rate = 44_100
         for piece in _audio_pieces(text, 150):
-            audio = None
+            accepted_audio = None
             for attempt in range(1, 4):
                 with contextlib.redirect_stdout(sys.stderr):
-                    inputs = processor(
-                        text=piece,
-                        ref_audio=reference_path,
-                        ref_text=reference_text,
-                        return_tensors="pt",
-                    ).to(self._device)
+                    try:
+                        inputs = processor(
+                            text=[piece],
+                            reference_audio=[reference_path],
+                            reference_text=[reference_text],
+                            return_tensors="pt",
+                        ).to(self._device)
+                    except TypeError:
+                        # Preserve compatibility with the original preview processor.
+                        inputs = processor(
+                            text=piece,
+                            ref_audio=reference_path,
+                            ref_text=reference_text,
+                            return_tensors="pt",
+                        ).to(self._device)
                     with self._torch.no_grad():
-                        generated = model.generate(**inputs)
-                    audio, rate = model.decode_audio(generated)
+                        generated = model.generate(
+                            **inputs,
+                            max_new_tokens=1024,
+                            temperature=0.8,
+                            top_p=0.95,
+                            top_k=50,
+                            do_sample=True,
+                            return_dict_in_generate=True,
+                        )
+                    audio, rate = self._decoded_waveform(model, generated)
                 flattened = self._np.asarray(audio, dtype=self._np.float32).reshape(-1)
                 seconds = len(flattened) / rate if rate else 0.0
                 if self._duration_is_plausible(piece, seconds):
-                    audio = flattened
+                    accepted_audio = flattened
                     break
                 _event(
                     "warning",
                     f"Audio8 retry {attempt}/3: implausible {seconds:.2f}s result",
                 )
-            if audio is not None:
-                pieces.append(self._np.asarray(audio, dtype=self._np.float32).reshape(-1))
+            if accepted_audio is None:
+                raise EngineWorkerRequestError(
+                    "Audio8 returned implausible audio after three attempts",
+                    code="audio8_implausible_output",
+                    retryable=True,
+                )
+            pieces.append(accepted_audio)
         merged = self._np.concatenate(pieces) if pieces else self._np.zeros(1, dtype=self._np.float32)
         _write_canonical_pcm(self._np, merged, int(rate), output_path)
 

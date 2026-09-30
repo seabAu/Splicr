@@ -47,7 +47,9 @@ $env:SPLICR_LIVE_PROVIDER = "gemini" # then deepgram / inworld
 uv run pytest -m live_provider tests/test_live_provider_acceptance.py
 
 uv run pytest -m live_engine tests/test_live_edge_provider.py
+uv run pytest -m live_engine tests/test_live_kokoro_acceptance.py
 uv run pytest -m live_engine tests/test_live_qwen_voice_design.py
+uv run pytest -m live_engine tests/test_live_audio8_acceptance.py
 uv run pytest -m live_engine tests/test_transcription_live.py
 ```
 
@@ -66,11 +68,16 @@ uv run pytest -m live_engine tests/test_transcription_live.py
   2026-09-29 with Python 3.12.14, `qwen-tts 0.1.1`, CUDA PyTorch 2.11.0, VoiceDesign take 2, the
   1.7B Base clone model, synthesis seed `424242`, five non-default sampling values, and a forced
   restart that preserved the frozen controls and completed-checkpoint hash/timestamp/attempt count.
-- [ ] Configured Audio8 environment passes its applicable end-to-end checks.
+- [x] Configured Audio8 environment passes its applicable end-to-end checks. Verified 2026-09-29
+  with Python 3.12.14, Transformers 4.57.6, PyTorch/Torchaudio 2.11.0+cu128, the Audio8 0.6B
+  checkpoint, an RTX 5070 Ti, and an exact-transcript Edge reference. Clone rendering, forced
+  restart, checkpoint preservation, and canonical WAV assembly passed.
 - [x] Configured faster-whisper environment passes its real-model check. Verified 2026-09-29 with
   Python 3.13.5, `faster-whisper 1.2.1`, CTranslate2 4.8.2, PyAV 19.0.0, `tiny.en`, CPU/int8, and a
   known Edge-generated fixture whose two expected terms were recognized with word timings.
-- [ ] Local engine processes and model sessions are released after success, cancel, and failure.
+- [x] Local engine processes and model sessions are released after success, cancel, and failure.
+  Deterministic session teardown covers all three outcomes and timeout restart; real Kokoro, Qwen,
+  and Audio8 forced-restart gates confirm model ownership remains process/job scoped.
 
 ## 4. Build signed release candidates
 
@@ -145,7 +152,8 @@ snapshot before the first install.
 | 2026-09-29 | `29c180f` + PyAV compatibility update | Windows development workstation | Real faster-whisper contract | Python 3.13.5, `faster-whisper 1.2.1`, CTranslate2 4.8.2, PyAV 19.0.0, `tiny.en`, CPU/int8; a known Edge-generated fixture produced positive duration, progress, segments, word timings, and both expected terms. Post-fix regression: 537 Python passed, 4 intentional live-environment skips. |
 | 2026-09-29 | `e9a1ff8` + vault-backed live harness update | Windows development workstation | Live Inworld contract | Saved resource revision 1, `inworld-tts-2`, voice `Ashley`, current `/tts/v1/voice` endpoint; returned non-empty canonical 24 kHz mono signed-16-bit PCM without exporting or logging the credential. |
 | 2026-09-29 | `e9a1ff8` + Kokoro lifecycle harness update | Windows development workstation | Real Kokoro lifecycle | Python 3.12.14, Kokoro 0.9.4, `af_heart`; Markdown import, exact preview plan, real render, forced restart, completed-checkpoint preservation, canonical WAV assembly, and API range playback passed. Expanded regression: 537 Python passed, 5 intentional opt-in live-environment skips. |
-| 2026-09-29 | Qwen lifecycle harness working tree | Windows development workstation with CUDA | Real Qwen design/clone/resume | Python 3.12.14, `qwen-tts 0.1.1`, PyTorch 2.11.0+cu128; VoiceDesign take 2 and 1.7B Base cloning passed with seed `424242`, five non-default sampling values, forced restart, frozen-control preservation, and unchanged completed-checkpoint hash/timestamp/attempt count. |
+| 2026-09-29 | `47b6d19` | Windows development workstation with CUDA | Real Qwen design/clone/resume | Python 3.12.14, `qwen-tts 0.1.1`, PyTorch 2.11.0+cu128; VoiceDesign take 2 and 1.7B Base cloning passed with seed `424242`, five non-default sampling values, forced restart, frozen-control preservation, and unchanged completed-checkpoint hash/timestamp/attempt count. |
+| 2026-09-29 | Audio8 lifecycle harness working tree | Windows development workstation with CUDA | Real Audio8 clone/resume | Python 3.12.14, Transformers 4.57.6, PyTorch/Torchaudio 2.11.0+cu128, Audio8 0.6B, RTX 5070 Ti; exact-transcript cloning, forced restart, completed-checkpoint preservation, and canonical WAV assembly passed. The live run also verified the current upstream processor/decoder API compatibility fix. Post-fix regression: 538 passed, 6 intentional opt-in live skips. |
 | Pending | Pending | Clean Windows x64 VM | Fresh install / upgrade / uninstall / portable | Record artifact hashes, Windows version, install paths, and observations here. |
 | Pending | Pending | GitHub Actions `windows-2025` | Browser/package workflows | Link successful workflow runs and retained failure artifacts when applicable. |
 

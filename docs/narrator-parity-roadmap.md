@@ -413,11 +413,15 @@ sequence, cancellation cleanup, deterministic archives, API validation, and the 
   1.7B Base clone model rendered with synthesis seed `424242` plus non-default temperature,
   subtalker temperature, top-k, top-p, and repetition penalty. The forced restart preserved the
   complete frozen profile/control snapshot and did not rewrite or re-attempt the completed chunk.
-- [ ] Run real Audio8 clone narration with forced resume.
-- [ ] Confirm local engine processes/models are reused only within their intended job/session scope
+- [x] Run real Audio8 clone narration with forced resume. On 2026-09-29, Python 3.12.14,
+  Transformers 4.57.6, CUDA PyTorch 2.11.0, and the Audio8 0.6B checkpoint cloned an exact-
+  transcript Edge reference on an RTX 5070 Ti. A forced restart preserved the completed chunk's
+  attempt count, timestamp, and hash before finishing a canonical WAV. This acceptance pass also
+  exposed and fixed the upstream processor/decoder contract drift and the invalid-waveform fallback.
+- [x] Confirm local engine processes/models are reused only within their intended job/session scope
   and released after completion/cancel/failure. Deterministic adapter/subprocess coverage now proves
   one-session-per-job reuse plus closure after success, cancellation, engine failure, and timeout
-  restart; the configured real-model runs remain the final evidence.
+  restart; real Kokoro, Qwen, and Audio8 forced-restart runs confirmed process-bound model sessions.
 
 ### Crash, scale, and packaging
 
@@ -585,6 +589,14 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   `424242` and five non-default sampling values remained frozen across a forced process restart;
   the completed PCM checkpoint retained its attempt count, timestamp, and hash before canonical
   WAV assembly.
+- [x] 2026-09-29 — Real Audio8 clone/resume acceptance passed with Python 3.12.14,
+  Transformers 4.57.6, PyTorch/Torchaudio 2.11.0+cu128, and the Audio8 0.6B checkpoint on an RTX
+  5070 Ti. SPLICR cloned an exact-transcript Edge reference, persisted the first PCM checkpoint,
+  restarted the engine process, preserved that checkpoint's attempt count/timestamp/hash, and
+  assembled canonical WAV. The run also drove a compatibility update for Audio8's current
+  `reference_audio`/`reference_text`, generation-result, and decoder-length contracts; three
+  implausible outputs now pause the job instead of silently accepting the last bad waveform.
+  The post-fix regression suite passed 538 tests with six intentional opt-in live skips.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
@@ -592,9 +604,9 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
 
 - **Active milestone:** Milestone 9 — real-world acceptance and release hardening, including the
   remaining Milestones 2/3/5/7 live-environment evidence.
-- **Next implementation slice:** execute and record the credential/model/clean-VM checks in
-  `docs/RELEASE_CHECKLIST.md`. Real Qwen/Kokoro/Audio8, remote-provider, clean-VM, and audible
-  sentence-seam acceptance remains ready when configured environments are available.
+- **Next implementation slice:** execute and record the remaining credential and clean-VM checks in
+  `docs/RELEASE_CHECKLIST.md`. Gemini/Deepgram credentials, the clean-VM matrix, multi-gigabyte
+  soak, current-commit GitHub Actions, and audible sentence-seam acceptance remain.
 - **Known unrelated worktree item:** `LICENSE.txt` is untracked and not part of this roadmap unless
   deliberately adopted later.
 

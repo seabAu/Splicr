@@ -140,18 +140,24 @@ class _FakeInputs(dict):
 
 
 class _FakeAudio8Processor:
+    calls: list[dict] = []
+
     @classmethod
     def from_pretrained(cls, *args, **kwargs):
         del args, kwargs
         return cls()
 
     def __call__(self, **kwargs):
-        del kwargs
+        self.__class__.calls.append(kwargs)
         return _FakeInputs(input_ids=[1])
 
 
 class _FakeAudio8Model:
     load_count = 0
+    generate_calls: list[dict] = []
+
+    def __init__(self) -> None:
+        self.config = SimpleNamespace(codec_sample_rate=44_100)
 
     @classmethod
     def from_pretrained(cls, *args, **kwargs):
@@ -167,12 +173,12 @@ class _FakeAudio8Model:
         return self
 
     def generate(self, **kwargs):
-        del kwargs
-        return [1]
+        self.__class__.generate_calls.append(kwargs)
+        return SimpleNamespace(codes=[1])
 
     def decode_audio(self, generated):
         del generated
-        return [0.1] * 60_000, 44_100
+        return [[0.1] * 60_000], [60_000]
 
 
 @pytest.mark.parametrize(
@@ -313,6 +319,8 @@ def test_qwen_voice_design_tool_writes_exact_managed_reference(monkeypatch, tmp_
 
 def test_audio8_runtime_reuses_model_and_normalizes_to_24khz(monkeypatch, tmp_path) -> None:
     _FakeAudio8Model.load_count = 0
+    _FakeAudio8Model.generate_calls.clear()
+    _FakeAudio8Processor.calls.clear()
     modules = {
         "numpy": _FakeNumpy,
         "torch": _FakeTorch,
@@ -343,6 +351,58 @@ def test_audio8_runtime_reuses_model_and_normalizes_to_24khz(monkeypatch, tmp_pa
     runtime.synthesize("Another sufficiently long sentence for rendering.", options, second)
 
     assert _FakeAudio8Model.load_count == 1
+    assert _FakeAudio8Processor.calls[0] == {
+        "text": ["A sufficiently long sentence for the duration check."],
+        "reference_audio": [str(reference)],
+        "reference_text": ["Exact spoken words."],
+        "return_tensors": "pt",
+    }
+    assert _FakeAudio8Model.generate_calls[0]["max_new_tokens"] == 1024
+    assert _FakeAudio8Model.generate_calls[0]["return_dict_in_generate"] is True
     expected_samples = round(60_000 * 24_000 / 44_100)
     assert len(first.read_bytes()) == expected_samples * 2
     assert len(second.read_bytes()) == expected_samples * 2
+
+
+def test_audio8_runtime_rejects_three_implausible_results(monkeypatch, tmp_path) -> None:
+    class ImplausibleAudio8Model(_FakeAudio8Model):
+        def decode_audio(self, generated):
+            del generated
+            return [[0.1]], [1]
+
+    modules = {
+        "numpy": _FakeNumpy,
+        "torch": _FakeTorch,
+        "transformers": SimpleNamespace(
+            AutoModel=ImplausibleAudio8Model,
+            AutoProcessor=_FakeAudio8Processor,
+        ),
+    }
+    monkeypatch.setattr(engine_worker.importlib, "import_module", modules.__getitem__)
+    reference = tmp_path / "reference.wav"
+    reference.write_bytes(b"RIFF-reference")
+    options = {
+        "variables": {
+            engine_worker.VOICE_PROFILE_VARIABLE: {
+                "id": "voice-one",
+                "kind": "cloned",
+                "reference_audio_path": str(reference),
+                "reference_text": "Exact spoken words.",
+                "settings": {},
+            }
+        }
+    }
+
+    with pytest.raises(
+        engine_worker.EngineWorkerRequestError,
+        match="implausible audio after three attempts",
+    ) as captured:
+        engine_worker.Audio8Runtime().synthesize(
+            "This sentence must not accept a one-sample waveform.",
+            options,
+            tmp_path / "rejected.pcm",
+        )
+
+    assert captured.value.code == "audio8_implausible_output"
+    assert captured.value.retryable is True
+    assert not (tmp_path / "rejected.pcm").exists()
