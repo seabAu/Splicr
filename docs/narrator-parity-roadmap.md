@@ -444,7 +444,10 @@ sequence, cancellation cleanup, deterministic archives, API validation, and the 
   canonical WAV was range-read at its beginning, midpoint, and end in 1 KB responses, proving the
   application does not materialize a multi-gigabyte playback body in browser/server memory.
 - [ ] Test clean Windows installer install, upgrade with existing data/jobs/profiles, uninstall with
-  intentional user-data policy, and portable ZIP execution in a clean VM.
+  intentional user-data policy, and portable ZIP execution in a clean VM. The reusable PowerShell
+  artifact harness now automates the non-interactive subset on a disposable Windows machine and is
+  required before workflow upload; lifecycle/Start-menu/browser use, real project playback,
+  upgrade migration, Windows Settings, and a genuinely clean VM remain manual release evidence.
 - [ ] Verify Chromium acceptance in GitHub Actions and retain failure traces/screenshots/video. The
   workflow runs for pull requests, `main`, and release tags and retains Playwright diagnostics on
   failure; link a green release-commit run in the evidence record.
@@ -648,6 +651,12 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   `5fe9d9bc36479da65ec879ac84ba111fff7f2ee313748c8fd131eeecbbb8e605`. Ruff and the full regression
   suite passed (546 tests, 7 intentional live skips). Public release still needs corresponding-source
   publication and final compliance review.
+- [x] 2026-09-29 — Automated Windows artifact acceptance became a required pre-upload workflow gate.
+  The same `0.1.0-dev.5` portable ZIP and installer passed checksum verification, package smoke,
+  Unicode/spaces extraction with an unchanged package tree, redirected state isolation, installed
+  shared-library/provenance checks, a real OpenH264 H.264/AAC MP4 probe, uninstall cleanup, and
+  preserved user data. The harness writes a machine-readable acceptance JSON beside the artifacts;
+  the interactive clean-VM and upgrade-migration matrix remains open.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 

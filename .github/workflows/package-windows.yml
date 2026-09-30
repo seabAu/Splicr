@@ -71,6 +71,12 @@ jobs:
             -Version "${{ steps.version.outputs.version }}" `
             -FfmpegBin $ffmpegBin
 
+      - name: Accept portable and installer artifacts
+        shell: pwsh
+        run: |
+          .\packaging\windows\test-package.ps1 `
+            -Version "${{ steps.version.outputs.version }}"
+
       - name: Upload package artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -79,5 +85,6 @@ jobs:
             dist/SPLICR-Studio-${{ steps.version.outputs.version }}-Windows-x64-portable.zip
             dist/SPLICR-Studio-${{ steps.version.outputs.version }}-Windows-x64-setup.exe
             dist/SPLICR-Studio-${{ steps.version.outputs.version }}-SHA256SUMS.txt
+            dist/SPLICR-Studio-${{ steps.version.outputs.version }}-Windows-x64-ACCEPTANCE.json
           if-no-files-found: error
           retention-days: 30

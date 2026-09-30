@@ -52,5 +52,35 @@ than starting a competing service. `SPLICR Studio.exe --no-browser` runs the sam
 without automatically opening the browser, which is useful for managed launches and package
 acceptance; the window still owns and cleanly stops the private server.
 
+## Package acceptance
+
+Run the artifact-level harness only on a disposable Windows VM or CI runner. It installs and
+uninstalls the real package and therefore writes the normal per-user uninstall registration and
+Start menu entry while it runs. The harness requires PowerShell 7 (`pwsh`):
+
+```powershell
+.\packaging\windows\test-package.ps1 -Version 0.1.0
+```
+
+The harness independently verifies the checksum manifest, extracts the portable ZIP to a path with
+spaces, proves portable smoke leaves every package file unchanged, redirects mutable state to a
+separate per-user data root, silently installs the real installer, checks FFmpeg's shared LGPL
+configuration and provenance files, renders and probes an OpenH264/AAC MP4, uninstalls, and proves
+the application directory is removed while user data remains. It writes a machine-readable
+`SPLICR-Studio-<version>-Windows-x64-ACCEPTANCE.json` beside the packages. The release workflow
+runs this gate before uploading any artifact.
+
+This automated harness does not replace the release checklist's interactive clean-VM checks for
+the lifecycle window, browser launch/reuse, real document playback, upgrade migration, Windows
+Settings, Start menu behavior, or signing/malware review.
+
+## Removing local data manually
+
+Windows uninstall intentionally removes only the application and shortcuts. To erase projects,
+profiles, job history, generated media, settings, logs, and locally stored credential material,
+first close SPLICR Studio and back up anything needed, then delete
+`%LOCALAPPDATA%\SPLICR Studio\data` in File Explorer. This action is permanent and is deliberately
+separate from uninstall so upgrading or reinstalling cannot silently destroy in-progress work.
+
 The complete fresh-install, upgrade, uninstall, portable, live-engine, evidence, and rollback matrix
 is maintained in [`../../docs/RELEASE_CHECKLIST.md`](../../docs/RELEASE_CHECKLIST.md).
