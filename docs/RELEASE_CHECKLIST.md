@@ -30,12 +30,17 @@ npm --prefix studio-web exec -- playwright install chromium
 npm --prefix studio-web run test:e2e
 ```
 
-- [ ] Python suite passes with only documented opt-in live-environment skips.
-- [ ] Frontend unit suite and production build pass.
-- [ ] Every Chromium journey passes without console/page errors.
-- [ ] If Chromium fails, retain `studio-web/playwright-report/` and
-  `studio-web/test-results/` (trace, screenshot, and video).
-- [ ] Real FFmpeg/FFprobe smoke tests ran rather than being skipped.
+- [x] Python suite passes with only documented opt-in live-environment skips. Verified 2026-09-29:
+  539 passed, 7 intentional live skips.
+- [x] Frontend unit suite and production build pass. Verified 2026-09-29: 8 unit tests passed and
+  Vite 8.3.1 built the committed package assets.
+- [x] Every Chromium journey passes without console/page errors. Verified 2026-09-29: all 6
+  Playwright journeys passed against the supervised FastAPI server.
+- [x] Failure retention is configured for `studio-web/playwright-report/` and
+  `studio-web/test-results/` (trace, screenshot, and video); the current passing run produced no
+  failure diagnostics to retain.
+- [x] Real FFmpeg/FFprobe smoke tests ran rather than being skipped. The focused audiogram,
+  conversion, and finishing set passed all 42 tests on 2026-09-29.
 
 ## 3. Run deliberate live checks
 
@@ -47,6 +52,7 @@ $env:SPLICR_LIVE_PROVIDER = "gemini" # then deepgram / inworld
 uv run pytest -m live_provider tests/test_live_provider_acceptance.py
 
 uv run pytest -m live_engine tests/test_live_edge_provider.py
+uv run pytest -m live_engine tests/test_live_edge_sentence_revision.py
 uv run pytest -m live_engine tests/test_live_kokoro_acceptance.py
 uv run pytest -m live_engine tests/test_live_qwen_voice_design.py
 uv run pytest -m live_engine tests/test_live_audio8_acceptance.py
@@ -154,6 +160,7 @@ snapshot before the first install.
 | 2026-09-29 | `e9a1ff8` + Kokoro lifecycle harness update | Windows development workstation | Real Kokoro lifecycle | Python 3.12.14, Kokoro 0.9.4, `af_heart`; Markdown import, exact preview plan, real render, forced restart, completed-checkpoint preservation, canonical WAV assembly, and API range playback passed. Expanded regression: 537 Python passed, 5 intentional opt-in live-environment skips. |
 | 2026-09-29 | `47b6d19` | Windows development workstation with CUDA | Real Qwen design/clone/resume | Python 3.12.14, `qwen-tts 0.1.1`, PyTorch 2.11.0+cu128; VoiceDesign take 2 and 1.7B Base cloning passed with seed `424242`, five non-default sampling values, forced restart, frozen-control preservation, and unchanged completed-checkpoint hash/timestamp/attempt count. |
 | 2026-09-29 | Audio8 lifecycle harness working tree | Windows development workstation with CUDA | Real Audio8 clone/resume | Python 3.12.14, Transformers 4.57.6, PyTorch/Torchaudio 2.11.0+cu128, Audio8 0.6B, RTX 5070 Ti; exact-transcript cloning, forced restart, completed-checkpoint preservation, and canonical WAV assembly passed. The live run also verified the current upstream processor/decoder API compatibility fix. Post-fix regression: 538 passed, 6 intentional opt-in live skips. |
+| 2026-09-29 | Privacy/seam acceptance working tree | Windows development workstation | Privacy, real Edge seam, deterministic release gate | Diagnostic path redaction and the existing write-only secret/profile/browser audit passed. Real Edge source/revised WAVs and splice provenance were retained outside source control for listening. Current deterministic gates: 539 Python passed / 7 opt-in live skips; 8 frontend unit tests; Vite build; 6 Chromium journeys; 42 real FFmpeg/FFprobe tests. |
 | Pending | Pending | Clean Windows x64 VM | Fresh install / upgrade / uninstall / portable | Record artifact hashes, Windows version, install paths, and observations here. |
 | Pending | Pending | GitHub Actions `windows-2025` | Browser/package workflows | Link successful workflow runs and retained failure artifacts when applicable. |
 

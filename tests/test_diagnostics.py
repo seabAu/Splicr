@@ -92,6 +92,26 @@ def test_exception_chain_is_bounded_json_safe_and_redacted() -> None:
     assert "%5BREDACTED%5D@tts.example.test" in chain[0]["request_url"]  # type: ignore[index]
 
 
+def test_private_paths_are_removed_from_fields_and_exception_messages() -> None:
+    value = {
+        "reference_audio_path": r"C:\Users\Ember\Private Voices\reference.wav",
+        "nested": {"output-directory": "/home/ember/private/render"},
+        "message": (
+            "worker failed opening "
+            r"'C:\Users\Ember\Private Voices\reference.wav' after startup"
+        ),
+    }
+
+    sanitized = sanitize_diagnostic(value)
+    serialized = json.dumps(sanitized)
+
+    assert "Ember" not in serialized
+    assert "reference.wav" not in serialized
+    assert sanitized["reference_audio_path"] == "[PRIVATE_PATH]"
+    assert sanitized["nested"]["output-directory"] == "[PRIVATE_PATH]"  # type: ignore[index]
+    assert sanitized["message"] == "worker failed opening [PRIVATE_PATH] after startup"
+
+
 def test_response_diagnostic_redacts_headers_and_json_audio() -> None:
     secret = "response-secret"
     response = httpx.Response(

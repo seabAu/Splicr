@@ -60,8 +60,12 @@ state—remain the canonical representation of those values.
 - [x] A partial or failed artifact is never presented as a completed result.
 - [x] Every newly exposed value is validated server-side and frozen into the immutable RenderPlan,
   job, and chunk options used for resume.
-- [ ] Provider/engine secrets and private paths never enter logs, error reports, exported profiles,
-  browser storage, or GitHub Actions artifacts.
+- [x] Provider/engine secrets and private paths never enter logs, error reports, exported profiles,
+  browser storage, or GitHub Actions artifacts. Resource credentials remain write-only in the
+  vault, sensitive control values are rejected from profiles, Voice Profile API payloads omit
+  managed reference paths, Studio uses no browser persistence API, diagnostics recursively redact
+  credentials and path-bearing fields/quoted home paths, and CI injects no live provider secrets
+  into retained browser artifacts. Focused privacy regression coverage passed 2026-09-29.
 - [x] New long-running utilities use durable jobs with progress, cancellation, restart recovery,
   structured errors, and atomic final outputs.
 - [x] All advanced controls remain keyboard accessible, have labels/help text, and do not rely on
@@ -212,8 +216,10 @@ Voice Profile in Voice Studio; it never mutates a take number on an existing pro
   description/take profile rather than duplicating it.
 - [x] Add faithful fake-worker coverage plus an opt-in real-local-model acceptance test that
   validates the exact transcript, deterministic take seed, and canonical WAV contract.
-- [ ] Run the opt-in VoiceDesign acceptance test against a configured Qwen environment and record
-  its Python/model/date/result; mocks alone cannot close this local-model evidence item.
+- [x] Run the opt-in VoiceDesign acceptance test against a configured Qwen environment and record
+  its Python/model/date/result. Verified 2026-09-29 with Python 3.12.14, `qwen-tts 0.1.1`, the
+  1.7B VoiceDesign and Base models, deterministic take 2, synthesis seed `424242`, and CUDA
+  PyTorch 2.11.0; the full design/clone/forced-resume evidence appears under Milestone 9.
 
 ### Precise speed
 
@@ -311,7 +317,10 @@ Edge TTS was Narrator's zero-setup online fallback. It is not currently a merged
 - [x] Verify bytes/audio outside the replaced span remain unchanged where the format permits exact
   comparison.
 - [ ] Perform an audible real-engine seam check with sentence-timed Edge output and retain the
-  generated acceptance artifact outside source control.
+  generated acceptance artifact outside source control. The reproducible live gate passed on
+  2026-09-29 using exact Edge word timings grouped into sentence spans; it retained source/revised
+  WAVs plus provenance under ignored `.test-runs/seam-acceptance`. The 30 ms crossfade and +0.16 dB
+  level correction are verified; final human listening approval remains pending.
 
 ## Milestone 6 — durable multi-document queue
 

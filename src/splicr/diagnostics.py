@@ -15,6 +15,7 @@ from .domain import JsonValue, ProviderDiagnostic, ProviderError
 
 
 _REDACTED = "[REDACTED]"
+_PRIVATE_PATH = "[PRIVATE_PATH]"
 _MAX_DEPTH = 10
 _MAX_ITEMS = 200
 _MAX_STRING_CHARS = 64_000
@@ -31,6 +32,14 @@ _AUTH_VALUE_RE = re.compile(r"(?i)\b(?:bearer|basic|token)\s+[A-Za-z0-9._~+/%=-]
 _SECRET_ASSIGNMENT_RE = re.compile(
     r"(?i)\b(api[-_ ]?key|token|secret|password|credential|authorization)"
     r"(\s*[:=]\s*)(?:\"[^\"]*\"|'[^']*'|[^\s,;}&]+)"
+)
+_PRIVATE_PATH_KEY_RE = re.compile(
+    r"(?i)(?:^|[-_. ])(?:path|file(?:name)?|directory|folder)(?:$|[-_. ])"
+)
+_QUOTED_PRIVATE_PATH_RE = re.compile(
+    r"(?P<quote>['\"])(?:(?:[A-Za-z]:[\\/])|(?:\\\\)|(?:/(?:home|Users)/))"
+    r"[^'\"\r\n]+(?P=quote)",
+    re.IGNORECASE,
 )
 _BASE64_RE = re.compile(r"^[A-Za-z0-9+/\r\n]+={0,2}$")
 _PROXY_NAMES = (
@@ -63,6 +72,7 @@ def _redact_text(value: str, known_secrets: Iterable[str]) -> str:
         redacted = redacted.replace(secret, _REDACTED)
     redacted = _AUTH_VALUE_RE.sub(_REDACTED, redacted)
     redacted = _SECRET_ASSIGNMENT_RE.sub(rf"\1\2{_REDACTED}", redacted)
+    redacted = _QUOTED_PRIVATE_PATH_RE.sub(_PRIVATE_PATH, redacted)
     if len(redacted) <= _MAX_STRING_CHARS:
         return redacted
     omitted = len(redacted) - _MAX_STRING_CHARS
@@ -113,6 +123,8 @@ def sanitize_diagnostic(
         return "[maximum diagnostic depth reached]"
     if _key and _SENSITIVE_KEY_RE.search(_key):
         return _REDACTED
+    if _key and _PRIVATE_PATH_KEY_RE.search(_key):
+        return _PRIVATE_PATH
     if value is None or isinstance(value, bool | int):
         return value
     if isinstance(value, float):
