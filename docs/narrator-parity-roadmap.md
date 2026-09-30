@@ -742,8 +742,9 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   manifest-bound files preserve the WebM license/patent terms, compiled x86inc and wepoll notices,
   libzmq's MPL-2.0 terms, and OpenCORE's Apache, attribution, and explicit no-patent-rights texts.
   The exact recipes exclude eight test, example, optional-WebSocket, and packaging candidates. The
-  fetcher plus fail-closed reconciliation suites passed; real Windows package acceptance remains the
-  next gate.
+  fetcher plus fail-closed reconciliation suites passed. Real `0.1.0-dev.11` portable and installed-
+  package acceptance verified all 29 manifest-bound legal files plus the existing media and
+  lifecycle checks; hosted browser acceptance on the exact acceptance-record commit remains next.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
@@ -753,7 +754,7 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   remaining Milestones 2/3/5/7 live-environment evidence.
 - **Next implementation slice:** continue the bounded FFmpeg source/license review in
   `docs/FFMPEG_DISTRIBUTION.md`, while preserving the remaining credential and clean-VM checks in
-  `docs/RELEASE_CHECKLIST.md`. Twenty-three of 92 source locators are reviewed. Gemini/Deepgram
+  `docs/RELEASE_CHECKLIST.md`. Twenty-seven of 92 source locators are reviewed. Gemini/Deepgram
   credentials, the clean-VM matrix, complete FFmpeg corresponding
   source/compliance publication, malware/signing evidence, and audible sentence-seam acceptance
   remain.

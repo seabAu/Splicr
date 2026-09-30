@@ -130,8 +130,9 @@ into FFmpeg.
   disclaimer. Exact recipe paths exclude libvpx test/example dependencies and libzmq SHA-1, Unity,
   and Debian-packaging candidates. The downloader independently fetched and SHA-256-verified all
   29 manifest files; immutable GitHub mirror URLs avoid SourceForge's intermittent browser challenge
-  while exact hashes retain correspondence to the collected source. Real package acceptance remains
-  the next gate.
+  while exact hashes retain correspondence to the collected source. Real `0.1.0-dev.11` portable
+  and installed-package acceptance independently verified every one of those 29 files by exact
+  revision and SHA-256, plus the existing media and lifecycle checks.
 - [ ] Execute the tracked fetch commands and archive every enabled external dependency source at its
   recipe-pinned revision.
 - [ ] Record the applicable license and notice for every enabled dependency, including libraries
