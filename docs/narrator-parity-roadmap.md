@@ -678,6 +678,9 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   `docs/RELEASE_CHECKLIST.md`. Gemini/Deepgram credentials, the clean-VM matrix,
   current-commit GitHub Actions, FFmpeg corresponding-source/compliance publication,
   malware/signing evidence, and audible sentence-seam acceptance remain.
+- **Clean-VM routing:** the current workstation has no Windows Sandbox binary or Hyper-V,
+  VirtualBox, VMware, or QEMU management CLI. The clean-VM matrix must run on a separate disposable
+  Windows environment; local package-harness results are not a substitute.
 - **Known unrelated worktree item:** `LICENSE.txt` is untracked and not part of this roadmap unless
   deliberately adopted later.
 

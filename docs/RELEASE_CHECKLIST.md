@@ -133,6 +133,11 @@ Get-Content .\dist\SPLICR-Studio-0.1.0-SHA256SUMS.txt
 Use a supported Windows x64 VM with no Python, Node.js, uv, FFmpeg, or prior SPLICR files. Take a VM
 snapshot before the first install.
 
+The 2026-09-29 development workstation cannot serve as that clean environment: Windows Sandbox is
+not installed, and no Hyper-V, VirtualBox, VMware, or QEMU management CLI is available. Run this
+matrix on a separate disposable Windows VM; do not relabel the development-workstation harness as
+clean-VM evidence.
+
 ### Fresh installer
 
 - [ ] Install as a standard user without elevation.
