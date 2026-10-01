@@ -888,8 +888,9 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   resolves its conditional MinGW objects. The real dev.16 portable and installer passed schema-v2
   lifecycle acceptance at `2026-10-01T22:13:42.0809380Z` with all 162 files. Portable SHA-256:
   `457447fa80315530fe7a631c90788af879fa023e3cf6de1c3c96d072511aaeeb`; installer SHA-256:
-  `221cc01dab433076127f71f0f1e0d6f096bf6e7557ee015294a128ece219231b`. Hosted browser acceptance
-  is pending on the exact implementation commit.
+  `221cc01dab433076127f71f0f1e0d6f096bf6e7557ee015294a128ece219231b`. Hosted browser run
+  [`36933969511`](https://github.com/seabAu/Splicr/actions/runs/36933969511) passed all six Studio
+  journeys in 43.4 seconds on implementation commit `6da624f`.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
