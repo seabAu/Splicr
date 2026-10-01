@@ -187,4 +187,34 @@ if grep -Fq $'\tshipped-notice\t-\trequired\t' "$review"; then
     fi
 fi
 
+tampered_alias_revision="$work_root/tampered-alias-revision.tsv"
+sed '0,/1df3087ba8110c7f3ed3eb5f8869b814dbbe00b0/s//0000000000000000000000000000000000000000/' \
+    "$script_root/ffmpeg-source-locator-aliases.tsv" > "$tampered_alias_revision"
+if bash "$validator" "$review" "$script_root/THIRD_PARTY_NOTICES.md" "" \
+    "$script_root/ffmpeg-packaged-license-files.tsv" "$script_root/ffmpeg-packaged-license-companions.tsv" \
+    "$tampered_alias_revision" >/dev/null 2>&1; then
+    echo "Review validator accepted a locator alias outside its pinned revision" >&2
+    exit 1
+fi
+
+duplicate_alias="$work_root/duplicate-alias.tsv"
+cp "$script_root/ffmpeg-source-locator-aliases.tsv" "$duplicate_alias"
+tail -n 1 "$script_root/ffmpeg-source-locator-aliases.tsv" >> "$duplicate_alias"
+if bash "$validator" "$review" "$script_root/THIRD_PARTY_NOTICES.md" "" \
+    "$script_root/ffmpeg-packaged-license-files.tsv" "$script_root/ffmpeg-packaged-license-companions.tsv" \
+    "$duplicate_alias" >/dev/null 2>&1; then
+    echo "Review validator accepted a duplicate locator alias" >&2
+    exit 1
+fi
+
+unreviewed_alias_target="$work_root/unreviewed-alias-target.tsv"
+sed $'0,/SCRIPT_MIRROR\tSCRIPT_REPO/s//SCRIPT_REPO\tSCRIPT_MIRROR/' \
+    "$script_root/ffmpeg-source-locator-aliases.tsv" > "$unreviewed_alias_target"
+if bash "$validator" "$review" "$script_root/THIRD_PARTY_NOTICES.md" "" \
+    "$script_root/ffmpeg-packaged-license-files.tsv" "$script_root/ffmpeg-packaged-license-companions.tsv" \
+    "$unreviewed_alias_target" >/dev/null 2>&1; then
+    echo "Review validator accepted an alias whose canonical locator has no direct review" >&2
+    exit 1
+fi
+
 printf 'FFmpeg source license review validation passed tracked and negative cases.\n'

@@ -1,0 +1,3 @@
+stage	alias_locator_variable	canonical_locator_variable	revision	review_status	review_notes
+scripts.d/20-libiconv.sh	SCRIPT_MIRROR	SCRIPT_REPO	1df3087ba8110c7f3ed3eb5f8869b814dbbe00b0	reviewed	Fallback transport resolves the identical libiconv Git commit already inventoried and reviewed through SCRIPT_REPO; duplicating candidate rows would double-count one source tree.
+scripts.d/20-libiconv.sh	SCRIPT_MIRROR2	SCRIPT_REPO2	eb72eb6f75f5621c5d648acd11467fd124584617	reviewed	Fallback transport resolves the identical gnulib Git commit already inventoried and reviewed through SCRIPT_REPO2; duplicating candidate rows would double-count one source tree.

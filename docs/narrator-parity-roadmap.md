@@ -912,6 +912,12 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   `9e8329c0429ce11662f9d58816a90351a86f7fa2fbfca3f1bcbd3d8d3ea4ee3f`. Hosted browser run
   [`36938236224`](https://github.com/seabAu/Splicr/actions/runs/36938236224) passed all six Studio
   journeys in 44.1 seconds on implementation commit `19850b3`.
+- [x] 2026-10-01 — The two libiconv fallback transports are closed as commit-identical aliases of
+  their already-reviewed primary locators. Coverage rises to 85 of 92 locators without duplicating
+  the source tree's 13 candidates: reconciliation remains 412 candidates and the legal manifest
+  remains 172 files. The validator's positive and negative cases enforce pinned-revision identity,
+  one alias record per locator, a directly reviewed canonical locator, and no alias chains. Hosted
+  browser acceptance is pending for the implementation commit.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
@@ -921,8 +927,9 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   remaining Milestones 2/3/5/7 live-environment evidence.
 - **Next implementation slice:** continue the bounded FFmpeg source/license review in
   `docs/FFMPEG_DISTRIBUTION.md`, while preserving the remaining credential and clean-VM checks in
-  `docs/RELEASE_CHECKLIST.md`. Eighty-three of 92 source locators are reviewed; the current artifacts
-  pass the normal PowerShell 7 package harness and exact-commit hosted-browser acceptance.
+  `docs/RELEASE_CHECKLIST.md`. Eighty-five of 92 source locators are reviewed or validated aliases;
+  the current artifacts pass the normal PowerShell 7 package harness, with exact-commit
+  hosted-browser acceptance pending for the locator-alias validator change.
   Gemini/Deepgram
   credentials, the clean-VM matrix, complete FFmpeg corresponding
   source/compliance publication, malware/signing evidence, and audible sentence-seam acceptance

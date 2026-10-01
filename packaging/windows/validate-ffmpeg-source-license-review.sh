@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -gt 5 ]]; then
-    echo "usage: $0 [REVIEW_FILE [THIRD_PARTY_NOTICES_FILE [CANDIDATE_INVENTORY_FILE [PACKAGED_LICENSE_FILES [PACKAGED_LICENSE_COMPANIONS]]]]]" >&2
+if [[ $# -gt 6 ]]; then
+    echo "usage: $0 [REVIEW_FILE [THIRD_PARTY_NOTICES_FILE [CANDIDATE_INVENTORY_FILE [PACKAGED_LICENSE_FILES [PACKAGED_LICENSE_COMPANIONS [SOURCE_LOCATOR_ALIASES]]]]]]" >&2
     exit 2
 fi
 
@@ -15,8 +15,9 @@ notices_path="${2:-$script_root/THIRD_PARTY_NOTICES.md}"
 inventory_path="${3:-}"
 packaged_licenses_path="${4:-$script_root/ffmpeg-packaged-license-files.tsv}"
 packaged_companions_path="${5:-$script_root/ffmpeg-packaged-license-companions.tsv}"
+locator_aliases_path="${6:-$script_root/ffmpeg-source-locator-aliases.tsv}"
 
-for required in "$review_path" "$revisions_path" "$stages_path" "$notices_path" "$packaged_licenses_path" "$packaged_companions_path"; do
+for required in "$review_path" "$revisions_path" "$stages_path" "$notices_path" "$packaged_licenses_path" "$packaged_companions_path" "$locator_aliases_path"; do
     [[ -f "$required" ]] || { echo "Required review input not found: $required" >&2; exit 1; }
 done
 if [[ -n "$inventory_path" && ! -f "$inventory_path" ]]; then
@@ -106,6 +107,7 @@ declare -A seen_records=()
 declare -A inventory_records=()
 declare -A inventory_stages=()
 declare -A reviewed_inventory_records=()
+declare -A reviewed_locators=()
 inventory_candidate_count=0
 
 if [[ -n "$inventory_path" ]]; then
@@ -278,6 +280,7 @@ while IFS=$'\t' read -r stage locator_variable revision archive_sha256 candidate
         exit 1
     }
     seen_records[$record_key]=1
+    reviewed_locators["$stage|$locator_variable|$revision"]=1
     for companion_path in "${!companion_review_keys[@]}"; do
         [[ "${companion_review_keys[$companion_path]}" == "$record_key" ]] || continue
         [[ "$candidate_disposition" == "shipped-license" ]] || {
@@ -309,6 +312,72 @@ while IFS=$'\t' read -r stage locator_variable revision archive_sha256 candidate
 done < "$review_path"
 
 [[ "$reviewed_count" -gt 0 ]] || { echo "FFmpeg source license review contains no records" >&2; exit 1; }
+
+expected_locator_aliases_header=$'stage\talias_locator_variable\tcanonical_locator_variable\trevision\treview_status\treview_notes'
+[[ "$(head -n 1 "$locator_aliases_path")" == "$expected_locator_aliases_header" ]] || {
+    echo "Unexpected FFmpeg source locator alias header" >&2
+    exit 1
+}
+declare -A locator_alias_targets=()
+locator_alias_count=0
+while IFS=$'\t' read -r alias_stage alias_locator_variable canonical_locator_variable alias_revision \
+    alias_review_status alias_review_notes extra; do
+    [[ "$alias_stage" != "stage" ]] || continue
+    [[ -z "${extra:-}" && "$alias_locator_variable" =~ ^[A-Z][A-Z0-9_]*$ && \
+        "$canonical_locator_variable" =~ ^[A-Z][A-Z0-9_]*$ && \
+        "$alias_locator_variable" != "$canonical_locator_variable" && \
+        "$alias_revision" =~ ^[0-9a-f]{40}$ && \
+        "$alias_review_status" == "reviewed" && -n "$alias_review_notes" ]] || {
+        echo "Invalid FFmpeg source locator alias row: $alias_stage $alias_locator_variable" >&2
+        exit 1
+    }
+    grep -Fxq "$alias_stage" "$stages_path" || {
+        echo "Source locator alias names a stage outside the enabled graph: $alias_stage" >&2
+        exit 1
+    }
+    alias_graph_record="$(awk -F '\t' -v stage="$alias_stage" -v variable="$alias_locator_variable" '
+        NR > 1 && $1 == stage && $2 == variable { print $3 "\t" $5; exit }
+    ' "$revisions_path")"
+    canonical_graph_record="$(awk -F '\t' -v stage="$alias_stage" -v variable="$canonical_locator_variable" '
+        NR > 1 && $1 == stage && $2 == variable { print $3 "\t" $5; exit }
+    ' "$revisions_path")"
+    [[ -n "$alias_graph_record" && -n "$canonical_graph_record" ]] || {
+        echo "Source locator alias is absent from the pinned graph: $alias_stage $alias_locator_variable" >&2
+        exit 1
+    }
+    IFS=$'\t' read -r alias_url alias_graph_revision <<< "$alias_graph_record"
+    IFS=$'\t' read -r canonical_url canonical_graph_revision <<< "$canonical_graph_record"
+    [[ "$alias_graph_revision" == "$alias_revision" && \
+        "$canonical_graph_revision" == "$alias_revision" && \
+        "$alias_url" != "$canonical_url" ]] || {
+        echo "Source locator alias does not bind distinct transports of one pinned revision: $alias_stage $alias_locator_variable" >&2
+        exit 1
+    }
+    alias_key="$alias_stage|$alias_locator_variable|$alias_revision"
+    canonical_key="$alias_stage|$canonical_locator_variable|$alias_revision"
+    [[ -z "${locator_alias_targets[$alias_key]:-}" ]] || {
+        echo "Duplicate FFmpeg source locator alias: $alias_key" >&2
+        exit 1
+    }
+    [[ -n "${reviewed_locators[$canonical_key]:-}" ]] || {
+        echo "Source locator alias target has no reviewed candidates: $canonical_key" >&2
+        exit 1
+    }
+    [[ -z "${reviewed_locators[$alias_key]:-}" ]] || {
+        echo "Source locator alias duplicates directly reviewed candidates: $alias_key" >&2
+        exit 1
+    }
+    locator_alias_targets["$alias_key"]="$canonical_key"
+    locator_alias_count=$((locator_alias_count + 1))
+done < "$locator_aliases_path"
+for alias_key in "${!locator_alias_targets[@]}"; do
+    canonical_key="${locator_alias_targets[$alias_key]}"
+    [[ -z "${locator_alias_targets[$canonical_key]:-}" ]] || {
+        echo "Chained FFmpeg source locator aliases are not allowed: $alias_key" >&2
+        exit 1
+    }
+done
+
 for companion_path in "${!companion_review_keys[@]}"; do
     [[ -n "${companion_review_hits[$companion_path]:-}" ]] || {
         echo "Packaged companion license has no exact reviewed source candidate: $companion_path" >&2
@@ -330,9 +399,15 @@ if [[ -n "$inventory_path" ]]; then
     done
 fi
 source_locator_count="$(($(wc -l < "$revisions_path") - 1))"
-printf 'Validated %s reviewed FFmpeg source candidate(s): %s shipped license(s), %s supplemental notice(s), %s not built, %s build-only/not shipped; %s pinned source locator(s) exist and full-graph review remains open.\n' \
+validated_locator_count="$((${#reviewed_locators[@]} + locator_alias_count))"
+[[ "$validated_locator_count" -le "$source_locator_count" ]] || {
+    echo "Validated source locator count exceeds the pinned graph" >&2
+    exit 1
+}
+printf 'Validated %s reviewed FFmpeg source candidate(s): %s shipped license(s), %s supplemental notice(s), %s not built, %s build-only/not shipped; %s of %s pinned source locator(s) have exact review or validated aliases and full-graph review remains open.\n' \
     "$reviewed_count" "$shipped_license_count" "$shipped_notice_count" "$not_built_count" "$build_only_count" \
-    "$source_locator_count"
+    "$validated_locator_count" "$source_locator_count"
+printf 'Validated %s commit-identical source locator alias(es).\n' "$locator_alias_count"
 printf 'Validated %s external companion license mapping(s).\n' "$companion_count"
 if [[ -n "$inventory_path" ]]; then
     printf 'All %s filename-based candidate(s) in the supplied inventory have an exact reviewed disposition.\n' \

@@ -346,6 +346,12 @@ for that LGPL-only path without replacement.
   bytes, SHA-256 `9e8329c0429ce11662f9d58816a90351a86f7fa2fbfca3f1bcbd3d8d3ea4ee3f`.
   Hosted browser run [`36938236224`](https://github.com/seabAu/Splicr/actions/runs/36938236224)
   passed all six Studio journeys in 44.1 seconds on implementation commit `19850b3`.
+- [x] The two libiconv fallback transports are validated as commit-identical aliases of the
+  already-reviewed primary libiconv and gnulib locators. Coverage rises to 85 of 92 locators while
+  candidate reconciliation remains exactly 412 and the legal manifest remains 172 files; duplicating
+  the 13 candidate rows would incorrectly count one source tree twice. The fail-closed validator
+  rejects revision divergence, duplicate aliases, aliases without a directly reviewed canonical
+  locator, and chained aliases. Hosted browser acceptance is pending for the implementation commit.
 - [ ] Execute the tracked fetch commands and archive every enabled external dependency source at its
   recipe-pinned revision.
 - [ ] Record the applicable license and notice for every enabled dependency, including libraries

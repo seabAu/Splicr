@@ -112,7 +112,7 @@ partial or full collection, run `inventory-ffmpeg-source-licenses.sh` against it
 `test-ffmpeg-source-license-inventory.sh` and `test-ffmpeg-source-license-review.sh`. Generated
 candidate rows remain pending until their source identity, SPDX expression, and binary notice
 obligation are added to the tracked `ffmpeg-source-license-review.tsv`. The reviewed set currently
-covers 83 of 92 source locators and 412 detected candidates: 138 shipped licenses, 50 supplemental
+covers 85 of 92 source locators and 412 detected candidates: 138 shipped licenses, 50 supplemental
 notices, 166 recipe-proven not-built candidates, and 58 build-only candidates absent from the
 distributed binary. Required notices are hash-anchored byte-for-byte in `THIRD_PARTY_NOTICES.md` or
 separately manifest-bound and packaged, including exact files for ffnvcodec, dav1d, FriBidi,
@@ -135,7 +135,9 @@ and winpthreads notices are preserved exactly; the runtime notice's unresolved C
 conservative even though package inspection shows the relevant math calls resolve to Windows UCRT and
 no distinctive Cephes implementation markers are incorporated. All 172 manifest-bound files
 are fetched and hash-checked. FFmpeg's own license is
-not treated as a substitute for dependency licenses.
+not treated as a substitute for dependency licenses. The two libiconv fallback transports are
+validated in `ffmpeg-source-locator-aliases.tsv` as commit-identical aliases of the already-reviewed
+primary locators; they increase locator coverage without duplicating one source tree's 13 candidates.
 rav1e remains outside the reviewed set because its recipe performs a time-dependent Cargo update and
 downloads a target-specific crate closure; its complete vendored dependency notices must be
 reconciled before that stage can be promoted.
