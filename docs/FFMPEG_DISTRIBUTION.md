@@ -272,6 +272,17 @@ for that LGPL-only path without replacement.
   passed all six Studio journeys in 44.1 seconds on commit `e76e3e5`. rav1e remains unresolved: its
   recipe performs a time-dependent Cargo update and the full target crate closure must be
   notice-reconciled before promotion.
+- [x] The libplacebo batch raised exact coverage to 68 of 92 locators and 283 candidates: 96 shipped
+  licenses, 33 supplemental notices, 104 not-built candidates, and 50 build-only/not-shipped
+  candidates. Fourteen exact package files bring the legal manifest to 115 hash-verified records.
+  The review follows the recursive submodules to their own immutable revisions and packages the
+  Vulkan-Headers, fast_float, glad, project, shader, filter, and hashing terms; Jinja and MarkupSafe
+  are build-only generators, while the disabled demos and Nuklear subtree are not built. The rebuilt
+  `0.1.0-dev.16` package passed schema-v2 lifecycle acceptance with all 115 files on Windows 10 at
+  `2026-10-01T21:01:26.4972742Z`. Portable: 184,313,166 bytes, SHA-256
+  `aba0200ad839480fb8b1354d93b4d4f06f5a390de2c325ca1aab330651a6bf25`. Installer: 119,873,387
+  bytes, SHA-256 `4899de203fd0ea1007e679df9959112868f70a2b44b24bed25a7955208b9854c`.
+  Hosted browser acceptance is pending on the exact implementation commit.
 - [ ] Execute the tracked fetch commands and archive every enabled external dependency source at its
   recipe-pinned revision.
 - [ ] Record the applicable license and notice for every enabled dependency, including libraries

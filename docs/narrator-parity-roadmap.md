@@ -854,6 +854,13 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   [`36923571926`](https://github.com/seabAu/Splicr/actions/runs/36923571926) passed all six Studio
   journeys in 44.1 seconds on commit `e76e3e5`. rav1e remains open until its time-dependent Cargo
   dependency closure is completely reconciled and packaged.
+- [x] 2026-10-01 — libplacebo is promoted and validated, raising tracked coverage to 68 of 92
+  locators and 283 exact candidates. Fourteen exact legal files bring the manifest to 115 records,
+  including recursive-submodule and compiled source notices. The real dev.16 portable and installer
+  passed schema-v2 lifecycle acceptance at `2026-10-01T21:01:26.4972742Z` with all 115 files.
+  Portable SHA-256: `aba0200ad839480fb8b1354d93b4d4f06f5a390de2c325ca1aab330651a6bf25`;
+  installer SHA-256: `4899de203fd0ea1007e679df9959112868f70a2b44b24bed25a7955208b9854c`.
+  Hosted browser acceptance is pending on the exact implementation commit.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
@@ -863,8 +870,9 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   remaining Milestones 2/3/5/7 live-environment evidence.
 - **Next implementation slice:** continue the bounded FFmpeg source/license review in
   `docs/FFMPEG_DISTRIBUTION.md`, while preserving the remaining credential and clean-VM checks in
-  `docs/RELEASE_CHECKLIST.md`. Sixty-seven of 92 source locators are reviewed; the current artifacts
-  pass the normal PowerShell 7 package harness and exact-commit hosted-browser acceptance.
+  `docs/RELEASE_CHECKLIST.md`. Sixty-eight of 92 source locators are reviewed; the current artifacts
+  pass the normal PowerShell 7 package harness, while exact-commit hosted-browser acceptance is
+  pending for this checkpoint.
   Gemini/Deepgram
   credentials, the clean-VM matrix, complete FFmpeg corresponding
   source/compliance publication, malware/signing evidence, and audible sentence-seam acceptance

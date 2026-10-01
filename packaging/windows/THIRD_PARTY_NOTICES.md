@@ -845,6 +845,50 @@ SIMDe under MIT. Their exact notices are packaged as `ffmpeg/VVENC-NLOHMANN-JSON
 `ffmpeg/VVENC-SIMDE-COPYING.txt` (SHA-256
 `75ce0a8c5a7bff42fbd6f8f3b469b518132132c4f4948fb8d02b1ccb5d0df9d8`).
 
+## libplacebo
+
+libplacebo at commit `e2972fdd09adacd383656738d7d280f0cd84a761` is statically
+incorporated into the bundled media libraries under LGPL-2.1-or-later. The exact project license is
+packaged as `ffmpeg/LIBPLACEBO-LICENSE.txt` (SHA-256
+`b3aa400aca6d2ba1f0bd03bd98d03d1fe7489a3bbb26969d72016360af8a5c9d`).
+
+The enabled Vulkan, OpenGL, shader, parsing, and hashing paths also carry the following exact
+license and attribution files:
+
+- Vulkan-Headers license map, Apache-2.0 text, and MIT text:
+  `ffmpeg/LIBPLACEBO-VULKAN-HEADERS-LICENSE.md`
+  (`ac24e5ea920e4318e4d02c4086ae51f53cfb03feed06c18df1019e7ada1ec7bc`),
+  `ffmpeg/LIBPLACEBO-VULKAN-HEADERS-APACHE-2.0.txt`
+  (`cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30`), and
+  `ffmpeg/LIBPLACEBO-VULKAN-HEADERS-MIT.txt`
+  (`1ca3502222d967f3be5751c55f6b7ee735b5383909c3b501495f54b216dbf227`).
+- fast_float Apache-2.0, Boost-1.0, and MIT alternatives:
+  `ffmpeg/LIBPLACEBO-FAST-FLOAT-LICENSE-APACHE.txt`
+  (`097a889aa954d04e088b790b10a4014d6189561d0a6013935a73ce3d4ddaaf06`),
+  `ffmpeg/LIBPLACEBO-FAST-FLOAT-LICENSE-BOOST.txt`
+  (`8d8291caf1cee26d23acf3eb67c9f9a2d58f1c681b16a4fbe8cbfb9e3c0b5a9b`), and
+  `ffmpeg/LIBPLACEBO-FAST-FLOAT-LICENSE-MIT.txt`
+  (`e562f3f974ced7e69dd1db77b820b36bcf8f30377f1aa105723fba449c53c4e6`).
+- glad generator/specification/materials terms:
+  `ffmpeg/LIBPLACEBO-GLAD-LICENSE.txt`
+  (`cbb325cd4ac5bd06717ffa34a322b984f9d285e4c67c8ca1b7380d6ef08c2a77`).
+- Compiled source notices:
+  `ffmpeg/LIBPLACEBO-filters.c`
+  (`706c8fcafd9e8b671e9129a28f6789723425b74dfd218329ea6efb01d2430dd0`),
+  `ffmpeg/LIBPLACEBO-hash.h`
+  (`2a19455f05179e1146b8f1bbfdc8c485c293b77568cec38e3588eca39a2f1ba9`),
+  `ffmpeg/LIBPLACEBO-deinterlacing.h`
+  (`c3a21191792421f6cc707c24735c4a120a2135fd36e6e58c1b895def4244efb0`),
+  `ffmpeg/LIBPLACEBO-film_grain.h`
+  (`a6df80b759aaf45bd445fce1db3bcb26fc4fdc5e52c672d294bab709eaec24ab`),
+  `ffmpeg/LIBPLACEBO-dithering.c`
+  (`72b2d4accb92132d673a3429c7d92b822547da4500cab305df880a3215039e65`), and
+  `ffmpeg/LIBPLACEBO-film_grain_av1.c`
+  (`d0acee2090ad38777e12f2472bc3e970339b3aeb7eb20ac919cd12575dde3b69`).
+
+Vendored Jinja and MarkupSafe are used only by build-time source generators and are not linked or
+installed. The recipe sets `demos=false`, excluding the Nuklear and demo-only license candidates.
+
 Advanced audiogram rendering also includes these Python libraries in the frozen desktop package:
 
 - NumPy, distributed under the BSD 3-Clause license: https://numpy.org/doc/stable/license.html
