@@ -236,6 +236,15 @@ for that LGPL-only path without replacement.
   bytes, SHA-256 `43266d10023515a62264200e8c697b8f1f5febcdae8d99a380bf65de454a61df`.
   Hosted browser run [`36913670670`](https://github.com/seabAu/Splicr/actions/runs/36913670670)
   passed all six Studio journeys in 45.8 seconds on commit `9e3d8ee`.
+- [x] The aribb24, libaribcaption, libass, and libbluray batch raised exact coverage to 63 of 92
+  locators and 249 candidates: 78 shipped licenses, 28 supplemental notices, 98 not-built
+  candidates, and 45 build-only/not-shipped candidates. Nine exact package files bring the legal
+  manifest to 92 hash-verified records. Recipe and build-manifest evidence excludes libaribcaption's
+  OpenSSL-replaced MD5 body, libass's AArch64 assembly, libbluray's disabled BD-J ASM payload, and
+  libbluray's tools-only getopt fallback. The rebuilt `0.1.0-dev.16` package passed schema-v2
+  lifecycle acceptance with all 92 files on Windows 10. Portable: 184,241,112 bytes, SHA-256
+  `efd590cb5321c3dc1cf62bfb9e88f50c8ed939b989eec26a5beab6fe9eccb854`. Installer: 119,839,389
+  bytes, SHA-256 `ed928b4b0e0f54de2c525fcef98abd22f02131b5bc3b428709a38c0d8817c21c`.
 - [ ] Execute the tracked fetch commands and archive every enabled external dependency source at its
   recipe-pinned revision.
 - [ ] Record the applicable license and notice for every enabled dependency, including libraries

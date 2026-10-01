@@ -756,6 +756,50 @@ are packaged as `ffmpeg/FREETYPE-BDF-README.txt`, `ffmpeg/FREETYPE-PCF-README.tx
 `85f96e9fd54d9ef69eb39e9dc1d085b6e071921cc012da0f503c75d4b8bf336b`. The build selects the
 earlier external static zlib through `zlib.pc`, so FreeType's bundled zlib fallback is not compiled.
 
+## ARIB B24 caption decoding
+
+The bundled FFmpeg dependency graph statically incorporates aribb24 at pinned revision
+`5e9be272f96e00f15a2f3c5f8ba7e124862aec38`. Compiled source headers grant
+LGPL-2.1-or-later; the upstream later-version license text is packaged as
+`ffmpeg/ARIBB24-COPYING.txt` with SHA-256
+`da7eabb7bafdf7d3ae5e9f223aa5bdc1eece45ac569dc21b3b037520b4464768`. The exact notice from the
+main compiled translation unit is preserved as `ffmpeg/ARIBB24-aribb24.c` with SHA-256
+`c86328d3b911524c059cdff3419c37a3427000b66ffd873d14d763ae613003ba`.
+
+## ARIB caption rendering
+
+libaribcaption at pinned revision `c64c23b8905ba514b87c9789269e9f66f949ffe0` is statically
+incorporated with FreeType rendering enabled. Its exact MIT notice is packaged as
+`ffmpeg/LIBARIBCAPTION-LICENSE.txt` with SHA-256
+`5149f1ce4fe89190d86bfb440456701a3a7406fc2b19ef0d8b57661f62b32c04`. Exact ISC-style notices
+from the compiled aligned-allocation and OpenType GSUB implementations are packaged as
+`ffmpeg/LIBARIBCAPTION-aligned_alloc.cpp` and `ffmpeg/LIBARIBCAPTION-open_type_gsub.cpp`, with
+SHA-256 values `391e76fb12525170fa6b4c097162825d3dc563d36587b5eb543d98e8c4a0f697` and
+`54ef69e6a795b15b6dccf41f1d33cfc7bc699ba6880abf80053c2e280060df95`. The bundled MD5 fallback
+is excluded because the recipe forces OpenSSL support.
+
+## libass subtitle rendering
+
+libass at pinned revision `f61db567e6593df3470e91594bcd4ad2d0473aff` is statically incorporated
+with DirectWrite and x86 NASM enabled. Its exact ISC project notice is packaged as
+`ffmpeg/LIBASS-COPYING.txt` with SHA-256
+`f7e30699d02798351e7f839e3d3bfeb29ce65e44efa7735c225464c4fd7dfe9c`. Exact notices from the
+compiled string-to-double and x86 assembly support are packaged as `ffmpeg/LIBASS-ass_strtod.c`
+and `ffmpeg/LIBASS-x86inc.asm`, with SHA-256 values
+`9b411d6e55b4595d4ef414bebef188a97b41358967b12c3692ee5caccb484991` and
+`14d75eaebe68c92890f5f03ce6ebdf4b8b15f2ccf0a8061c2f8459715d960b26`. The included DirectWrite
+compatibility header is public domain and wyhash is Unlicense; neither requires a binary notice.
+The AArch64 assembly candidate is not part of this Windows x64 build.
+
+## libbluray
+
+libbluray at pinned revision `a24f4fad4d62893de647abc8671397747b2359dd` is statically incorporated
+under LGPL-2.1-or-later. Its exact LGPL-2.1 text is packaged as
+`ffmpeg/LIBBLURAY-COPYING.txt` with SHA-256
+`b3aa400aca6d2ba1f0bd03bd98d03d1fe7489a3bbb26969d72016360af8a5c9d`. BD-J, tools,
+devtools, examples, and documentation are disabled, so the Java ASM and getopt fallback notices
+identified by the source inventory do not describe code in the packaged runtime.
+
 Advanced audiogram rendering also includes these Python libraries in the frozen desktop package:
 
 - NumPy, distributed under the BSD 3-Clause license: https://numpy.org/doc/stable/license.html

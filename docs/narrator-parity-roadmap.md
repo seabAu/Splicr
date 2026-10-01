@@ -826,6 +826,15 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   acceptance under PowerShell 7. Hosted browser run
   [`36913670670`](https://github.com/seabAu/Splicr/actions/runs/36913670670) passed all six Studio
   journeys in 45.8 seconds on commit `9e3d8ee`; the remaining prepared source batches are still open.
+- [x] 2026-10-01 — The aribb24, libaribcaption, libass, and libbluray batch is promoted and
+  validated, raising tracked coverage to 63 of 92 locators and 249 exact candidates. Nine exact
+  legal files bring the manifest to 92 records. Build-manifest evidence records the OpenSSL-replaced
+  MD5 body, wrong-architecture assembly, disabled BD-J ASM payload, and tools-only getopt fallback
+  as not built. The real dev.16 portable and installer passed schema-v2 lifecycle acceptance with
+  all 92 manifest files. Portable SHA-256:
+  `efd590cb5321c3dc1cf62bfb9e88f50c8ed939b989eec26a5beab6fe9eccb854`; installer SHA-256:
+  `ed928b4b0e0f54de2c525fcef98abd22f02131b5bc3b428709a38c0d8817c21c`. Hosted browser evidence
+  for the batch commit remains open.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
@@ -835,7 +844,7 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   remaining Milestones 2/3/5/7 live-environment evidence.
 - **Next implementation slice:** continue the bounded FFmpeg source/license review in
   `docs/FFMPEG_DISTRIBUTION.md`, while preserving the remaining credential and clean-VM checks in
-  `docs/RELEASE_CHECKLIST.md`. Fifty-nine of 92 source locators are reviewed; the current artifacts
+  `docs/RELEASE_CHECKLIST.md`. Sixty-three of 92 source locators are reviewed; the current artifacts
   pass the normal PowerShell 7 package harness and hosted browser acceptance. Gemini/Deepgram
   credentials, the clean-VM matrix, complete FFmpeg corresponding
   source/compliance publication, malware/signing evidence, and audible sentence-seam acceptance
