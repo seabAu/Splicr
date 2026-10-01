@@ -102,7 +102,7 @@ jobs:
           uv run ruff check .
           uv run pytest -q
           .\packaging\windows\test-fetch-ffmpeg-lgpl.ps1
-          $ffmpegBin = .\packaging\windows\fetch-ffmpeg-lgpl.ps1
+          $ffmpegBin = python .\packaging\windows\fetch_ffmpeg_release.py
           .\packaging\windows\build.ps1 `
             -Version "${{ steps.version.outputs.version }}" `
             -FfmpegBin $ffmpegBin

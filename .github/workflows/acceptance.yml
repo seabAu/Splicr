@@ -44,7 +44,7 @@ jobs:
       - name: Install pinned media tools
         shell: pwsh
         run: |
-          $ffmpegBin = .\packaging\windows\fetch-ffmpeg-lgpl.ps1
+          $ffmpegBin = python .\packaging\windows\fetch_ffmpeg_release.py
           $ffmpegBin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           & (Join-Path $ffmpegBin "ffmpeg.exe") -version | Select-Object -First 1
           & (Join-Path $ffmpegBin "ffprobe.exe") -version | Select-Object -First 1
