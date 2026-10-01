@@ -36,7 +36,7 @@ while IFS=$'\t' read -r package_path source_url package_revision package_sha256 
     [[ "$package_path" != "package_path" ]] || continue
     [[ -z "${extra:-}" && "$package_path" =~ ^ffmpeg/[A-Za-z0-9._-]+$ && \
         "$source_url" == https://* && \
-        "$package_revision" =~ ^([0-9a-f]{40}|[1-9][0-9]*|v[0-9]+(\.[0-9]+){1,3}([._-][0-9A-Za-z]+)*)$ && \
+        "$package_revision" =~ ^([0-9a-f]{40}|[1-9][0-9]*|v[0-9]+(\.[0-9]+){1,3}([._-][0-9A-Za-z]+)*|openssl-[0-9]+(\.[0-9]+){2,3})$ && \
         "$package_sha256" =~ ^[0-9a-f]{64}$ && \
         "$content_encoding" =~ ^(base64)?$ ]] || {
         echo "Invalid packaged license file manifest row: $package_path" >&2

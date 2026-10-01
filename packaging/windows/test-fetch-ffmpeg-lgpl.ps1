@@ -11,6 +11,7 @@ if (-not (Test-Path -LiteralPath $Python)) {
 }
 $WorkRoot = Join-Path ([IO.Path]::GetTempPath()) ("splicr-fetch-ffmpeg-test-" + [guid]::NewGuid().ToString("N"))
 $UnsafeManifest = Join-Path $WorkRoot "unsafe-packaged-tag.tsv"
+$UnsafeNamedManifest = Join-Path $WorkRoot "unsafe-packaged-named-tag.tsv"
 $UnsafeSvnManifest = Join-Path $WorkRoot "unsafe-packaged-svn-revision.tsv"
 $UnsafeEncodingManifest = Join-Path $WorkRoot "unsafe-packaged-content-encoding.tsv"
 
@@ -44,6 +45,29 @@ try {
     }
     if (-not $RejectedUnsafeTag) {
         throw "PowerShell fetcher accepted an unsafe packaged license release tag."
+    }
+
+    $UnsafeNamedManifestText = $ManifestText.Replace(
+        "`topenssl-3.6.4`t",
+        "`topenssl-3.6.4;unsafe`t"
+    )
+    if ($UnsafeNamedManifestText -eq $ManifestText) {
+        throw "The packaged-license manifest no longer contains the OpenSSL tag fixture."
+    }
+    [IO.File]::WriteAllText($UnsafeNamedManifest, $UnsafeNamedManifestText)
+
+    $RejectedUnsafeNamedTag = $false
+    try {
+        & $Python $Fetcher --packaged-license-manifest $UnsafeNamedManifest --validate-manifest-only 2>$null | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            throw "Rejected unsafe OpenSSL release tag."
+        }
+    }
+    catch {
+        $RejectedUnsafeNamedTag = $true
+    }
+    if (-not $RejectedUnsafeNamedTag) {
+        throw "PowerShell fetcher accepted an unsafe OpenSSL release tag."
     }
 
     $UnsafeSvnManifestText = $ManifestText.Replace("`t6835`t", "`t6835;unsafe`t")

@@ -800,6 +800,16 @@ under LGPL-2.1-or-later. Its exact LGPL-2.1 text is packaged as
 devtools, examples, and documentation are disabled, so the Java ASM and getopt fallback notices
 identified by the source inventory do not describe code in the packaged runtime.
 
+## OpenSSL
+
+OpenSSL `3.6.4` is statically incorporated into the bundled media libraries under Apache-2.0. The
+exact upstream license is packaged as `ffmpeg/OPENSSL-LICENSE.txt` with SHA-256
+`7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a`. The pinned
+`avformat-63.dll` contains the exact OpenSSL 3.6.4 marker and the pinned media-tool directory carries
+no separate SSL or crypto DLL. The source collector recursively archives OpenSSL's
+cloudflare-quiche submodule, but the recipe builds only OpenSSL's `build_sw` target; quiche and its
+nested BoringSSL dependency are not compiled into the SPLICR runtime.
+
 Advanced audiogram rendering also includes these Python libraries in the frozen desktop package:
 
 - NumPy, distributed under the BSD 3-Clause license: https://numpy.org/doc/stable/license.html

@@ -836,6 +836,14 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   `ed928b4b0e0f54de2c525fcef98abd22f02131b5bc3b428709a38c0d8817c21c`. Hosted browser run
   [`36917251299`](https://github.com/seabAu/Splicr/actions/runs/36917251299) passed all six Studio
   journeys in 41.3 seconds on commit `0575c89`.
+- [x] 2026-10-01 — The OpenSSL stage is promoted and validated, raising tracked coverage to 64 of
+  92 locators and 253 exact candidates. The exact Apache-2.0 license brings the manifest to 93
+  records; cloudflare-quiche and its nested BoringSSL dependency are recipe-proven not built. The
+  real dev.16 portable and installer passed schema-v2 lifecycle acceptance with all 93 manifest
+  files. Portable SHA-256:
+  `75cae844c1b909cd56bcba8af99529dce9491c8090fcf6ea1d8334747c2a82ae`; installer SHA-256:
+  `3c5bfc0b049fb3bd0e0c8a53567fc199d1b8758dbb134c61d518aa52f82200df`. Exact-commit hosted-browser
+  evidence remains pending.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
@@ -845,8 +853,9 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   remaining Milestones 2/3/5/7 live-environment evidence.
 - **Next implementation slice:** continue the bounded FFmpeg source/license review in
   `docs/FFMPEG_DISTRIBUTION.md`, while preserving the remaining credential and clean-VM checks in
-  `docs/RELEASE_CHECKLIST.md`. Sixty-three of 92 source locators are reviewed; the current artifacts
-  pass the normal PowerShell 7 package harness and hosted browser acceptance. Gemini/Deepgram
+  `docs/RELEASE_CHECKLIST.md`. Sixty-four of 92 source locators are reviewed; the current artifacts
+  pass the normal PowerShell 7 package harness; exact-commit hosted-browser acceptance is pending.
+  Gemini/Deepgram
   credentials, the clean-VM matrix, complete FFmpeg corresponding
   source/compliance publication, malware/signing evidence, and audible sentence-seam acceptance
   remain.

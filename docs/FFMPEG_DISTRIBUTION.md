@@ -247,6 +247,17 @@ for that LGPL-only path without replacement.
   bytes, SHA-256 `ed928b4b0e0f54de2c525fcef98abd22f02131b5bc3b428709a38c0d8817c21c`.
   Hosted browser run [`36917251299`](https://github.com/seabAu/Splicr/actions/runs/36917251299)
   passed all six Studio journeys in 41.3 seconds on commit `0575c89`.
+- [x] The OpenSSL batch raised exact coverage to 64 of 92 locators and 253 candidates: 79 shipped
+  licenses, 28 supplemental notices, 101 not-built candidates, and 45 build-only/not-shipped
+  candidates. The exact Apache-2.0 license brings the legal manifest to 93 hash-verified records.
+  The pinned media DLL carries the OpenSSL 3.6.4 marker; the pinned media-tool directory contains no
+  separate SSL or crypto DLL. The recursively collected cloudflare-quiche and nested BoringSSL
+  sources are recipe-proven not built because the stage invokes only OpenSSL's `build_sw` target.
+  The rebuilt `0.1.0-dev.16` package passed schema-v2 lifecycle acceptance with all 93 files on
+  Windows 10. Portable: 184,245,775 bytes, SHA-256
+  `75cae844c1b909cd56bcba8af99529dce9491c8090fcf6ea1d8334747c2a82ae`. Installer: 119,844,402
+  bytes, SHA-256 `3c5bfc0b049fb3bd0e0c8a53567fc199d1b8758dbb134c61d518aa52f82200df`.
+  Exact-commit hosted-browser evidence remains pending.
 - [ ] Execute the tracked fetch commands and archive every enabled external dependency source at its
   recipe-pinned revision.
 - [ ] Record the applicable license and notice for every enabled dependency, including libraries
