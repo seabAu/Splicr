@@ -1040,6 +1040,28 @@ The compiled utility header's public-domain endian provenance is packaged as
 `ffmpeg/SRT-utilities.h` (`1a7fdbbd32908313003a647da972d7fa9fc2e8de289878f6733824be3d926d2d`).
 The MSVC-only atomic implementation and configure probe are not built by the MinGW/GCC target.
 
+## MinGW-w64 runtime and winpthreads
+
+The pinned Windows media libraries are built with MinGW-w64 commit
+`57b595039040eaa15bece85b7cc71d952281b269`. The recipe installs the MinGW-w64 headers and CRT into
+the compiler sysroot, builds winpthreads static-only, and FFmpeg enables pthreads. Exact applicable
+terms and the upstream runtime notice collection are packaged as:
+
+- `ffmpeg/MINGW-COPYING.txt`
+  (`99a69660981156c21336fdb5661f89341b013c94e4bf9e1c7467b4745718397f`), the project-wide
+  ZPL-2.1 terms subject to specifically marked runtime exceptions;
+- `ffmpeg/MINGW-RUNTIME-NOTICES.txt`
+  (`1db8da07b436c68833c0673ffee3d9fcb2526047f3820b81661865dfedc79a1f`), the exact upstream
+  binary-runtime notice collection; and
+- `ffmpeg/MINGW-WINPTHREADS-COPYING.txt`
+  (`63263614cdd29f2f93cba85e992f041b31f9fc7b4033692f31269489a8a1b177`), the MIT and BSD
+  3-Clause terms for statically incorporated winpthreads code.
+
+The runtime collection is retained in full, including upstream's unresolved Cephes paragraph.
+Artifact/source reconciliation found that the packaged media DLLs import their used `cbrt`/`cbrtf`
+functions from the Windows Universal CRT and do not incorporate MinGW-w64's ambiguous Cephes
+objects. Profiling, libmangle, PSEH, winstorecompat, and the standalone MinGW-w64 tools are not built.
+
 ## OpenAPV
 
 OpenAPV at commit `a58ce739be0dfb083643d929aee8f0e0ba9bdf63` is statically incorporated under

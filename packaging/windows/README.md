@@ -112,8 +112,8 @@ partial or full collection, run `inventory-ffmpeg-source-licenses.sh` against it
 `test-ffmpeg-source-license-inventory.sh` and `test-ffmpeg-source-license-review.sh`. Generated
 candidate rows remain pending until their source identity, SPDX expression, and binary notice
 obligation are added to the tracked `ffmpeg-source-license-review.tsv`. The reviewed set currently
-covers 82 of 92 source locators and 401 detected candidates: 136 shipped licenses, 49 supplemental
-notices, 159 recipe-proven not-built candidates, and 57 build-only candidates absent from the
+covers 83 of 92 source locators and 412 detected candidates: 138 shipped licenses, 50 supplemental
+notices, 166 recipe-proven not-built candidates, and 58 build-only candidates absent from the
 distributed binary. Required notices are hash-anchored byte-for-byte in `THIRD_PARTY_NOTICES.md` or
 separately manifest-bound and packaged, including exact files for ffnvcodec, dav1d, FriBidi,
 TwoLAME, AMF, OpenJPEG, Game Music Emu, GMP, Kvazaar, LCEVCdec, libvpx, libwebp, libzmq, and
@@ -122,7 +122,7 @@ uavs3d, Brotli, JPEG XL, Highway, Mbed TLS, TF-PSA-Crypto, librist, LV2, Serd, Z
 Lilv, FFTW3, Chromaprint, LAME, Theora, Vorbis, libxml2, ZVBI, GNU libiconv, Fontconfig, Unicode,
 HarfBuzz, FreeType, aribb24, libaribcaption, libass, libbluray, OpenSSL, SVT-AV1, libva, VVenC,
 libplacebo, OpenCL, OpenMPT, Vulkan-Headers, Vulkan-Shim-Loader, Shaderc, glslang, SPIRV-Tools,
-SPIRV-Cross, SPIRV-Headers, libcurl, SRT, OpenAPV, and AOM. The 169-file legal manifest is
+SPIRV-Cross, SPIRV-Headers, libcurl, SRT, OpenAPV, AOM, and MinGW-w64. The 172-file legal manifest is
 downloaded from revision-pinned upstream URLs and hash-verified before packaging. The review
 corrected FFTW3 from build-only to
 statically incorporated: the package gate now requires its GPL text and notice, verifies the enabled
@@ -130,7 +130,10 @@ Chromaprint/static pkg-config path, rejects a separate FFTW DLL, and confirms an
 `avformat-63.dll`. ZVBI supplies an additional GPL-2.0-only static-link path; SDL2 is recorded as
 build-only because SPLICR does not distribute `ffplay.exe`. GNU libiconv is statically incorporated
 under LGPL-2.1-or-later; the unshipped `iconv` CLI's gnulib inputs remain build-only. Fontconfig's
-separate Unicode-3.0 obligation is bound through the companion manifest. All 169 manifest-bound files
+separate Unicode-3.0 obligation is bound through the companion manifest. MinGW-w64's root, runtime,
+and winpthreads notices are preserved exactly; the runtime notice's unresolved Cephes wording remains
+conservative even though package inspection shows the relevant math calls resolve to Windows UCRT and
+no distinctive Cephes implementation markers are incorporated. All 172 manifest-bound files
 are fetched and hash-checked. FFmpeg's own license is
 not treated as a substitute for dependency licenses.
 rav1e remains outside the reviewed set because its recipe performs a time-dependent Cargo update and

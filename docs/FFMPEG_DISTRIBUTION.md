@@ -334,6 +334,17 @@ for that LGPL-only path without replacement.
   bytes, SHA-256 `de34f869c48488eafffc30ca049877edae6ab666605d54eb639c4cf93a6356fd`.
   Hosted browser run [`36936124562`](https://github.com/seabAu/Splicr/actions/runs/36936124562)
   passed all six Studio journeys in 43.7 seconds on implementation commit `4094bf0`.
+- [x] The MinGW-w64 foundation stage raised exact coverage to 83 of 92 locators and 412 candidates:
+  138 shipped licenses, 50 supplemental notices, 166 not-built candidates, and 58
+  build-only/not-shipped candidates. Its root, runtime, and winpthreads notices bring the legal
+  manifest to 172 hash-verified records. The runtime notice's unresolved Cephes wording remains
+  preserved conservatively, while package inspection shows the relevant `cbrt`/`cbrtf` calls resolve
+  to Windows UCRT and no distinctive Cephes implementation markers are incorporated. The rebuilt
+  `0.1.0-dev.16` package passed schema-v2 lifecycle acceptance with all 172 files on Windows 10 at
+  `2026-10-01T22:53:59.5145337Z`. Portable: 184,664,939 bytes, SHA-256
+  `994e056fb9120f725db295d18ab6c7720b25edddfaa7af453b6209f2a75cbc1c`. Installer: 120,043,157
+  bytes, SHA-256 `9e8329c0429ce11662f9d58816a90351a86f7fa2fbfca3f1bcbd3d8d3ea4ee3f`.
+  Hosted browser acceptance is pending for the implementation commit.
 - [ ] Execute the tracked fetch commands and archive every enabled external dependency source at its
   recipe-pinned revision.
 - [ ] Record the applicable license and notice for every enabled dependency, including libraries
