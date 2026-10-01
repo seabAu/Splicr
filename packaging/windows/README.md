@@ -112,15 +112,16 @@ partial or full collection, run `inventory-ffmpeg-source-licenses.sh` against it
 `test-ffmpeg-source-license-inventory.sh` and `test-ffmpeg-source-license-review.sh`. Generated
 candidate rows remain pending until their source identity, SPDX expression, and binary notice
 obligation are added to the tracked `ffmpeg-source-license-review.tsv`. The reviewed set currently
-covers 64 of 92 source locators and 253 detected candidates: 79 shipped licenses, 28 supplemental
-notices, 101 recipe-proven not-built candidates, and 45 build-only candidates absent from the
+covers 67 of 92 source locators and 262 detected candidates: 86 shipped licenses, 29 supplemental
+notices, 101 recipe-proven not-built candidates, and 46 build-only candidates absent from the
 distributed binary. Required notices are hash-anchored byte-for-byte in `THIRD_PARTY_NOTICES.md` or
 separately manifest-bound and packaged, including exact files for ffnvcodec, dav1d, FriBidi,
 TwoLAME, AMF, OpenJPEG, Game Music Emu, GMP, Kvazaar, LCEVCdec, libvpx, libwebp, libzmq, and
 OpenCORE AMR, libudfread, oneVPL, PCRE2, pixman, Little CMS, OpenAL Soft, SoX Resampler, and
 uavs3d, Brotli, JPEG XL, Highway, Mbed TLS, TF-PSA-Crypto, librist, LV2, Serd, Zix, Sord, Sratom,
 Lilv, FFTW3, Chromaprint, LAME, Theora, Vorbis, libxml2, ZVBI, GNU libiconv, Fontconfig, Unicode,
-HarfBuzz, FreeType, aribb24, libaribcaption, libass, libbluray, and OpenSSL. The 93-file legal manifest is
+HarfBuzz, FreeType, aribb24, libaribcaption, libass, libbluray, OpenSSL, SVT-AV1, libva, and VVenC.
+The 101-file legal manifest is
 downloaded from revision-pinned upstream URLs and hash-verified before packaging. The review
 corrected FFTW3 from build-only to
 statically incorporated: the package gate now requires its GPL text and notice, verifies the enabled
@@ -128,9 +129,12 @@ Chromaprint/static pkg-config path, rejects a separate FFTW DLL, and confirms an
 `avformat-63.dll`. ZVBI supplies an additional GPL-2.0-only static-link path; SDL2 is recorded as
 build-only because SPLICR does not distribute `ffplay.exe`. GNU libiconv is statically incorporated
 under LGPL-2.1-or-later; the unshipped `iconv` CLI's gnulib inputs remain build-only. Fontconfig's
-separate Unicode-3.0 obligation is bound through the companion manifest. All 93 manifest-bound files
+separate Unicode-3.0 obligation is bound through the companion manifest. All 101 manifest-bound files
 are fetched and hash-checked. FFmpeg's own license is
 not treated as a substitute for dependency licenses.
+rav1e remains outside the reviewed set because its recipe performs a time-dependent Cargo update and
+downloads a target-specific crate closure; its complete vendored dependency notices must be
+reconciled before that stage can be promoted.
 Optional-notice, not-built, and build-only/not-shipped candidates remain explicit
 rather than silently ignored. The validator can reconcile every generated candidate to exactly one
 reviewed disposition. Inventory extraction resolves only bounded, relative, in-archive license

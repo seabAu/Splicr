@@ -259,6 +259,18 @@ for that LGPL-only path without replacement.
   bytes, SHA-256 `3c5bfc0b049fb3bd0e0c8a53567fc199d1b8758dbb134c61d518aa52f82200df`.
   Hosted browser run [`36919996114`](https://github.com/seabAu/Splicr/actions/runs/36919996114)
   passed all six Studio journeys in 53.8 seconds on commit `950b0c1`.
+- [x] The SVT-AV1, libva, and VVenC batch raised exact coverage to 67 of 92 locators and 262
+  candidates: 86 shipped licenses, 29 supplemental notices, 101 not-built candidates, and 46
+  build-only/not-shipped candidates. Eight exact package files bring the legal manifest to 101
+  hash-verified records, including both SVT-AV1 license families, its AOMedia patent terms and
+  incorporated FASTFEAT notice, plus VVenC's bundled nlohmann JSON and SIMDe notices. The rebuilt
+  `0.1.0-dev.16` package passed schema-v2 lifecycle acceptance with all 101 files on Windows 10 at
+  `2026-10-01T20:38:38.9403150Z`. Portable: 184,254,515 bytes, SHA-256
+  `9a235c9a3e764fb512a718036e3fb98bc0edf73d990a8a1ea1ed15386b5f3607`. Installer: 119,848,157
+  bytes, SHA-256 `e22916cb52b474451b49e7d7931eddeda3f3465a3f7ff78aada8bcfc1006d9dc`.
+  Hosted browser acceptance is pending on the exact implementation commit. rav1e remains unresolved:
+  its recipe performs a time-dependent Cargo update and the full target crate closure must be
+  notice-reconciled before promotion.
 - [ ] Execute the tracked fetch commands and archive every enabled external dependency source at its
   recipe-pinned revision.
 - [ ] Record the applicable license and notice for every enabled dependency, including libraries

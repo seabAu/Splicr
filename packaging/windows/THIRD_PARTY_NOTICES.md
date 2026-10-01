@@ -810,6 +810,41 @@ no separate SSL or crypto DLL. The source collector recursively archives OpenSSL
 cloudflare-quiche submodule, but the recipe builds only OpenSSL's `build_sw` target; quiche and its
 nested BoringSSL dependency are not compiled into the SPLICR runtime.
 
+## SVT-AV1
+
+SVT-AV1 at commit `5ed9ffbcb5086da23f30fe9bc5b00145358462da` is statically incorporated into
+the bundled media libraries. Its compiled sources carry both BSD-2-Clause and BSD-3-Clause-Clear
+terms, packaged respectively as `ffmpeg/SVTAV1-LICENSE-BSD2.md` (SHA-256
+`c582fcbeb9cf972a60d298bfaf41dc5adff2dd14208946edcb9bb56a281e8438`) and
+`ffmpeg/SVTAV1-LICENSE.md` (SHA-256
+`0acc2fcb27472bdc9aaf8b71f37055bbdac4f54671b7d922f241bd7fcd0dd3e6`). The incorporated
+FASTFEAT object code's BSD-3-Clause license is packaged as
+`ffmpeg/SVTAV1-FASTFEAT-LICENSE.txt` with SHA-256
+`043dcfd059386f9facd376351b2bd79325778744aa442177390cdfcca54babed`. The accompanying
+Alliance for Open Media Patent License 1.0 is packaged as `ffmpeg/SVTAV1-PATENTS.md` with SHA-256
+`20678ab10402659106dc4c147c97b2a6e94b5c0695415e15a8f195ebc3547922`; no independent patent
+clearance is asserted. The safestring object target is consumed only by disabled apps/tests and is
+not linked into the distributed media libraries.
+
+## libva
+
+libva at commit `6b07f7100512817f736967e899b8c26313c20623` is statically incorporated into
+the bundled media libraries under MIT-family terms. Its exact license is packaged as
+`ffmpeg/LIBVA-COPYING.txt` with SHA-256
+`c86a782ee845b52472dae9b9d79fb915d333628ac0efe49cdce63644814931de`.
+
+## VVenC
+
+VVenC at commit `b1cfb2ad495af6ae4cc214b7a060e8b4166c4629` is statically incorporated into
+the bundled media libraries under BSD-3-Clause-Clear. Its exact license is packaged as
+`ffmpeg/VVENC-LICENSE.txt` with SHA-256
+`88330a2cc59b9dd90674f8759900bc9c06e9efc8799dadda067609addefb49d1`; the upstream license
+expressly grants no patent rights. VVenC's default library build also incorporates nlohmann JSON and
+SIMDe under MIT. Their exact notices are packaged as `ffmpeg/VVENC-NLOHMANN-JSON-LICENSE.MIT`
+(SHA-256 `86b998c792894ccb911a1cb7994f7a9652894e7a094c0b5e45be2f553f45cf14`) and
+`ffmpeg/VVENC-SIMDE-COPYING.txt` (SHA-256
+`75ce0a8c5a7bff42fbd6f8f3b469b518132132c4f4948fb8d02b1ccb5d0df9d8`).
+
 Advanced audiogram rendering also includes these Python libraries in the frozen desktop package:
 
 - NumPy, distributed under the BSD 3-Clause license: https://numpy.org/doc/stable/license.html
