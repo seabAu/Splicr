@@ -862,6 +862,14 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   installer SHA-256: `4899de203fd0ea1007e679df9959112868f70a2b44b24bed25a7955208b9854c`.
   Hosted browser run [`36927179317`](https://github.com/seabAu/Splicr/actions/runs/36927179317)
   passed all six Studio journeys in 42.1 seconds on implementation commit `13ff415`.
+- [x] 2026-10-01 — OpenCL-Headers, OpenCL-ICD-Loader, and OpenMPT are promoted and validated,
+  raising tracked coverage to 71 of 92 locators and 328 exact candidates. Nine exact legal files
+  bring the manifest to 124 records, including the selected OpenMPT/minimp3 grants and four compiled
+  public-domain provenance notices. The real dev.16 portable and installer passed schema-v2 lifecycle
+  acceptance at `2026-10-01T21:31:28.4930829Z` with all 124 files. Portable SHA-256:
+  `d534fe19b863baf808d368693a26b9a9fda6391b3cb4e70fab8dbaa4e04b6b4f`; installer SHA-256:
+  `f08f504073be7a42bac4b7b29a0d6e9764a1d9d35548aa1ebcfa8516acddb816`. Hosted browser
+  acceptance is pending on the exact implementation commit.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
@@ -871,7 +879,7 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   remaining Milestones 2/3/5/7 live-environment evidence.
 - **Next implementation slice:** continue the bounded FFmpeg source/license review in
   `docs/FFMPEG_DISTRIBUTION.md`, while preserving the remaining credential and clean-VM checks in
-  `docs/RELEASE_CHECKLIST.md`. Sixty-eight of 92 source locators are reviewed; the current artifacts
+  `docs/RELEASE_CHECKLIST.md`. Seventy-one of 92 source locators are reviewed; the current artifacts
   pass the normal PowerShell 7 package harness, while exact-commit hosted-browser acceptance is
   pending for this checkpoint.
   Gemini/Deepgram

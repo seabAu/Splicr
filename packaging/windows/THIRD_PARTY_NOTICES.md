@@ -889,6 +889,49 @@ license and attribution files:
 Vendored Jinja and MarkupSafe are used only by build-time source generators and are not linked or
 installed. The recipe sets `demos=false`, excluding the Nuklear and demo-only license candidates.
 
+## OpenCL
+
+OpenCL-Headers at commit `e6060189f4ebe8b52d885c37af71b9a50c272154` and the
+OpenCL-ICD-Loader at commit `5192c84f8059e5f703e5452929b613f9487f6e4c` support the bundled
+media libraries under Apache-2.0. Their exact notices are packaged as
+`ffmpeg/OPENCL-HEADERS-LICENSE.txt` (SHA-256
+`cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30`) and
+`ffmpeg/OPENCL-ICD-LOADER-LICENSE.txt` (SHA-256
+`c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4`). The recipe
+installs the headers, statically builds the ICD loader, disables loader tests and OpenCLOn12, and
+enables FFmpeg's OpenCL support.
+
+## OpenMPT
+
+OpenMPT at commit `f83cedb0cd5446e4dfaa83ac97e3087107e26767` is statically
+incorporated into the bundled media libraries. The exact project BSD-3-Clause terms are packaged as
+`ffmpeg/OPENMPT-LICENSE.txt` (SHA-256
+`2c999e99533c10a347916a72e075bacf10fcedeff793bd90d41d812b46161da2`). The enabled
+minimp3 fallback is CC0-1.0; its exact terms are packaged as
+`ffmpeg/OPENMPT-MINIMP3-LICENSE.txt` (SHA-256
+`6a1ee543e5282cd9061881edf462e6fdab181f328da71fc2c9a6950a80e94d01`). Compiled
+`src/mpt` utility headers offer `BSL-1.0 OR BSD-3-Clause`; this distribution selects and packages
+their BSD-3-Clause branch as `ffmpeg/OPENMPT-MPT-BSD-3-CLAUSE.txt` (SHA-256
+`ceabc562c8cfb3af0d51e94182947c23bde6c18274e2b21585bdde22d2031e9d`).
+
+Exact compiled-source provenance notices are also packaged for:
+
+- `ffmpeg/OPENMPT-ITCompression.cpp` (SHA-256
+  `2d996542c06f8f3c21699754efdb2c44b637e3cb5316c9239ced2a2abff74af5`) and
+  `ffmpeg/OPENMPT-ITCompression.h` (SHA-256
+  `f53675fcb39a6e481596d43eb4f0b6747f32984fa80f4538a0fab39d76308413`), preserving
+  GreaseMonkey public-domain provenance and OpenMPT modifications;
+- `ffmpeg/OPENMPT-Load_ams.cpp` (SHA-256
+  `184be18562915aefff198bfa9fe2614ff352ef4272a23b6a113b492e3a72539f`), preserving
+  Velvet Studio public-domain provenance; and
+- `ffmpeg/OPENMPT-opal.h` (SHA-256
+  `16d55838d26cdcc1780f64f2b016c7a2d12fc43a6ddc632da8d3ec86a3847b53`), preserving
+  Reality Adlib Tracker public-domain provenance and later modifications.
+
+The recipe builds only static libopenmpt and disables examples, players, plugins, tests, SDL,
+PulseAudio, PortAudio, libsndfile, and FLAC. It requires the graph-pinned external zlib, ogg, and
+vorbis libraries; bundled alternatives and unrelated tracker/tool dependencies are not built.
+
 Advanced audiogram rendering also includes these Python libraries in the frozen desktop package:
 
 - NumPy, distributed under the BSD 3-Clause license: https://numpy.org/doc/stable/license.html

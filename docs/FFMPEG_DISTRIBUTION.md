@@ -284,6 +284,17 @@ for that LGPL-only path without replacement.
   bytes, SHA-256 `4899de203fd0ea1007e679df9959112868f70a2b44b24bed25a7955208b9854c`.
   Hosted browser run [`36927179317`](https://github.com/seabAu/Splicr/actions/runs/36927179317)
   passed all six Studio journeys in 42.1 seconds on implementation commit `13ff415`.
+- [x] The OpenCL-Headers, OpenCL-ICD-Loader, and OpenMPT batch raised exact coverage to 71 of 92
+  locators and 328 candidates: 101 shipped licenses, 37 supplemental notices, 140 not-built
+  candidates, and 50 build-only/not-shipped candidates. Nine exact package files bring the legal
+  manifest to 124 hash-verified records. The review packages both OpenCL Apache-2.0 texts,
+  OpenMPT's BSD-3-Clause terms, minimp3's CC0 terms, the selected BSD branch for dual-licensed
+  utility headers, and four compiled public-domain provenance notices. The rebuilt `0.1.0-dev.16`
+  package passed schema-v2 lifecycle acceptance with all 124 files on Windows 10 at
+  `2026-10-01T21:31:28.4930829Z`. Portable: 184,352,521 bytes, SHA-256
+  `d534fe19b863baf808d368693a26b9a9fda6391b3cb4e70fab8dbaa4e04b6b4f`. Installer: 119,891,255
+  bytes, SHA-256 `f08f504073be7a42bac4b7b29a0d6e9764a1d9d35548aa1ebcfa8516acddb816`.
+  Hosted browser acceptance is pending on the exact implementation commit.
 - [ ] Execute the tracked fetch commands and archive every enabled external dependency source at its
   recipe-pinned revision.
 - [ ] Record the applicable license and notice for every enabled dependency, including libraries

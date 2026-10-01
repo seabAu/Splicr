@@ -29,3 +29,7 @@ scripts.d/45-fonts/50-freetype.sh	./src/bdf/README
 scripts.d/45-fonts/50-freetype.sh	./src/pcf/README
 scripts.d/45-fonts/50-freetype.sh	./src/pcf/pcfutil.c
 scripts.d/45-fonts/50-freetype.sh	./src/gzip/zlib.h
+scripts.d/50-openmpt.sh	./soundlib/ITCompression.cpp
+scripts.d/50-openmpt.sh	./soundlib/ITCompression.h
+scripts.d/50-openmpt.sh	./soundlib/Load_ams.cpp
+scripts.d/50-openmpt.sh	./soundlib/opal.h
