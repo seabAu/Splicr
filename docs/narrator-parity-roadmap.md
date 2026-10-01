@@ -459,7 +459,9 @@ sequence, cancellation cleanup, deterministic archives, API validation, and the 
 - [x] Update user documentation, migration notes, third-party notices, and release checklist.
   `CHANGELOG.md`, the Windows packaging guide, the release checklist, and the FFmpeg notice now
   record data migration/rollback, external engine ownership, live-evidence gaps, and the pinned
-  LGPL-shared FFmpeg/OpenH264 packaging policy.
+  FFmpeg/OpenH264 packaging policy. The upstream asset is named `lgpl-shared`, but the later
+  Chromaprint review found static GPL FFTW3 in the media DLLs; current release documentation and
+  package gates use that effective classification instead of the upstream label.
 
 ## Deferred ideas from the Narrator handover
 
@@ -647,15 +649,16 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   installer SHA-256 is `5d630e34271a0a1a2f57128c73474577f58e427460d6310bb4797518012a0ff2`.
   Clean-VM fresh/upgrade/uninstall acceptance remains open.
 - [x] 2026-09-29 — The Windows media bundle moved from the GPL-enabled workstation build to a
-  checksum-pinned BtbN LGPL-shared FFmpeg build. SPLICR detects `libopenh264` as the MP4 fallback,
+  checksum-pinned BtbN asset named `lgpl-shared` upstream. SPLICR detects `libopenh264` as the MP4 fallback,
   preserves FFmpeg's shared DLLs, license, exact asset URL, and SHA-256, and produced a real H.264 /
   AAC MP4 from both the portable build and installed payload. The isolated installer smoke returned
   0; uninstall removed the app and preserved redirected per-user data. The final 179,300,537-byte
   portable ZIP SHA-256 is `bdf188b2db2ece4ee3f33b0bc59b7612497de92e5fa4c926ce9ba46f8fcfeef8`;
   the 119,685,499-byte installer SHA-256 is
   `5fe9d9bc36479da65ec879ac84ba111fff7f2ee313748c8fd131eeecbbb8e605`. Ruff and the full regression
-  suite passed (546 tests, 7 intentional live skips). Public release still needs corresponding-source
-  publication and final compliance review.
+  suite passed (546 tests, 7 intentional live skips). Later transitive review proved this asset's
+  Chromaprint statically includes GPL FFTW3, superseding the then-current LGPL-only assumption.
+  Public release still needs corresponding-source publication and final compliance review.
 - [x] 2026-09-29 — Automated Windows artifact acceptance became a required pre-upload workflow gate.
   The same `0.1.0-dev.5` portable ZIP and installer passed checksum verification, package smoke,
   Unicode/spaces extraction with an unchanged package tree, redirected state isolation, installed
@@ -792,6 +795,36 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   independently verified all 60 files plus the existing media and lifecycle checks. Hosted browser
   run `36765143610` passed all six Studio journeys in 43.6 seconds on acceptance-record commit
   `8e33227`.
+- [ ] 2026-09-30 — A bounded Chromaprint, LAME, Theora, and Vorbis review raised source coverage to
+  49 of 92 locators and reconciled all 180 candidates: 63 shipped licenses, fifteen supplemental
+  notices, 81 recipe-proven not-built records, and 21 build-only/not-shipped records. Eight new
+  manifest files preserve the four libraries' exact terms and notices. The batch also corrected
+  FFTW3 from build-only to statically incorporated through Chromaprint, making the current media
+  DLLs GPL-covered despite the upstream `lgpl-shared` asset name. Review metadata, notices, source
+  evidence, and package-gate assertions are implemented; exact-batch/global validators and the
+  68-file manifest fetch pass. A real `0.1.0-dev.16` build passed the tracked Windows package
+  harness, including portable/install payload parity, dependency-license and static-FFTW evidence,
+  media generation, uninstall, and user-data preservation. Its schema-v2 acceptance JSON is present;
+  hosted-browser evidence remains open.
+- [ ] 2026-10-01 — The ready libxml2, XZ/liblzma, SDL2, and ZVBI batch is promoted and validated,
+  raising tracked review coverage to 53 of 92 locators and all 200 candidates in the combined
+  inventories. The package manifest now contains 70 exact files. ZVBI adds an independently proven
+  GPL-2.0-only static-link path, while SDL2 is explicitly build-only because SPLICR excludes
+  `ffplay.exe`. Rebuilt dev.16 portable and installer artifacts pass schema-v2 acceptance; hosted
+  browser evidence and the remaining prepared source batches are still open.
+- [ ] 2026-10-01 — The ready GNU libiconv batch is promoted and validated, raising tracked coverage
+  to 55 of 92 locators and 213 exact candidates. Four exact libiconv legal files bring the package
+  manifest to 74 records; the rebuilt dev.16 portable and installer pass schema-v2 lifecycle
+  acceptance under PowerShell 7. Hosted browser evidence, companion-license schema support for the
+  font batch, and the remaining prepared batches are still open.
+- [ ] 2026-10-01 — The Fontconfig, HarfBuzz, and bootstrap/final FreeType batch is promoted and
+  validated, raising tracked coverage to 59 of 92 locators and 232 exact candidates. Nine exact
+  font-stack legal files bring the package manifest to 83 records, while the new companion schema
+  binds Fontconfig's separate Unicode-3.0 terms to the exact reviewed candidate. The bounded Python
+  fetcher handles explicitly declared Gitiles base64 transport and passed both PowerShell 5/7
+  negative validation. Rebuilt dev.16 portable and installer artifacts pass schema-v2 lifecycle
+  acceptance under PowerShell 7. Hosted browser evidence and the remaining prepared source batches
+  are still open.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
@@ -801,7 +834,8 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   remaining Milestones 2/3/5/7 live-environment evidence.
 - **Next implementation slice:** continue the bounded FFmpeg source/license review in
   `docs/FFMPEG_DISTRIBUTION.md`, while preserving the remaining credential and clean-VM checks in
-  `docs/RELEASE_CHECKLIST.md`. Forty-five of 92 source locators are reviewed. Gemini/Deepgram
+  `docs/RELEASE_CHECKLIST.md`. Fifty-nine of 92 source locators are reviewed; the current artifacts
+  pass the normal PowerShell 7 package harness and still need hosted browser evidence. Gemini/Deepgram
   credentials, the clean-VM matrix, complete FFmpeg corresponding
   source/compliance publication, malware/signing evidence, and audible sentence-seam acceptance
   remain.

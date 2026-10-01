@@ -19,15 +19,27 @@ The machine-readable lock is
 [`ffmpeg-source-lock.json`](../packaging/windows/ffmpeg-source-lock.json). The packaged
 `BUILD_INFO.txt` remains authoritative for the actual configure line and library versions.
 
+**Effective-license correction:** `lgpl-shared` is the upstream asset-variant name, not the
+effective license of every compiled dependency. The enabled Chromaprint recipe selects static
+FFTW3, its pkg-config metadata publishes `-lfftw3`, and FFmpeg resolves dependency metadata with
+`--pkg-config-flags=--static`. The distributed `avformat-63.dll` contains FFTW 3.3.11 markers and
+imports no FFTW DLL. Because FFTW is GPL-2.0-or-later, this pinned media bundle must be treated as
+GPL-covered. Omitting FFmpeg's own `--enable-gpl` flag is therefore necessary but not sufficient to
+establish an LGPL-only result. This is an engineering record, not legal advice.
+
 ## FFmpeg checklist mapping
 
 The upstream FFmpeg legal page says its checklist is one suggested path rather than legal advice.
-It requires, among other things, a build without `--enable-gpl`/`--enable-nonfree`, dynamic FFmpeg
-library linkage, exact corresponding source, build instructions/configuration, source hosted beside
-the binary, visible attribution/source links, and a repeated review for LGPL libraries compiled
-into FFmpeg.
+Its LGPL path requires, among other things, a build without `--enable-gpl`/`--enable-nonfree`,
+dynamic FFmpeg library linkage, exact corresponding source, build instructions/configuration,
+source hosted beside the binary, visible attribution/source links, and repeated review of libraries
+compiled into FFmpeg. The current transitive FFTW finding means the pinned bundle does not qualify
+for that LGPL-only path without replacement.
 
 - [x] The recorded configure line omits `--enable-gpl` and `--enable-nonfree`.
+- [x] Transitive static-dependency inspection overrides the misleading upstream variant label:
+  Chromaprint + FFTW makes the current media DLLs GPL-covered, and package metadata/tests now state
+  and enforce that finding.
 - [x] The Windows package uses the normally named shared FFmpeg DLLs and does not rename them.
 - [x] `BUILD_INFO.txt` preserves the exact reported configure line and versions.
 - [x] The exact binary asset URL and SHA-256 are pinned and verified before packaging.
@@ -95,16 +107,13 @@ into FFmpeg.
   from the root static-library build based on the pinned recipe and source metadata. Real
   `0.1.0-dev.7` portable and installed-package acceptance independently verified all three
   manifest-bound dependency licenses by revision and SHA-256.
-- [x] A bounded dav1d, FFTW3, FriBidi, and libsamplerate run brought the reviewed total to 16 of 92
-  source locators and 35 candidates: 14 shipped licenses, two supplemental notices, 14 not-built
-  candidates, and five build-only/not-shipped candidates. Exact dav1d BSD and AOMedia patent-license
-  files plus FriBidi's LGPL-2.1-or-later file are manifest-bound package payloads. The packaged
-  FFmpeg configuration proves dav1d and FriBidi are enabled, while FFTW3 and libsamplerate are only
-  built into the toolchain and are not incorporated: libfftw3/libsamplerate are absent and their
-  librubberband consumer is disabled. The review schema now distinguishes that state from source
-  trees that recipes never build. Real `0.1.0-dev.8` portable and installed-package acceptance verified
-  all six manifest-bound dependency files by exact revision and SHA-256, including both dav1d files
-  and FriBidi's license.
+- [x] A bounded dav1d, FFTW3, FriBidi, and libsamplerate run originally classified both FFTW3 and
+  libsamplerate as build-only based on the direct FFmpeg configuration and absent DLLs. The later
+  Chromaprint review disproved the FFTW3 half of that inference: Chromaprint selects FFTW3 and
+  static pkg-config resolution incorporates it into `avformat-63.dll`. The tracked FFTW records are
+  corrected to shipped GPL terms; libsamplerate remains build-only because its only identified
+  consumer, librubberband, is disabled. Real `0.1.0-dev.8` acceptance remains valid package evidence
+  for the files it checked, but its then-current LGPL-only classification is superseded.
 - [x] The ffnvcodec embedded-header review brought coverage to 19 of 92 locators and 50 candidates:
   19 shipped licenses, two supplemental notices, 24 not-built candidates, and five build-only/not-
   shipped candidates. A tracked supplemental-path manifest makes nonstandard license-bearing files
@@ -183,6 +192,48 @@ into FFmpeg.
   installed-package acceptance independently verified all 60 files plus the existing media and
   lifecycle checks. Hosted browser run `36765143610` passed all six Studio journeys in 43.6 seconds
   on acceptance-record commit `8e33227`.
+- [x] A bounded Chromaprint, LAME, Theora, and Vorbis run brought coverage to 49 of 92 locators and
+  180 candidates: 63 shipped licenses, fifteen supplemental notices, 81 not-built candidates, and
+  21 build-only/not-shipped candidates. Eight new manifest-bound files preserve Chromaprint's
+  LGPL/MIT terms, LAME's LGPL terms and guidance, Theora's BSD terms and On2 non-assertion, and
+  Vorbis's BSD terms. The same review corrected FFTW3 from build-only to statically incorporated and
+  added its GPL-2.0-or-later text and source notice. The package gate now proves Chromaprint/static
+  pkg-config enablement, requires exactly one `avformat` DLL with an embedded FFTW marker, rejects a
+  separate FFTW DLL, and records the effective GPL status in `SOURCE_INFO.txt`. Exact source-batch,
+  tracked, synthetic, and negative reconciliation passed, and all 68 manifest files were fetched
+  and hash-verified. A real `0.1.0-dev.16` build passed the tracked package harness on Windows,
+  covering checksums, Unicode-path portable smoke, immutable-tree behavior, installation,
+  payload parity, all 68 manifest-bound legal files, static-FFTW evidence, OpenH264/AAC MP4,
+  uninstall, and user-data preservation. The schema-v2 acceptance record is emitted beside the
+  artifacts; hosted-browser evidence remains open before this batch is complete.
+- [x] The libxml2, XZ/liblzma, SDL2, and ZVBI batch raised exact coverage to 53 of 92 locators and
+  200 candidates: 67 shipped licenses, fifteen supplemental notices, 88 not-built candidates, and
+  30 build-only/not-shipped candidates. Exact libxml2 and ZVBI files increased the package manifest
+  to 70 hash-verified records. ZVBI's compiled GPL-2.0-only `packet-830.c` and `pdc.c` provide a
+  second independent GPL-covered path; SDL2 remains build-only because SPLICR excludes `ffplay.exe`.
+  The rebuilt `0.1.0-dev.16` package passed schema-v2 acceptance with all 70 files. Portable:
+  184,156,833 bytes, SHA-256 `06bb7d6fe324362a775370cc7925c598fe0e0af3649404ec1886691604fcfc8e`.
+  Installer: 119,806,398 bytes, SHA-256
+  `fd260b9037468bbe2606010b29c4351ad69b771fc1ea120dfce321db9ac6c0f5`.
+- [x] The two-locator GNU libiconv batch raised exact coverage to 55 of 92 locators and 213
+  candidates: 69 shipped licenses, eighteen supplemental notices, 88 not-built candidates, and 38
+  build-only/not-shipped candidates. The four new exact package files preserve LGPL-2.1 terms and
+  the three compiled-source notices, bringing the manifest to 74 hash-verified records. The gnulib
+  runtime feeds only the unshipped `iconv` CLI. The rebuilt `0.1.0-dev.16` package passed schema-v2
+  lifecycle acceptance under PowerShell 7 with all 74 files. Portable: 179,641,079 bytes, SHA-256
+  `416f3872206c9f34e14f181e75c21e65f7eff9cd38ffd33f6523340e9d0e6f7f`. Installer: 119,818,275
+  bytes, SHA-256 `421f44ee2eca3ce3c1f4aea6c2f1fdf813cb45c50b8373ab3182a5bc6bc0f34e`.
+- [x] The four-locator font stack batch raised exact coverage to 59 of 92 locators and 232
+  candidates: 72 shipped licenses, 23 supplemental notices, 93 not-built candidates, and 44
+  build-only/not-shipped candidates. Fontconfig, HarfBuzz, and the bootstrap/final FreeType stages
+  add nine exact package files, bringing the manifest to 83 hash-verified records. The companion
+  manifest binds Fontconfig's separately sourced Unicode-3.0 terms to its reviewed `COPYING`
+  candidate. The bounded Python fetcher decodes only explicitly declared Gitiles base64 transport,
+  retries transient failures, and still verifies the decoded source bytes against the reviewed
+  hashes. The rebuilt `0.1.0-dev.16` package passed schema-v2 lifecycle acceptance under PowerShell
+  7 with all 83 files. Portable: 184,202,955 bytes, SHA-256
+  `b2dad13acef808cafed5f40b326827b0042e12daf8b011feb0aa3344d821c532`. Installer: 119,829,501
+  bytes, SHA-256 `43266d10023515a62264200e8c697b8f1f5febcdae8d99a380bf65de454a61df`.
 - [ ] Execute the tracked fetch commands and archive every enabled external dependency source at its
   recipe-pinned revision.
 - [ ] Record the applicable license and notice for every enabled dependency, including libraries
@@ -221,8 +272,10 @@ incomplete, so it cannot be mistaken for the final corresponding-source archive.
 The current full-featured BtbN build enables a broad dependency graph, which makes a complete source
 and notice bundle comparatively large. Two acceptable paths remain:
 
-1. Collect, verify, review, and publish that full dependency source graph; or
-2. replace the package binary with a reproducibly built, capability-tested FFmpeg configuration
+1. Treat the current bundle as GPL-covered and collect, verify, review, and publish the complete
+   applicable GPL corresponding-source and notice set; or
+2. replace the package binary with a reproducibly built, capability-tested non-GPL FFmpeg
+   configuration (including a non-GPL Chromaprint FFT backend or no Chromaprint)
    whose external dependency set is deliberately smaller, then redo this checklist against it.
 
 The second path must preserve SPLICR's verified Convert, Audiogram, finishing, probing, H.264/AAC,

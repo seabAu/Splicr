@@ -94,12 +94,30 @@ if bash "$validator" "$review" "$script_root/THIRD_PARTY_NOTICES.md" "" \
     exit 1
 fi
 
+unsafe_packaged_encoding="$work_root/unsafe-packaged-encoding.tsv"
+sed $'0,/\tbase64$/s//\trot13/' \
+    "$script_root/ffmpeg-packaged-license-files.tsv" > "$unsafe_packaged_encoding"
+if bash "$validator" "$review" "$script_root/THIRD_PARTY_NOTICES.md" "" \
+    "$unsafe_packaged_encoding" >/dev/null 2>&1; then
+    echo "Review validator accepted an unsafe packaged license transport encoding" >&2
+    exit 1
+fi
+
 unsafe_packaged_tag="$work_root/unsafe-packaged-tag.tsv"
 sed $'s/\tv4\\.2\\.0\t/\tv4.2.0;unsafe\t/' \
     "$script_root/ffmpeg-packaged-license-files.tsv" > "$unsafe_packaged_tag"
 if bash "$validator" "$review" "$script_root/THIRD_PARTY_NOTICES.md" "" \
     "$unsafe_packaged_tag" >/dev/null 2>&1; then
     echo "Review validator accepted an unsafe packaged license release tag" >&2
+    exit 1
+fi
+
+unsafe_packaged_svn_revision="$work_root/unsafe-packaged-svn-revision.tsv"
+sed $'s/\t6835\t/\t6835;unsafe\t/' \
+    "$script_root/ffmpeg-packaged-license-files.tsv" > "$unsafe_packaged_svn_revision"
+if bash "$validator" "$review" "$script_root/THIRD_PARTY_NOTICES.md" "" \
+    "$unsafe_packaged_svn_revision" >/dev/null 2>&1; then
+    echo "Review validator accepted an unsafe packaged license SVN revision" >&2
     exit 1
 fi
 
@@ -112,6 +130,24 @@ printf 'ffmpeg/ORPHAN.txt\thttps://example.invalid/ORPHAN.txt\t%s\t%s\n' \
 if bash "$validator" "$review" "$script_root/THIRD_PARTY_NOTICES.md" "" \
     "$orphan_packaged_license" >/dev/null 2>&1; then
     echo "Review validator accepted a packaged license file with no reviewed source candidate" >&2
+    exit 1
+fi
+
+tampered_companion_spdx="$work_root/tampered-companion-spdx.tsv"
+sed 's/\tUnicode-3.0\t/\tApache-2.0\t/' \
+    "$script_root/ffmpeg-packaged-license-companions.tsv" > "$tampered_companion_spdx"
+if bash "$validator" "$review" "$script_root/THIRD_PARTY_NOTICES.md" "" \
+    "$script_root/ffmpeg-packaged-license-files.tsv" "$tampered_companion_spdx" >/dev/null 2>&1; then
+    echo "Review validator accepted a companion SPDX term absent from its reviewed source expression" >&2
+    exit 1
+fi
+
+tampered_companion_candidate="$work_root/tampered-companion-candidate.tsv"
+sed 's/51a51aa9823704fd90bccc616cdd17ebabb5b2b3e9cbde886ca02c7002288067/0000000000000000000000000000000000000000000000000000000000000000/' \
+    "$script_root/ffmpeg-packaged-license-companions.tsv" > "$tampered_companion_candidate"
+if bash "$validator" "$review" "$script_root/THIRD_PARTY_NOTICES.md" "" \
+    "$script_root/ffmpeg-packaged-license-files.tsv" "$tampered_companion_candidate" >/dev/null 2>&1; then
+    echo "Review validator accepted a companion license with no exact reviewed source candidate" >&2
     exit 1
 fi
 

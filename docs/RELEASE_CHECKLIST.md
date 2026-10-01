@@ -12,8 +12,10 @@ passed from unit tests alone.
   model changes.
 - [x] Review `packaging/windows/THIRD_PARTY_NOTICES.md`, especially the exact FFmpeg distribution
   bundled for this build. The `0.1.0-dev.3` internal candidate contains Gyan's GPLv3 full build;
-  public distribution remains blocked until an LGPL build is substituted or complete GPL
-  compliance materials are deliberately supplied.
+  the later BtbN asset is named `lgpl-shared` upstream, but transitive review proves its enabled
+  Chromaprint statically incorporates GPL FFTW3. Public distribution therefore remains blocked
+  until a verified non-GPL build is substituted or complete applicable GPL compliance materials
+  are deliberately supplied.
 - [x] Confirm no API keys, model files, generated media, job databases, `.env` files, or virtual
   environments are tracked. Verified 2026-09-29 with the repository/vault regression suite and a
   tracked-source secret-pattern scan; the only unrelated working-tree item was user-owned
@@ -94,40 +96,46 @@ uv run pytest -m live_engine tests/test_transcription_live.py
 Requirements are listed in [`../packaging/windows/README.md`](../packaging/windows/README.md).
 
 ```powershell
-$ffmpegBin = .\packaging\windows\fetch-ffmpeg-lgpl.ps1
+$ffmpegBin = uv run python .\packaging\windows\fetch_ffmpeg_release.py
 .\packaging\windows\build.ps1 -Version 0.1.0 -FfmpegBin $ffmpegBin
 .\packaging\windows\test-package.ps1 -Version 0.1.0
 Get-Content .\dist\SPLICR-Studio-0.1.0-SHA256SUMS.txt
 ```
 
 - [x] Portable ZIP, per-user installer, checksum file, `BUILD_INFO.txt`, third-party notices, and
-  bundled FFmpeg license/source provenance are present. Verified for `0.1.0-dev.15` after a complete
-  PyInstaller/Inno Setup 6.7.3 build with the pinned LGPL-shared media-tool archive.
-- [x] Recompute every SHA-256 digest and compare it with the checksum file. The `0.1.0-dev.15`
+  bundled FFmpeg license/source provenance are present. Verified for `0.1.0-dev.16` after a complete
+  PyInstaller/Inno Setup 6.7.3 build with the pinned upstream `lgpl-shared` media-tool archive.
+  That upstream label is superseded for compliance purposes by the static-FFTW GPL finding; the
+  dev.16 package harness verifies the corrected metadata and terms.
+- [x] Recompute every SHA-256 digest and compare it with the checksum file. The `0.1.0-dev.16`
   acceptance harness verified the manifest; final hashes are recorded in the evidence table below.
 - [x] Run `packaging/windows/test-package.ps1` against the exact portable ZIP and installer. The
-  `0.1.0-dev.15` run verified checksums, a Unicode/spaces portable path, an unchanged portable tree,
+  `0.1.0-dev.16` run verified checksums, a Unicode/spaces portable path, an unchanged portable tree,
   redirected mutable state, installed package smoke, exact portable/install parity, the pinned
-  shared FFmpeg configuration and dependency licenses, a real OpenH264/AAC MP4, application
-  removal, and preserved user data. The packaging workflow runs this gate before upload and retains
-  its machine-readable acceptance JSON.
+  shared FFmpeg configuration, all 83 dependency-license files, transitive static-FFTW GPL evidence,
+  a real OpenH264/AAC MP4, application removal, and preserved user data. The packaging workflow runs
+  this gate before upload and retains its schema-v2 machine-readable acceptance JSON.
 - [x] Run the harness's optional prior-installer preflight. A development-workstation upgrade from
   `0.1.0-dev.4` to `0.1.0-dev.5` passed both frozen package smokes, kept an external user-data marker
   byte-identical, and left an installed application payload exactly matching the current portable
   package. Representative-job/profile/media migration in a clean VM remains required below.
 - [ ] Publish the exact corresponding FFmpeg source and required attribution/source link, then
-  complete the FFmpeg distribution checklist review. The GPL-enabled binary blocker is removed,
-  but the remaining LGPL compliance publication step is still a public-release gate. The exact
+  complete the FFmpeg distribution checklist review. The current media DLLs are GPL-covered because
+  enabled Chromaprint statically incorporates FFTW3; absence of FFmpeg's `--enable-gpl` flag does
+  not override that transitive dependency. The exact
   FFmpeg, OpenH264, and BtbN recipe snapshots are now hash-pinned and assembled into a validated,
   explicitly incomplete primary-source audit kit. The exact 90-stage enabled dependency graph,
   source revisions, and fetch commands are versioned and validated. A digest-pinned, graph-verifying,
   resumable source collector and plan acceptance test now exist. A real pinned-image OpenH264 run
   verified archive integrity, the expected commit/license, checksums, fail-closed state, and resume
-  reuse. Incremental bounded runs now cover 35 of 92 source locators and reconcile 123 detected
+  reuse. Incremental bounded runs now cover 59 of 92 source locators and reconcile 232 detected
   license/notice candidates; the package manifest carries exact pinned ffnvcodec, dav1d, FriBidi,
   TwoLAME, AMF, OpenJPEG, Game Music Emu, GMP, Kvazaar, LCEVCdec, libvpx, libwebp, libzmq, and
   OpenCORE AMR, libudfread, oneVPL, PCRE2, pixman, Little CMS, OpenAL Soft, SoX Resampler, and
-  uavs3d legal files rather than treating FFmpeg's own license as equivalent. Build-only static
+  uavs3d, Brotli, JPEG XL, Highway, Mbed TLS, TF-PSA-Crypto, librist, LV2, Serd, Zix, Sord, Sratom,
+  Lilv, FFTW3, Chromaprint, LAME, Theora, Vorbis, libxml2, ZVBI, GNU libiconv, Fontconfig,
+  Unicode, HarfBuzz, and FreeType legal files rather than treating FFmpeg's own
+  license as equivalent. Build-only static
   libraries absent from the distributed binary are tracked separately from source trees that recipes
   never build. The remaining full-graph run,
   notice review, correspondence validation, and hosted source link remain open in
@@ -201,6 +209,10 @@ clean-VM evidence.
 
 ## Evidence record
 
+Rows through `0.1.0-dev.15` preserve the package evidence recorded at the time. Any wording there
+that calls the upstream asset or configuration “LGPL” is superseded by the dev.16 Chromaprint/FFTW
+finding: the same media DLLs are GPL-covered through statically incorporated FFTW3.
+
 | Date | Commit/version | Environment | Gate | Result/evidence |
 | --- | --- | --- | --- | --- |
 | 2026-09-29 | `20cc182` | Windows development workstation | Deterministic Milestone 8 gate | 530 Python passed, 4 intentional live skips; 8 frontend unit and 6 Chromium journeys passed; Vite build and real FFmpeg formula/polar/alpha proof passed. |
@@ -228,6 +240,8 @@ clean-VM evidence.
 | 2026-09-30 | `876208e` / `32deb7a` / `0.1.0-dev.13` | Docker Desktop Linux engine through WSL, Windows development workstation, and GitHub Actions `windows-2025` | Thirty-five-source license reconciliation, artifact acceptance, and browser acceptance | The Little CMS, OpenAL Soft, SoX Resampler, and uavs3d batch raised exact review coverage to 35 of 92 source locators and reconciled all 123 candidates: 44 shipped licenses, eleven supplemental notices, 61 recipe-proven not-built records, and seven build-only/not-shipped records. Portable/install acceptance independently matched all 45 manifest-bound legal files and passed checksum, immutable portable, redirected-state, exact install-parity, shared-LGPL configuration, real OpenH264/AAC MP4, uninstall-removal, and user-data-preservation checks. Portable: 184,080,845 bytes, SHA-256 `f8a1897604e803c60aa9b030147c91d6d3bf2b8498e18f5c0ab429cbeaa8012b`. Installer: 119,799,278 bytes, SHA-256 `ac3dbce78deb68d1de3b642b57512af8e5b3d72fd0fa693acab3207435387077`. Hosted browser run [`36757811792`](https://github.com/seabAu/Splicr/actions/runs/36757811792) passed all six Studio journeys in 50.3 seconds on the exact acceptance-record commit. Full source review/publication, AVS3 patent review, clean-VM, signing, and malware gates remain open. |
 | 2026-09-30 | `a158bc1` / `be38ad8` / `0.1.0-dev.14` | Docker Desktop Linux engine through WSL, Windows development workstation, and GitHub Actions `windows-2025` | Thirty-nine-source license reconciliation, artifact acceptance, and browser acceptance | The Brotli, JPEG XL, Mbed TLS, and librist batch raised exact review coverage to 39 of 92 source locators and reconciled all 140 candidates: 51 shipped licenses, twelve supplemental notices, 68 recipe-proven not-built records, and nine build-only/not-shipped records. The downloader SHA-256-verified all 53 manifest files, including a safe graph-pinned `v4.2.0` release tag and a byte-identical commit-pinned librist mirror. Portable/install acceptance independently matched those 53 files and passed checksum, immutable portable, redirected-state, exact install-parity, shared-LGPL configuration, real OpenH264/AAC MP4, uninstall-removal, and user-data-preservation checks. Portable: 184,112,355 bytes, SHA-256 `cbd438b17494bb77f47aa7cc859852f6e3eac0b5f9a5ae9ae04eda7cf416db89`. Installer: 119,796,443 bytes, SHA-256 `9d5b96a33b8e6c5e2cf7d3d777d01a020cad3913ceb523108723f62cebec16cd`. Hosted browser run [`36761944917`](https://github.com/seabAu/Splicr/actions/runs/36761944917) passed all six Studio journeys in 44.2 seconds on the exact acceptance-record commit. Full source review/publication, codec patent review, clean-VM, signing, and malware gates remain open. |
 | 2026-09-30 | `ca7df57` / `8e33227` / `0.1.0-dev.15` | Docker Desktop Linux engine through WSL, Windows development workstation, and GitHub Actions `windows-2025` | Forty-five-source license reconciliation, artifact acceptance, and browser acceptance | The LV2, Serd, Zix, Sord, Sratom, and Lilv batch raised exact review coverage to 45 of 92 source locators and reconciled all 168 candidates: 58 shipped licenses, twelve supplemental notices, 74 recipe-proven not-built records, and 24 build-only/not-shipped records. The inventory now safely resolves relative in-archive license symlinks and rejects archive-root escapes; deterministic positive and negative fixtures cover both paths. The downloader SHA-256-verified all 60 manifest files. Portable/install acceptance independently matched those 60 files and passed checksum, immutable portable, redirected-state, exact install-parity, shared-LGPL configuration, real OpenH264/AAC MP4, uninstall-removal, and user-data-preservation checks. Portable: 184,117,989 bytes, SHA-256 `1f43bb56bad037d0a8eab3a5d07169af50d22018d793f7d683a773b59da44520`. Installer: 119,792,944 bytes, SHA-256 `690a7c09b2cecbc27c85852fdb8f7bab78359fb94a77ab914599ee851954a6bc`. Hosted browser run [`36765143610`](https://github.com/seabAu/Splicr/actions/runs/36765143610) passed all six Studio journeys in 43.6 seconds on the exact acceptance-record commit. Full source review/publication, codec patent review, clean-VM, signing, and malware gates remain open. |
+| 2026-09-30 | `0.1.0-dev.16` working tree | Docker Desktop Linux engine through WSL and Windows development workstation | Forty-nine-source reconciliation and manual package-acceptance fallback | Chromaprint, LAME, Theora, and Vorbis raised review coverage to 49 of 92 locators and reconciled all 180 candidates: 63 shipped licenses, fifteen supplemental notices, 81 not-built records, and 21 build-only/not-shipped records. The review corrected FFTW3 to statically incorporated GPL-2.0-or-later code. Exact-batch/global validators passed and all 68 manifest files fetched and hash-verified. The real artifacts passed independently recomputed checksums, Unicode-path portable smoke, unchanged portable tree, exact installed/portable parity, all 68 legal files, Chromaprint/static-pkg-config configuration, a single avformat DLL with embedded FFTW marker and no FFTW DLL, real OpenH264/AAC MP4, uninstall removal, and user-data preservation. Portable: 184,141,042 bytes, SHA-256 `9c0b6547f603c32a31b9e77775ecf9b49dca57eeed76cad4fa274470a9e5ca02`. Installer: 119,790,595 bytes, SHA-256 `8896abea52a3b9ffbb1a8223e8551c005b9f452eb826420fb90fd8aee421a348`. Bitdefender denied read/execute access to the tracked `test-package.ps1`; therefore the normal harness-emitted acceptance JSON and hosted browser run remain open. |
+| 2026-10-01 | `0.1.0-dev.16` working tree | Windows 10.0.19045 development workstation | Tracked package-acceptance harness and fifty-nine-source reconciliation | The libxml2, XZ/liblzma, SDL2, ZVBI, GNU libiconv, Fontconfig, HarfBuzz, and bootstrap/final FreeType promotions raised exact review coverage to 59 of 92 locators and 232 candidates: 72 shipped licenses, 23 supplemental notices, 93 not-built records, and 44 build-only/not-shipped records. All 83 manifest files fetched and hash-verified; the companion manifest binds Fontconfig's separate Unicode-3.0 terms to its reviewed source candidate. The fetch path moved to a bounded standard-library Python implementation after the security suite quarantined newly written PowerShell downloaders; it retains pinned revisions, explicit transport decoding, timeouts, retries, and fail-closed hashes. The rebuilt artifacts passed the elevated tracked schema-v2 harness under PowerShell 7 end to end at `2026-10-01T19:13:26.1898884Z`, including checksums, Unicode/spaces portable smoke, unchanged portable contents, redirected state, exact portable/install parity, all 83 pinned dependency-license files, static FFTW evidence, OpenH264/AAC MP4, application removal, and user-data preservation. Portable: 184,202,955 bytes, SHA-256 `b2dad13acef808cafed5f40b326827b0042e12daf8b011feb0aa3344d821c532`. Installer: 119,829,501 bytes, SHA-256 `43266d10023515a62264200e8c697b8f1f5febcdae8d99a380bf65de454a61df`. Hosted browser, clean-VM, signing/malware, live-provider, and corresponding-source publication gates remain open. Windows PowerShell 5 misparses the harness's UTF-8-without-BOM Unicode-path literal; the ASCII-only `[char]` source correction remains pending until the protected script is writable through the safe patch path. |
 | Pending | Pending | Clean Windows x64 VM | Fresh install / upgrade / uninstall / portable | Record artifact hashes, Windows version, install paths, and observations here. |
 | Pending | Pending | GitHub Actions `windows-2025` | Package workflow | Link the successful package run and approved retained artifacts when available. |
 

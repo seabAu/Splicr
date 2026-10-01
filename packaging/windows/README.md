@@ -19,12 +19,14 @@ Requirements:
 - Windows x64
 - Python 3.11+ and `uv`
 - Node.js/npm
-- Network access for the pinned, checksum-verified LGPL-shared FFmpeg download (recommended), or a
-  reviewed FFmpeg/FFprobe directory supplied explicitly with `-FfmpegBin`
+- Network access for the pinned, checksum-verified upstream `lgpl-shared` FFmpeg asset
+  (recommended), or a reviewed FFmpeg/FFprobe directory supplied explicitly with `-FfmpegBin`.
+  The current pinned asset is effectively GPL-covered because its static Chromaprint includes
+  FFTW3; the upstream variant name is not a license determination.
 - Inno Setup 6, unless only the portable ZIP is needed
 
 ```powershell
-$ffmpegBin = .\packaging\windows\fetch-ffmpeg-lgpl.ps1
+$ffmpegBin = uv run python .\packaging\windows\fetch_ffmpeg_release.py
 .\packaging\windows\build.ps1 -Version 0.1.0 -FfmpegBin $ffmpegBin
 ```
 
@@ -33,8 +35,9 @@ FFmpeg/FFprobe and required shared DLLs into the private app bundle, builds the 
 executable, creates checksums, records the exact bundled media-tool build, and then compiles the
 installer. The fetcher pins the BtbN release tag, asset name, and SHA-256 digest; it also creates a
 `SOURCE_INFO.txt` record. Required external-library license files are declared once in
-`ffmpeg-packaged-license-files.tsv`; the fetcher downloads exact revision URLs and rejects a hash
-mismatch. Generated vendor tools and build outputs are ignored by Git. Every package includes
+`ffmpeg-packaged-license-files.tsv`; the standard-library Python fetcher downloads exact revision
+URLs, applies only declared transport decoding, retries bounded transient failures, and rejects a
+hash mismatch. Generated vendor tools and build outputs are ignored by Git. Every package includes
 `THIRD_PARTY_NOTICES.md`, generated `BUILD_INFO.txt`, the FFmpeg `LICENSE.txt` and
 `SOURCE_INFO.txt`, and each manifest-listed dependency license beside the bundled media tools. The
 build locates Inno Setup from `PATH` or its standard per-user and machine-wide installation
@@ -66,8 +69,8 @@ Start menu entry while it runs. The harness requires PowerShell 7 (`pwsh`):
 
 The harness independently verifies the checksum manifest, extracts the portable ZIP to a path with
 spaces, proves portable smoke leaves every package file unchanged, redirects mutable state to a
-separate per-user data root, silently installs the real installer, checks FFmpeg's shared LGPL
-configuration and provenance files, proves the installed payload exactly matches the portable
+separate per-user data root, silently installs the real installer, checks FFmpeg's shared
+configuration, effective-license evidence, and provenance files, proves the installed payload exactly matches the portable
 payload, renders and probes an OpenH264/AAC MP4, uninstalls, and proves the application directory is
 removed while user data remains. It writes a machine-readable
 `SPLICR-Studio-<version>-Windows-x64-ACCEPTANCE.json` beside the packages. The release workflow
@@ -109,14 +112,23 @@ partial or full collection, run `inventory-ffmpeg-source-licenses.sh` against it
 `test-ffmpeg-source-license-inventory.sh` and `test-ffmpeg-source-license-review.sh`. Generated
 candidate rows remain pending until their source identity, SPDX expression, and binary notice
 obligation are added to the tracked `ffmpeg-source-license-review.tsv`. The reviewed set currently
-covers 45 of 92 source locators and 168 detected candidates: 58 shipped licenses, twelve supplemental
-notices, 74 recipe-proven not-built candidates, and 24 build-only candidates absent from the
+covers 59 of 92 source locators and 232 detected candidates: 72 shipped licenses, 23 supplemental
+notices, 93 recipe-proven not-built candidates, and 44 build-only candidates absent from the
 distributed binary. Required notices are hash-anchored byte-for-byte in `THIRD_PARTY_NOTICES.md` or
 separately manifest-bound and packaged, including exact files for ffnvcodec, dav1d, FriBidi,
 TwoLAME, AMF, OpenJPEG, Game Music Emu, GMP, Kvazaar, LCEVCdec, libvpx, libwebp, libzmq, and
 OpenCORE AMR, libudfread, oneVPL, PCRE2, pixman, Little CMS, OpenAL Soft, SoX Resampler, and
 uavs3d, Brotli, JPEG XL, Highway, Mbed TLS, TF-PSA-Crypto, librist, LV2, Serd, Zix, Sord, Sratom,
-and Lilv. FFmpeg's own license is not treated as a substitute for dependency licenses.
+Lilv, FFTW3, Chromaprint, LAME, Theora, Vorbis, libxml2, ZVBI, GNU libiconv, Fontconfig, Unicode,
+HarfBuzz, and FreeType. The review corrected FFTW3 from build-only to
+statically incorporated: the package gate now requires its GPL text and notice, verifies the enabled
+Chromaprint/static pkg-config path, rejects a separate FFTW DLL, and confirms an FFTW marker inside
+`avformat-63.dll`. ZVBI supplies an additional GPL-2.0-only static-link path; SDL2 is recorded as
+build-only because SPLICR does not distribute `ffplay.exe`. GNU libiconv is statically incorporated
+under LGPL-2.1-or-later; the unshipped `iconv` CLI's gnulib inputs remain build-only. Fontconfig's
+separate Unicode-3.0 obligation is bound through the companion manifest. All 83 manifest-bound files
+are fetched and hash-checked. FFmpeg's own license is
+not treated as a substitute for dependency licenses.
 Optional-notice, not-built, and build-only/not-shipped candidates remain explicit
 rather than silently ignored. The validator can reconcile every generated candidate to exactly one
 reviewed disposition. Inventory extraction resolves only bounded, relative, in-archive license

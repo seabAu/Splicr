@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 from pathlib import Path
 
 from PyInstaller.utils.hooks import collect_submodules
@@ -17,9 +18,9 @@ datas = [
 ]
 packaged_license_manifest = ROOT / "packaging" / "windows" / "ffmpeg-packaged-license-files.tsv"
 packaged_license_names = []
-for line in packaged_license_manifest.read_text(encoding="utf-8").splitlines()[1:]:
-    package_path, _source_url, _revision, _sha256 = line.split("\t")
-    packaged_license_names.append(Path(package_path).name)
+with packaged_license_manifest.open(encoding="utf-8", newline="") as manifest_stream:
+    for record in csv.DictReader(manifest_stream, delimiter="\t"):
+        packaged_license_names.append(Path(record["package_path"]).name)
 for metadata in ("LICENSE.txt", "SOURCE_INFO.txt", *packaged_license_names):
     candidate = ROOT / "packaging" / "windows" / "vendor" / "ffmpeg" / metadata
     if candidate.is_file():

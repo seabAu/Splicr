@@ -1,0 +1,2 @@
+package_path	stage	locator_variable	revision	candidate_path	candidate_sha256	companion_spdx	review_notes
+ffmpeg/UNICODE-3.0.txt	scripts.d/45-fonts/35-fontconfig.sh	SCRIPT_REPO	bd8f7b597de96761750d0365abb49b19d2f8d5c3	./COPYING	51a51aa9823704fd90bccc616cdd17ebabb5b2b3e9cbde886ca02c7002288067	Unicode-3.0	Fontconfig's generated case-folding tables copy Unicode data whose source file points to the separate Unicode License v3 payload; this exact external license is packaged as a companion to the reviewed Fontconfig source grant.

@@ -38,6 +38,11 @@ function Get-Sha256([string]$Path) {
     }
 }
 
+function Test-FileContainsAscii([string]$Path, [string]$Needle) {
+    $Text = [Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes($Path))
+    return $Text.IndexOf($Needle, [StringComparison]::Ordinal) -ge 0
+}
+
 function Invoke-Checked([string]$FilePath, [string[]]$ArgumentList) {
     $StartInfo = [Diagnostics.ProcessStartInfo]::new()
     $StartInfo.FileName = $FilePath
@@ -115,6 +120,15 @@ $Installer = Join-Path $ArtifactsDir $InstallerName
 $Checksums = Join-Path $ArtifactsDir $ChecksumsName
 $PackagedLicenseManifest = Join-Path $PSScriptRoot "ffmpeg-packaged-license-files.tsv"
 $PackagedLicenseRecords = @(Import-Csv -LiteralPath $PackagedLicenseManifest -Delimiter "`t")
+$RequiredTransitiveGplFiles = @(
+    "ffmpeg/FFTW-COPYING.txt",
+    "ffmpeg/FFTW-COPYRIGHT.txt",
+    "ffmpeg/CHROMAPRINT-LICENSE.md"
+)
+foreach ($RequiredTransitiveGplFile in $RequiredTransitiveGplFiles) {
+    Assert-Condition ($RequiredTransitiveGplFile -in $PackagedLicenseRecords.package_path) `
+        "Packaged FFmpeg manifest omits transitive GPL evidence: $RequiredTransitiveGplFile"
+}
 
 foreach ($RequiredArtifact in @($PortableZip, $Installer, $Checksums)) {
     Assert-Condition (Test-Path -LiteralPath $RequiredArtifact -PathType Leaf) `
@@ -272,8 +286,19 @@ try {
     Assert-Condition ($FfmpegVersion -match '--enable-shared') "Bundled FFmpeg is not a shared build"
     Assert-Condition ($FfmpegVersion -match '--disable-static') "Bundled FFmpeg did not disable static libraries"
     Assert-Condition ($FfmpegVersion -match '--disable-libx264') "Bundled FFmpeg did not disable libx264"
-    Assert-Condition ($FfmpegVersion -notmatch '--enable-gpl') "Bundled FFmpeg unexpectedly enables GPL components"
+    Assert-Condition ($FfmpegVersion -notmatch '--enable-gpl') `
+        "Bundled FFmpeg unexpectedly enables GPL-gated FFmpeg components"
     Assert-Condition ($FfmpegVersion -notmatch '--enable-nonfree') "Bundled FFmpeg unexpectedly enables nonfree components"
+    Assert-Condition ($FfmpegVersion -match '--enable-chromaprint') `
+        "Bundled FFmpeg no longer exposes the reviewed Chromaprint dependency path"
+    Assert-Condition ($FfmpegVersion -match '--pkg-config-flags=--static') `
+        "Bundled FFmpeg no longer records the reviewed static dependency-link mode"
+    $AvformatDlls = @(Get-ChildItem -LiteralPath $FfmpegDir -Filter "avformat-*.dll" -File)
+    Assert-Condition ($AvformatDlls.Count -eq 1) "Bundled FFmpeg must contain exactly one avformat DLL"
+    Assert-Condition (-not (Get-ChildItem -LiteralPath $FfmpegDir -Filter "*fftw*.dll" -File)) `
+        "Bundled FFmpeg unexpectedly carries FFTW as a separate DLL"
+    Assert-Condition (Test-FileContainsAscii $AvformatDlls[0].FullName "(fftw-3.3.11 fftw_wisdom") `
+        "Bundled avformat DLL no longer contains the reviewed statically linked FFTW marker"
     $EncoderListing = Invoke-Captured $Ffmpeg @("-hide_banner", "-encoders")
     Assert-Condition ($EncoderListing -match '(?m)^\s*V\S*\s+libopenh264\b') `
         "Bundled FFmpeg does not expose libopenh264"
@@ -341,7 +366,8 @@ try {
         portable_per_user_data = $true
         installed_payload_matches_portable = $true
         installed_package_smoke = $true
-        lgpl_shared_configuration = $true
+        shared_ffmpeg_configuration = $true
+        transitive_fftw_gpl_terms = $true
         dependency_license_files = $true
         openh264_h264_aac_mp4 = $true
         uninstall_removed_application = $true
@@ -352,7 +378,7 @@ try {
         $Checks.upgrade_preserved_user_data = $true
     }
     $Evidence = [ordered]@{
-        schema_version = 1
+        schema_version = 2
         version = $Version
         tested_at_utc = [DateTime]::UtcNow.ToString("o")
         operating_system = [Environment]::OSVersion.VersionString

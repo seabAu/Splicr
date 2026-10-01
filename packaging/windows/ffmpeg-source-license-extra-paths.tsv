@@ -15,3 +15,17 @@ scripts.d/50-ffnvcodec.sh	./ffnvcodec3/include/ffnvcodec/dynlink_loader.h
 scripts.d/50-ffnvcodec.sh	./ffnvcodec3/include/ffnvcodec/dynlink_nvcuvid.h
 scripts.d/50-ffnvcodec.sh	./ffnvcodec3/include/ffnvcodec/nvEncodeAPI.h
 scripts.d/50-soxr.sh	./src/pffft.c
+scripts.d/20-libiconv.sh	./iconv/lib/iconv.c
+scripts.d/20-libiconv.sh	./iconv/lib/compat.c
+scripts.d/20-libiconv.sh	./iconv/libcharset/lib/localcharset.c
+scripts.d/45-fonts/25-freetype.sh	./docs/FTL.TXT
+scripts.d/45-fonts/25-freetype.sh	./src/bdf/README
+scripts.d/45-fonts/25-freetype.sh	./src/pcf/README
+scripts.d/45-fonts/25-freetype.sh	./src/pcf/pcfutil.c
+scripts.d/45-fonts/25-freetype.sh	./src/gzip/zlib.h
+scripts.d/45-fonts/45-harfbuzz.sh	./src/ms-use/COPYING
+scripts.d/45-fonts/50-freetype.sh	./docs/FTL.TXT
+scripts.d/45-fonts/50-freetype.sh	./src/bdf/README
+scripts.d/45-fonts/50-freetype.sh	./src/pcf/README
+scripts.d/45-fonts/50-freetype.sh	./src/pcf/pcfutil.c
+scripts.d/45-fonts/50-freetype.sh	./src/gzip/zlib.h

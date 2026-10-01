@@ -17,13 +17,18 @@ The release publisher must review the recorded configuration and provide all not
 and corresponding source or source offer required by that particular build before distributing the
 package publicly.
 
-The `0.1.0-dev.5` Windows acceptance candidate uses the checksum-pinned BtbN
-`ffmpeg-n9.0.2-3-ga5923073bf-win64-lgpl-shared-9.0.zip` asset. Its recorded configuration enables
-shared libraries and OpenH264 while disabling libx264, libx265, and other GPL-only codecs used by
-the earlier internal candidate. The package preserves FFmpeg's `LICENSE.txt`, a `SOURCE_INFO.txt`
-record containing the exact download URL and SHA-256, and the generated `BUILD_INFO.txt`. A public
-publisher must still provide the exact corresponding source and complete the distribution review;
-this notice does not itself make a legal determination.
+The current Windows package uses the checksum-pinned BtbN
+`ffmpeg-n9.0.2-3-ga5923073bf-win64-lgpl-shared-9.0.zip` asset. That filename is the upstream asset
+variant, not an effective-license determination. Recipe and binary inspection found that enabled
+Chromaprint is built with static FFTW3: Chromaprint publishes `-lfftw3` in `Libs.private`, FFmpeg
+uses static pkg-config dependency resolution, `avformat-63.dll` contains FFTW 3.3.11 markers, and
+no separate FFTW DLL is shipped. FFTW is GPL-2.0-or-later, so the bundled media DLLs must be treated
+as GPL-covered despite the upstream `lgpl-shared` asset label. The package preserves FFmpeg's
+`LICENSE.txt`, a `SOURCE_INFO.txt` record containing the exact download URL, SHA-256, upstream
+variant, and effective-license warning, plus the generated `BUILD_INFO.txt`. Public distribution
+remains blocked until the publisher deliberately satisfies the applicable GPL corresponding-source
+and notice obligations or replaces this asset with a verified non-GPL build. This notice is an
+engineering record, not legal advice.
 
 ## OpenH264
 
@@ -624,6 +629,132 @@ LV2 schema and manifest assets plus Meson/configuration metadata exist only in t
 build prefix and are not linked or copied into the Windows package. The source inventory resolves
 only safe in-archive license symlinks and rejects absolute, escaping, cyclic, ambiguous, or
 over-deep links.
+
+## Chromaprint and FFTW3
+
+The bundled FFmpeg dependency graph statically incorporates Chromaprint at pinned revision
+`aed8eba2202dd9d7b3b0a56c77904cc805490d72`. Its exact combined LGPL-2.1-or-later and MIT license,
+including the external-FFT warning, is packaged as `ffmpeg/CHROMAPRINT-LICENSE.md` with SHA-256
+`562cfe59627e0c4e8e3b066f3ff2e9736f83811ffe4c6c2c7796595aa7595ebd`.
+
+The recipe selects `FFT_LIB=fftw3`; static dependency resolution incorporates FFTW3 at pinned
+revision `93ed4c786934aec9946f8dda4b4e3eb08f8be41c` into the media DLLs. FFTW's exact
+GPL-2.0-or-later text is packaged as `ffmpeg/FFTW-COPYING.txt` with SHA-256
+`231f7edcc7352d7734a96eef0b8030f77982678c516876fcb81e25b32d68564c`, and its exact source
+copyright/licensing notice is packaged as `ffmpeg/FFTW-COPYRIGHT.txt` with SHA-256
+`8a74b35d541d93fdf58a22a3d3baa48ae3edbf6d715edfeb6457c21968ae43ac`. Chromaprint tests are
+disabled, and the selected FFTW backend excludes vendored KissFFT.
+
+## LAME
+
+The bundled FFmpeg dependency graph statically incorporates LAME at pinned SVN revision `6835`
+under LGPL-2.0-or-later. Its exact GNU Library GPL version 2 text is packaged as
+`ffmpeg/LAME-COPYING.txt` with SHA-256
+`e64f9c5a18f56828c10a575df13ade641aa3af4512a7afe6c411256943b57aaf`. LAME's accompanying
+binary-distribution guidance and acknowledgement request is packaged as
+`ffmpeg/LAME-LICENSE.txt` with SHA-256
+`5c1f8d44f1eacbea3e1c31ff6ee11a4e1690ccbed4ee4af16de3b6eb61dc69a8`.
+
+## Theora
+
+The bundled FFmpeg dependency graph statically incorporates Theora at pinned revision
+`28fd5ec77f0ad0e07a371cef1047828116f6bd8a`. Its exact BSD-3-Clause notice is packaged as
+`ffmpeg/THEORA-COPYING.txt` with SHA-256
+`8417fad7da775735564e209484a2e011e0fa201e94f01fdbee6e4977e478e6fc`. The accompanying On2 VP3
+patent non-assertion statement is preserved as `ffmpeg/THEORA-LICENSE.txt` with SHA-256
+`2c902950c73a63cd285dc0c36573de9c5fefe66d49312949c51d941f33e92932`; preserving it does not
+assert independent patent clearance.
+
+## Vorbis
+
+The bundled FFmpeg dependency graph statically incorporates Vorbis at pinned revision
+`1b75110b5a2754ba1931d82dd83cb822b266a21d`. Its exact BSD-3-Clause notice is packaged as
+`ffmpeg/VORBIS-COPYING.txt` with SHA-256
+`ec1815db59fcd302846df949d7424876cb2e2dc5ed1606c5fb0b36787b1cf43a`.
+
+## libxml2
+
+The bundled FFmpeg dependency graph statically incorporates libxml2 at pinned revision
+`91586dc6742ab335682235120363f6e126eea5e2`. Its exact MIT notice is packaged as
+`ffmpeg/LIBXML2-Copyright.txt` with SHA-256
+`5d4873884a890122a4b9b20ad56ac6f7da1d796a5bfcf04a427970ac96217626`. HTML-tokenizer notices
+found by the source inventory belong only to disabled test fixtures.
+
+## XZ Utils / liblzma
+
+FFmpeg statically incorporates liblzma from pinned XZ revision
+`3b1efb04d17c3a9ef7f473d73af13f1531428ffe` under 0BSD. The exact source review records both the
+upstream license map and operative `COPYING.0BSD`; 0BSD imposes no binary-notice requirement. GPL
+and LGPL files in the archive apply to build-system material, fallbacks, and command-line utilities
+that are not incorporated into the SPLICR package.
+
+## ZVBI
+
+The bundled FFmpeg dependency graph statically incorporates libzvbi at pinned revision
+`d3a5ee9f2b047bf16cd1ee5ccf6ec05ee75409d0`. Enabled library objects include GPL-2.0-only
+`packet-830.c` and `pdc.c` alongside LGPL- and MIT-covered source. The comprehensive exact upstream
+terms are packaged as `ffmpeg/ZVBI-COPYING.md` with SHA-256
+`6d679539253897582d38fcd1eabfa670c01c0ece73d8cd3dc97869fcf723f106`. This independently makes the
+distributed media-library combination GPL-covered; the upstream asset's `lgpl-shared` label is not
+a license determination.
+
+## SDL2 exclusion
+
+The upstream recipe builds SDL2 only for `ffplay.exe`. SPLICR copies `ffmpeg.exe`, `ffprobe.exe`,
+and the shared FFmpeg libraries, none of which contains SDL markers, so SDL2 and its embedded HIDAPI
+and yuv2rgb code are recorded as build-only/not-shipped rather than as distributed components.
+
+## GNU libiconv
+
+The bundled FFmpeg dependency graph statically incorporates GNU libiconv at pinned revision
+`1df3087ba8110c7f3ed3eb5f8869b814dbbe00b0` under LGPL-2.1-or-later. The exact LGPL-2.1 text is
+packaged as `ffmpeg/LIBICONV-COPYING.LIB.txt` with SHA-256
+`20e50fe7aae3e56378ebf0417d9de904f55a0e61e4df315333e632a4d3555d95`. Exact compiled-source
+notices are also preserved as `ffmpeg/LIBICONV-iconv.c`, `ffmpeg/LIBICONV-compat.c`, and
+`ffmpeg/LIBICONV-localcharset.c`, with SHA-256 values
+`7c563fb5e731f7ba9fcd794d1e953cbb989030da8c769c214d8af8554a725fa1`,
+`1798743831f704fdae30190d8700c43d2849798be2cb30b4b8fc5587f306cd52`, and
+`c76245773a28b361208591a5d0fdeb0d8e408a230feea647bf960ab702a8035b`. The gnulib runtime is linked
+only into the unshipped `iconv` command-line program; its GPL and documentation candidates are
+recorded as build-only rather than part of the SPLICR runtime.
+
+## Fontconfig and Unicode data
+
+The bundled font stack statically incorporates Fontconfig at pinned revision
+`bd8f7b597de96761750d0365abb49b19d2f8d5c3`. Its exact HPND-sell-variant project notice and embedded
+attributions are packaged as `ffmpeg/FONTCONFIG-COPYING.txt` with SHA-256
+`51a51aa9823704fd90bccc616cdd17ebabb5b2b3e9cbde886ca02c7002288067`. Fontconfig's generated
+case-folding tables copy Unicode data whose source notice points to the separate Unicode License v3.
+That exact companion license is packaged as `ffmpeg/UNICODE-3.0.txt` with SHA-256
+`e7a93b009565cfce55919a381437ac4db883e9da2126fa28b91d12732bc53d96` and is fail-closed bound to
+the reviewed Fontconfig candidate through `ffmpeg-packaged-license-companions.tsv`.
+
+## HarfBuzz
+
+HarfBuzz at pinned revision `b3bab62307017934dd7f532c52a696fefb12b3ad` is statically
+incorporated into the shaping stack. Its exact MIT-Modern-Variant terms are packaged as
+`ffmpeg/HARFBUZZ-COPYING.txt` with SHA-256
+`ba8f810f2455c2f08e2d56bb49b72f37fcf68f1f4fade38977cfd7372050ad64`. The exact MIT notice for
+Microsoft USE data that feeds generated runtime shaping tables is packaged as
+`ffmpeg/HARFBUZZ-MS-USE-COPYING.txt` with SHA-256
+`c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383`. Test, benchmark, and
+performance-text notices apply only to disabled targets.
+
+## FreeType
+
+The final HarfBuzz-enabled FreeType build at pinned revision
+`d333439633039de426f943f28a2926c7f97b5ae5` overwrites the earlier bootstrap archive before FFmpeg
+links. The exact license router and selected FreeType License are packaged as
+`ffmpeg/FREETYPE-LICENSE.TXT` and `ffmpeg/FREETYPE-FTL.TXT`, with SHA-256 values
+`bd36c8b474855fa294c2ec5c184544478ef3720aad37d65a6296a4f264fd2d3b` and
+`5a5ee54c5001bbad1cdc1a57cc3dd4c42199b2da09d39c7ee41fab002d02967f`. This product uses software
+based in part on the work of the FreeType Team. Exact notices for the enabled BDF and PCF modules
+are packaged as `ffmpeg/FREETYPE-BDF-README.txt`, `ffmpeg/FREETYPE-PCF-README.txt`, and
+`ffmpeg/FREETYPE-PCFUTIL.c`, with SHA-256 values
+`7984455e7e5a9faba3797c8bf095fbe10cc846316b7320aff8c58402e22b82fe`,
+`18d9782898d9eac04476e2f744678137b2a889689ed3e923e052fc396a86f86b`, and
+`85f96e9fd54d9ef69eb39e9dc1d085b6e071921cc012da0f503c75d4b8bf336b`. The build selects the
+earlier external static zlib through `zlib.pc`, so FreeType's bundled zlib fallback is not compiled.
 
 Advanced audiogram rendering also includes these Python libraries in the frozen desktop package:
 

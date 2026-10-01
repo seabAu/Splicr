@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -gt 4 ]]; then
-    echo "usage: $0 [REVIEW_FILE [THIRD_PARTY_NOTICES_FILE [CANDIDATE_INVENTORY_FILE [PACKAGED_LICENSE_FILES]]]]" >&2
+if [[ $# -gt 5 ]]; then
+    echo "usage: $0 [REVIEW_FILE [THIRD_PARTY_NOTICES_FILE [CANDIDATE_INVENTORY_FILE [PACKAGED_LICENSE_FILES [PACKAGED_LICENSE_COMPANIONS]]]]]" >&2
     exit 2
 fi
 
@@ -14,8 +14,9 @@ stages_path="$graph_root/enabled-stages.txt"
 notices_path="${2:-$script_root/THIRD_PARTY_NOTICES.md}"
 inventory_path="${3:-}"
 packaged_licenses_path="${4:-$script_root/ffmpeg-packaged-license-files.tsv}"
+packaged_companions_path="${5:-$script_root/ffmpeg-packaged-license-companions.tsv}"
 
-for required in "$review_path" "$revisions_path" "$stages_path" "$notices_path" "$packaged_licenses_path"; do
+for required in "$review_path" "$revisions_path" "$stages_path" "$notices_path" "$packaged_licenses_path" "$packaged_companions_path"; do
     [[ -f "$required" ]] || { echo "Required review input not found: $required" >&2; exit 1; }
 done
 if [[ -n "$inventory_path" && ! -f "$inventory_path" ]]; then
@@ -23,7 +24,7 @@ if [[ -n "$inventory_path" && ! -f "$inventory_path" ]]; then
     exit 1
 fi
 
-expected_packaged_licenses_header=$'package_path\tsource_url\trevision\tsha256'
+expected_packaged_licenses_header=$'package_path\tsource_url\trevision\tsha256\tcontent_encoding'
 [[ "$(head -n 1 "$packaged_licenses_path")" == "$expected_packaged_licenses_header" ]] || {
     echo "Unexpected packaged license file manifest header" >&2
     exit 1
@@ -31,12 +32,13 @@ expected_packaged_licenses_header=$'package_path\tsource_url\trevision\tsha256'
 declare -A packaged_license_hashes=()
 declare -A packaged_license_revisions=()
 declare -A packaged_license_references=()
-while IFS=$'\t' read -r package_path source_url package_revision package_sha256 extra; do
+while IFS=$'\t' read -r package_path source_url package_revision package_sha256 content_encoding extra; do
     [[ "$package_path" != "package_path" ]] || continue
     [[ -z "${extra:-}" && "$package_path" =~ ^ffmpeg/[A-Za-z0-9._-]+$ && \
         "$source_url" == https://* && \
-        "$package_revision" =~ ^([0-9a-f]{40}|v[0-9]+(\.[0-9]+){1,3}([._-][0-9A-Za-z]+)*)$ && \
-        "$package_sha256" =~ ^[0-9a-f]{64}$ ]] || {
+        "$package_revision" =~ ^([0-9a-f]{40}|[1-9][0-9]*|v[0-9]+(\.[0-9]+){1,3}([._-][0-9A-Za-z]+)*)$ && \
+        "$package_sha256" =~ ^[0-9a-f]{64}$ && \
+        "$content_encoding" =~ ^(base64)?$ ]] || {
         echo "Invalid packaged license file manifest row: $package_path" >&2
         exit 1
     }
@@ -47,6 +49,47 @@ while IFS=$'\t' read -r package_path source_url package_revision package_sha256 
     packaged_license_hashes["$package_path"]="$package_sha256"
     packaged_license_revisions["$package_path"]="$package_revision"
 done < "$packaged_licenses_path"
+
+expected_packaged_companions_header=$'package_path\tstage\tlocator_variable\trevision\tcandidate_path\tcandidate_sha256\tcompanion_spdx\treview_notes'
+[[ "$(head -n 1 "$packaged_companions_path")" == "$expected_packaged_companions_header" ]] || {
+    echo "Unexpected packaged license companion manifest header" >&2
+    exit 1
+}
+declare -A companion_review_keys=()
+declare -A companion_spdx_terms=()
+declare -A companion_review_hits=()
+companion_count=0
+while IFS=$'\t' read -r package_path companion_stage companion_locator_variable companion_revision \
+    companion_candidate_path companion_candidate_sha256 companion_spdx review_notes extra; do
+    [[ "$package_path" != "package_path" ]] || continue
+    [[ -z "${extra:-}" && -n "$review_notes" && \
+        -n "${packaged_license_hashes[$package_path]:-}" && \
+        "$companion_candidate_path" == ./* && \
+        "$companion_candidate_sha256" =~ ^[0-9a-f]{64}$ && \
+        "$companion_spdx" =~ ^[A-Za-z0-9.-]+$ ]] || {
+        echo "Invalid packaged license companion manifest row: $package_path" >&2
+        exit 1
+    }
+    grep -Fxq "$companion_stage" "$stages_path" || {
+        echo "Packaged license companion names a stage outside the enabled graph: $package_path" >&2
+        exit 1
+    }
+    awk -F '\t' -v stage="$companion_stage" -v variable="$companion_locator_variable" \
+        -v revision="$companion_revision" '
+        NR > 1 && $1 == stage && $2 == variable && $5 == revision { found = 1 }
+        END { exit(found ? 0 : 1) }
+    ' "$revisions_path" || {
+        echo "Packaged license companion source identity differs from the pinned graph: $package_path" >&2
+        exit 1
+    }
+    [[ -z "${companion_review_keys[$package_path]:-}" ]] || {
+        echo "Duplicate packaged license companion path: $package_path" >&2
+        exit 1
+    }
+    companion_review_keys["$package_path"]="$companion_stage|$companion_locator_variable|$companion_revision|$companion_candidate_path|$companion_candidate_sha256"
+    companion_spdx_terms["$package_path"]="$companion_spdx"
+    companion_count=$((companion_count + 1))
+done < "$packaged_companions_path"
 
 expected_header=$'stage\tlocator_variable\trevision\tarchive_sha256\tcandidate_path\tcandidate_sha256\tcandidate_final_newline\tcandidate_disposition\tspdx_expression\tbinary_notice_requirement\tnotice_anchor\treview_status\treview_notes'
 [[ "$(head -n 1 "$review_path")" == "$expected_header" ]] || {
@@ -235,6 +278,25 @@ while IFS=$'\t' read -r stage locator_variable revision archive_sha256 candidate
         exit 1
     }
     seen_records[$record_key]=1
+    for companion_path in "${!companion_review_keys[@]}"; do
+        [[ "${companion_review_keys[$companion_path]}" == "$record_key" ]] || continue
+        [[ "$candidate_disposition" == "shipped-license" ]] || {
+            echo "Packaged companion license is not attached to a shipped-license candidate: $companion_path" >&2
+            exit 1
+        }
+        [[ "$spdx_expression" == *"${companion_spdx_terms[$companion_path]}"* ]] || {
+            echo "Packaged companion SPDX term is absent from the reviewed expression: $companion_path" >&2
+            exit 1
+        }
+        grep -Fq "$companion_path" "$notices_path" || {
+            echo "Packaged companion license file is absent from THIRD_PARTY_NOTICES.md: $companion_path" >&2
+            exit 1
+        }
+        companion_review_hits["$companion_path"]=1
+        packaged_license_references["$companion_path"]=$((
+            ${packaged_license_references[$companion_path]:-0} + 1
+        ))
+    done
     if [[ -n "$inventory_path" && -n "${inventory_stages[$stage]:-}" ]]; then
         inventory_key="$stage|$archive_sha256|$candidate_path|$candidate_sha256"
         [[ -n "${inventory_records[$inventory_key]:-}" ]] || {
@@ -247,6 +309,12 @@ while IFS=$'\t' read -r stage locator_variable revision archive_sha256 candidate
 done < "$review_path"
 
 [[ "$reviewed_count" -gt 0 ]] || { echo "FFmpeg source license review contains no records" >&2; exit 1; }
+for companion_path in "${!companion_review_keys[@]}"; do
+    [[ -n "${companion_review_hits[$companion_path]:-}" ]] || {
+        echo "Packaged companion license has no exact reviewed source candidate: $companion_path" >&2
+        exit 1
+    }
+done
 for packaged_path in "${!packaged_license_hashes[@]}"; do
     [[ -n "${packaged_license_references[$packaged_path]:-}" ]] || {
         echo "Packaged license file has no reviewed source candidate: $packaged_path" >&2
@@ -265,6 +333,7 @@ source_locator_count="$(($(wc -l < "$revisions_path") - 1))"
 printf 'Validated %s reviewed FFmpeg source candidate(s): %s shipped license(s), %s supplemental notice(s), %s not built, %s build-only/not shipped; %s pinned source locator(s) exist and full-graph review remains open.\n' \
     "$reviewed_count" "$shipped_license_count" "$shipped_notice_count" "$not_built_count" "$build_only_count" \
     "$source_locator_count"
+printf 'Validated %s external companion license mapping(s).\n' "$companion_count"
 if [[ -n "$inventory_path" ]]; then
     printf 'All %s filename-based candidate(s) in the supplied inventory have an exact reviewed disposition.\n' \
         "$inventory_candidate_count"
