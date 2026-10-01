@@ -871,6 +871,15 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   `f08f504073be7a42bac4b7b29a0d6e9764a1d9d35548aa1ebcfa8516acddb816`. Hosted browser
   run [`36929574347`](https://github.com/seabAu/Splicr/actions/runs/36929574347) passed all six
   Studio journeys in 43.9 seconds on implementation commit `b18f7d4`.
+- [x] 2026-10-01 — The Vulkan-Headers, Vulkan-Shim-Loader, Shaderc/glslang/SPIRV-Tools,
+  SPIRV-Cross, and standalone SPIRV-Headers batch is promoted and validated, raising tracked
+  coverage to 77 of 92 locators and 371 exact candidates. Twenty-eight exact legal files bring the
+  manifest to 152 records, including Shaderc's complete pinned dependency closure and the generated
+  parser's paired GPL/Bison-exception evidence. The real dev.16 portable and installer passed
+  schema-v2 lifecycle acceptance at `2026-10-01T21:55:20.5653230Z` with all 152 files. Portable
+  SHA-256: `2df198360b03a74ebd21617d10d35091022bf444946295e5901c87bdd1e67f8d`; installer SHA-256:
+  `859418fce2d738cd8ca33a87ff6dfcfee3ec41de478aff0398f6a034366199ae`. Hosted browser acceptance
+  is pending on the exact implementation commit.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 

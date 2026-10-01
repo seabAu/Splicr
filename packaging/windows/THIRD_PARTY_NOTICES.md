@@ -932,6 +932,81 @@ The recipe builds only static libopenmpt and disables examples, players, plugins
 PulseAudio, PortAudio, libsndfile, and FLAC. It requires the graph-pinned external zlib, ogg, and
 vorbis libraries; bundled alternatives and unrelated tracker/tool dependencies are not built.
 
+## Vulkan and SPIR-V toolchain
+
+Vulkan-Headers tag `v1.4.363` is installed under `Apache-2.0 OR MIT`. Its scope notice and both
+license alternatives are packaged as `ffmpeg/VULKAN-HEADERS-LICENSE.md` (SHA-256
+`95ad366d23fadf701d355bc45fb8b82ae2d700239471d35d41286ac3b08ff903`),
+`ffmpeg/VULKAN-HEADERS-APACHE-2.0.txt` (`cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30`),
+and `ffmpeg/VULKAN-HEADERS-MIT.txt`
+(`1ca3502222d967f3be5751c55f6b7ee735b5383909c3b501495f54b216dbf227`). Vulkan-Shim-Loader at
+commit `65b3936528cd92eb4ea3de485d03f858a3850484` is statically incorporated under MIT; its terms are
+packaged as `ffmpeg/VULKAN-SHIM-LOADER-LICENSE.txt`
+(`8d4d279343d72e5b9e06bbe38c1ad8660fa8eabc217164a5b482ddf4ab0dba9d`). The shim's nested
+Vulkan-Headers copy is represented separately by `ffmpeg/VULKAN-SHIM-HEADERS-LICENSE.md`,
+`ffmpeg/VULKAN-SHIM-HEADERS-APACHE-2.0.txt`, and `ffmpeg/VULKAN-SHIM-HEADERS-MIT.txt`, with the
+same respective hashes as the standalone header stage.
+
+Shaderc at commit `a8abeb0b8a9d4b11e3d59ca9f4550b8213e733ab` is statically retained through
+libplacebo. Its Apache-2.0 terms are packaged as `ffmpeg/SHADERC-LICENSE.txt`
+(`c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4`). Shaderc's pinned
+dependency closure includes glslang commit `e1b562a8bed273a02f30b59b66a5d499793cede5`, SPIRV-Headers
+commit `04fd3caa1e8267e4d95c806cad901181728e1006`, and SPIRV-Tools commit
+`ef96ed763b43b59b33b31b362f09a02b729fa1c9`. The exact compiled glslang grants are packaged as:
+
+- `ffmpeg/SHADERC-GLSLANG-LICENSE.txt`
+  (`17e70c676e1521ff3e4686f04a2053d93a7e28a33be8de7ec37ab0ff72feb677`);
+- `ffmpeg/SHADERC-GLSLANG-AML.txt`
+  (`cc8ea571129dbee2997e52a54d1f715f8b0159a22f28f985a9b2b31708a48620`);
+- `ffmpeg/SHADERC-GLSLANG-APACHE-2.0.txt`
+  (`b22c5c23f3d598370ef51d7e539d5d5074207344fd86e41433f413e116f6a4f7`);
+- `ffmpeg/SHADERC-GLSLANG-BSD-2-CLAUSE.txt`
+  (`789daa57a2ebb49cfc3e67cd1a1f994d5dc221138a8c3cd1934b2ed47b86d356`) and
+  `ffmpeg/SHADERC-GLSLANG-BSD-3-CLAUSE.txt`
+  (`5a93d5831e1297ab10fe643e1a631e83be392896da14ee2951285a79012df69d`);
+- `ffmpeg/SHADERC-GLSLANG-BISON-EXCEPTION-2.2.txt`
+  (`218a0cdacd4059d01e2ccff5b31d3e968a6a9c8ee7e4e0fc231c47d7fbf422c3`) and
+  `ffmpeg/SHADERC-GLSLANG-GPL-3.0-OR-LATER.txt`
+  (`3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986`); and
+- `ffmpeg/SHADERC-GLSLANG-MIT-KHRONOS-OLD.txt`
+  (`fbeaca472f4f70e276dd1106ca5097435967a22ad6c1d8200aef7ad9f70aaf3f`).
+
+The compiled generated parser's exact exception-bearing notices are packaged as
+`ffmpeg/SHADERC-GLSLANG-glslang_tab.cpp`
+(`ab7ee0c240cdbca8380e3f3cc69d5e3ae8c68cf18e39727ab05a8e54ca3149b6`) and
+`ffmpeg/SHADERC-GLSLANG-glslang_tab.cpp.h`
+(`7b44e5b08db2eea1e87863d2e0d70001b55c7507140ac27efc380ff8ef4d2f88`). The incorporated
+SPIR-V dependencies are represented by `ffmpeg/SHADERC-SPIRV-HEADERS-LICENSE.txt`
+(`ea43b1de38a6f90c488800d66dec1ed671e68cda530266bc96951fb5b6307613`),
+`ffmpeg/SHADERC-SPIRV-HEADERS-MIT.txt`
+(`6d7c9e9d7d12c8d3753bdb24417b84819ba4d6c2f025c37948113d86dc81eef9`), and
+`ffmpeg/SHADERC-SPIRV-TOOLS-LICENSE.txt`
+(`cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30`). The Bison exception
+permits the larger work to be distributed under terms of the distributor's choice; its paired base
+license and exception are preserved exactly.
+
+SPIRV-Cross at commit `aa217aeb6c9f0ace7a0ab233b28807edf45eb165` is statically incorporated
+under Apache-2.0 with MIT-covered generated headers. The exact terms are packaged as
+`ffmpeg/SPIRV-CROSS-LICENSE.txt`
+(`cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30`),
+`ffmpeg/SPIRV-CROSS-APACHE-2.0.txt`
+(`44b0a56e80b41a1b0a6bd1292515e806539fd97b30be54c2719e6c763190ab57`), and
+`ffmpeg/SPIRV-CROSS-MIT.txt`
+(`8f25018489d6fe0dec34a352314c38dc146247b7de65735790f4398a92afa84b`). Exact compiled-header
+notices are packaged as `ffmpeg/SPIRV-CROSS-GLSL.std.450.h`
+(`6f56e094663fded4435ab1d3d8c24d72adb3bf82832fc002ecf0a0d4d96543e9`) and
+`ffmpeg/SPIRV-CROSS-spirv.hpp`
+(`2ea0dd70e12e289c77a0347dfe88b5e1b6481a70e1804fab1557423394120f9f`).
+
+Standalone SPIRV-Headers commit `2b7475f6d664efbad4d4315c94ecec9640831e5b` installs MIT-covered
+headers and grammars. Its aggregate scope and exact terms are packaged as
+`ffmpeg/SPIRV-HEADERS-LICENSE.txt`
+(`ea43b1de38a6f90c488800d66dec1ed671e68cda530266bc96951fb5b6307613`) and
+`ffmpeg/SPIRV-HEADERS-MIT.txt`
+(`6d7c9e9d7d12c8d3753bdb24417b84819ba4d6c2f025c37948113d86dc81eef9`). Test-only Abseil,
+Effcee, GoogleTest, and RE2 trees, documentation-only CC-BY material, compliance metadata, and native
+build tools are not incorporated into the distributed media DLLs.
+
 Advanced audiogram rendering also includes these Python libraries in the frozen desktop package:
 
 - NumPy, distributed under the BSD 3-Clause license: https://numpy.org/doc/stable/license.html

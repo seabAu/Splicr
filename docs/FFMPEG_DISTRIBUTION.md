@@ -296,6 +296,18 @@ for that LGPL-only path without replacement.
   bytes, SHA-256 `f08f504073be7a42bac4b7b29a0d6e9764a1d9d35548aa1ebcfa8516acddb816`.
   Hosted browser run [`36929574347`](https://github.com/seabAu/Splicr/actions/runs/36929574347)
   passed all six Studio journeys in 43.9 seconds on implementation commit `b18f7d4`.
+- [x] The Vulkan-Headers, Vulkan-Shim-Loader, Shaderc/glslang/SPIRV-Tools, SPIRV-Cross, and
+  standalone SPIRV-Headers batch raised exact coverage to 77 of 92 locators and 371 candidates:
+  123 shipped licenses, 43 supplemental notices, 148 not-built candidates, and 57
+  build-only/not-shipped candidates. Twenty-eight exact files bring the legal manifest to 152
+  hash-verified records. The review follows Shaderc's pinned dependency closure and packages the
+  generated parser's GPL-3.0-or-later terms together with the Bison exception, plus every retained
+  Apache, BSD, AML, MIT, and generated-header notice. The rebuilt `0.1.0-dev.16` package passed
+  schema-v2 lifecycle acceptance with all 152 files on Windows 10 at
+  `2026-10-01T21:55:20.5653230Z`. Portable: 184,579,105 bytes, SHA-256
+  `2df198360b03a74ebd21617d10d35091022bf444946295e5901c87bdd1e67f8d`. Installer: 119,997,991
+  bytes, SHA-256 `859418fce2d738cd8ca33a87ff6dfcfee3ec41de478aff0398f6a034366199ae`.
+  Hosted browser acceptance is pending on the exact implementation commit.
 - [ ] Execute the tracked fetch commands and archive every enabled external dependency source at its
   recipe-pinned revision.
 - [ ] Record the applicable license and notice for every enabled dependency, including libraries

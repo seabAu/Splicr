@@ -33,3 +33,7 @@ scripts.d/50-openmpt.sh	./soundlib/ITCompression.cpp
 scripts.d/50-openmpt.sh	./soundlib/ITCompression.h
 scripts.d/50-openmpt.sh	./soundlib/Load_ams.cpp
 scripts.d/50-openmpt.sh	./soundlib/opal.h
+scripts.d/47-vulkan/50-shaderc.sh	./third_party/glslang/glslang/MachineIndependent/glslang_tab.cpp
+scripts.d/47-vulkan/50-shaderc.sh	./third_party/glslang/glslang/MachineIndependent/glslang_tab.cpp.h
+scripts.d/47-vulkan/55-spirv-cross.sh	./GLSL.std.450.h
+scripts.d/47-vulkan/55-spirv-cross.sh	./spirv.hpp
