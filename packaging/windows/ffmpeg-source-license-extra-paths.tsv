@@ -45,3 +45,14 @@ scripts.d/50-srt.sh	./srtcore/atomic.h
 scripts.d/50-srt.sh	./srtcore/atomic_msvc.h
 scripts.d/50-srt.sh	./srtcore/cache.cpp
 scripts.d/50-srt.sh	./srtcore/utilities.h
+scripts.d/45-vmaf.sh	./libvmaf/src/compat/gcc/stdatomic.h
+scripts.d/45-vmaf.sh	./libvmaf/src/compat/msvc/stdatomic.h
+scripts.d/45-vmaf.sh	./libvmaf/src/ext/x86/x86inc.asm
+scripts.d/45-vmaf.sh	./libvmaf/src/feature/ciede.c
+scripts.d/45-vmaf.sh	./libvmaf/src/feature/integer_ssim.c
+scripts.d/45-vmaf.sh	./libvmaf/src/feature/iqa/decimate.c
+scripts.d/45-vmaf.sh	./libvmaf/src/feature/mkdirp.c
+scripts.d/45-vmaf.sh	./libvmaf/src/feature/third_party/xiph/psnr_hvs.c
+scripts.d/45-vmaf.sh	./libvmaf/src/svm.h
+scripts.d/45-vmaf.sh	./libvmaf/src/x86/cpu.c
+scripts.d/45-vmaf.sh	./libvmaf/src/x86/cpuid.asm

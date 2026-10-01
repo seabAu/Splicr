@@ -1076,6 +1076,39 @@ statically incorporated under the WTFPL. Those terms impose no binary-notice req
 preserved in the corresponding-source archive. The vendored GoogleTest, GoogleMock generator, and
 musl-libm test fixtures are not built.
 
+## VMAF
+
+VMAF at commit `86da14d0306a138fd3f01319860b905169746516` is statically incorporated. Its
+project-wide BSD 2-Clause Patent terms are packaged as `ffmpeg/VMAF-LICENSE.txt`
+(`a6fdb51d02b9dfe198e55534bb8047fe6d756eda117f4ff83de98f92c1952710`). Compiled embedded
+components and their exact notices are packaged as:
+
+- `ffmpeg/VMAF-x86inc.asm.txt`
+  (`3846dd094e7b3a23f06b2a40f3c23b7be4b93781869aaeb0f5a31e69141a4b54`), ISC;
+- `ffmpeg/VMAF-ciede.c.txt`
+  (`11198d56a975c93fd8e830d2122a8e716aa431e40315c2f642c49f28626dead9`), BSD 2-Clause Patent
+  and the ported av-metrics MIT notice;
+- `ffmpeg/VMAF-iqa-decimate.c.txt`
+  (`1696658b7c53fbff50c21d00df1284b820da89a0ccecbf172be8443dfe41ee5b`), BSD 3-Clause;
+- `ffmpeg/VMAF-mkdirp.c.txt`
+  (`1b1a9fe0f30e0f48f6c6c1faa1840740f9742c8060e00385a80e0b78593176e5`), the compiled source's
+  copyright and MIT identifier, together with `ffmpeg/VMAF-mkdirp-MIT.txt`
+  (`9ac19e840f20ed121a00f6a97acba3accbea315ad777394109ba6931ee29136f`), the full MIT terms from
+  the immutable upstream revision;
+- `ffmpeg/VMAF-psnr_hvs.c.txt`
+  (`0b4bde7fa99cf291859e065ee9d496826f0ad8f1651b294f3f8b309d0ff1b937`), BSD 2-Clause;
+- `ffmpeg/VMAF-libsvm.h.txt`
+  (`d76bc3a6d882d41c2b0d56fc43ed4675cb574a5ad7b56259d7d7dfb1ba253319`), BSD 3-Clause;
+- `ffmpeg/VMAF-x86-cpu.c.txt`
+  (`248472ad2dbc1835a380adcf6ac21ffb6ded9105e7aafe41941270db94da3528`), BSD 2-Clause; and
+- `ffmpeg/VMAF-x86-cpuid.asm.txt`
+  (`dcb2b336dd97d9a6da46446acef019c0bdb077bf75893cbcab0df41950ebdd8d`), BSD 2-Clause.
+
+The pinned Windows recipe enables x86 assembly and disables tests, documentation, and tools. A
+reproduction with the recipe's cross-file and GCC 16.2.0 reports `stdatomic.h` usable from the
+compiler include directory, so neither bundled compatibility header is selected. The unlisted
+`integer_ssim.c` implementation is absent from the selected Meson source list.
+
 ## AOM
 
 AOM at commit `b4ce2cd097b00921b0327bfb5f07b5f8361ade99` is statically incorporated under
