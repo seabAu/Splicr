@@ -332,7 +332,8 @@ for that LGPL-only path without replacement.
   169 files on Windows 10 at `2026-10-01T22:34:12.9787652Z`. Portable: 184,657,432 bytes, SHA-256
   `e2e905f549144a6e4ba55878199679cfe997aed9f62fb5c3fcd2f3b4356abd08`. Installer: 120,042,072
   bytes, SHA-256 `de34f869c48488eafffc30ca049877edae6ab666605d54eb639c4cf93a6356fd`.
-  Hosted browser acceptance is pending on the exact implementation commit.
+  Hosted browser run [`36936124562`](https://github.com/seabAu/Splicr/actions/runs/36936124562)
+  passed all six Studio journeys in 43.7 seconds on implementation commit `4094bf0`.
 - [ ] Execute the tracked fetch commands and archive every enabled external dependency source at its
   recipe-pinned revision.
 - [ ] Record the applicable license and notice for every enabled dependency, including libraries
