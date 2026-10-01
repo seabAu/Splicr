@@ -351,7 +351,9 @@ for that LGPL-only path without replacement.
   candidate reconciliation remains exactly 412 and the legal manifest remains 172 files; duplicating
   the 13 candidate rows would incorrectly count one source tree twice. The fail-closed validator
   rejects revision divergence, duplicate aliases, aliases without a directly reviewed canonical
-  locator, and chained aliases. Hosted browser acceptance is pending for the implementation commit.
+  locator, and chained aliases. Hosted browser run
+  [`36939425939`](https://github.com/seabAu/Splicr/actions/runs/36939425939) passed all six Studio
+  journeys in 41.8 seconds on implementation commit `b998c22`.
 - [ ] Execute the tracked fetch commands and archive every enabled external dependency source at its
   recipe-pinned revision.
 - [ ] Record the applicable license and notice for every enabled dependency, including libraries

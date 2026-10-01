@@ -917,7 +917,8 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   the source tree's 13 candidates: reconciliation remains 412 candidates and the legal manifest
   remains 172 files. The validator's positive and negative cases enforce pinned-revision identity,
   one alias record per locator, a directly reviewed canonical locator, and no alias chains. Hosted
-  browser acceptance is pending for the implementation commit.
+  browser run [`36939425939`](https://github.com/seabAu/Splicr/actions/runs/36939425939) passed all
+  six Studio journeys in 41.8 seconds on implementation commit `b998c22`.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
@@ -928,8 +929,8 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
 - **Next implementation slice:** continue the bounded FFmpeg source/license review in
   `docs/FFMPEG_DISTRIBUTION.md`, while preserving the remaining credential and clean-VM checks in
   `docs/RELEASE_CHECKLIST.md`. Eighty-five of 92 source locators are reviewed or validated aliases;
-  the current artifacts pass the normal PowerShell 7 package harness, with exact-commit
-  hosted-browser acceptance pending for the locator-alias validator change.
+  the current artifacts pass the normal PowerShell 7 package harness and exact-commit hosted-browser
+  acceptance.
   Gemini/Deepgram
   credentials, the clean-VM matrix, complete FFmpeg corresponding
   source/compliance publication, malware/signing evidence, and audible sentence-seam acceptance
