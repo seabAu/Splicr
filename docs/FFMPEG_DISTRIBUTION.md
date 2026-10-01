@@ -354,6 +354,19 @@ for that LGPL-only path without replacement.
   locator, and chained aliases. Hosted browser run
   [`36939425939`](https://github.com/seabAu/Splicr/actions/runs/36939425939) passed all six Studio
   journeys in 41.8 seconds on implementation commit `b998c22`.
+- [x] The VMAF stage raises exact coverage to 86 of 92 locators and 424 candidates: 147 shipped
+  licenses, 50 supplemental notices, 169 not-built candidates, and 58 build-only/not-shipped
+  candidates. Ten revision-pinned legal files bring the manifest to 182 hash-verified records. The
+  exact embedded notices are packaged, and the terse MIT marker in compiled `mkdirp.c` is paired
+  with the complete terms from an immutable upstream revision through the companion manifest.
+  Configuring the pinned VMAF source with the recipe's Windows cross-file under GCC 16.2.0 reports
+  compiler-provided `stdatomic.h` usable, proving neither compatibility header is selected. The
+  rebuilt `0.1.0-dev.16` package passed all twelve schema-v2 lifecycle checks on Windows 10 at
+  `2026-10-01T23:40:19.8161998Z`. Portable: 184,700,169 bytes, SHA-256
+  `caacdef6ad61c13986d8a33667a7e82b4cc03d5c2fa8149910aa9e231b04bcf5`. Installer: 120,053,734
+  bytes, SHA-256 `babdee6a060ad6f1de53cd0afb473d1651faafa92e91e005efd638dc4c274464`.
+  Hosted browser run [`36942172393`](https://github.com/seabAu/Splicr/actions/runs/36942172393)
+  passed all six Studio journeys in 41.8 seconds on implementation commit `0898707`.
 - [ ] Execute the tracked fetch commands and archive every enabled external dependency source at its
   recipe-pinned revision.
 - [ ] Record the applicable license and notice for every enabled dependency, including libraries

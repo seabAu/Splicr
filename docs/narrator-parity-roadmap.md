@@ -919,6 +919,17 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   one alias record per locator, a directly reviewed canonical locator, and no alias chains. Hosted
   browser run [`36939425939`](https://github.com/seabAu/Splicr/actions/runs/36939425939) passed all
   six Studio journeys in 41.8 seconds on implementation commit `b998c22`.
+- [x] 2026-10-01 — The VMAF stage is promoted and validated, raising tracked coverage to 86 of 92
+  locators and 424 exact candidates. Ten exact legal files bring the manifest to 182 records,
+  including VMAF's compiled embedded notices and a separately pinned full MIT companion for
+  `mkdirp.c`. Configuring the pinned source with the recipe's Windows cross-file under GCC 16.2.0
+  reports the compiler-provided `stdatomic.h` usable, proving neither bundled compatibility header
+  is selected. The real dev.16 portable and installer passed all twelve schema-v2 lifecycle checks
+  at `2026-10-01T23:40:19.8161998Z`. Portable SHA-256:
+  `caacdef6ad61c13986d8a33667a7e82b4cc03d5c2fa8149910aa9e231b04bcf5`; installer SHA-256:
+  `babdee6a060ad6f1de53cd0afb473d1651faafa92e91e005efd638dc4c274464`. Hosted browser run
+  [`36942172393`](https://github.com/seabAu/Splicr/actions/runs/36942172393) passed all six Studio
+  journeys in 41.8 seconds on implementation commit `0898707`.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
@@ -928,7 +939,7 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   remaining Milestones 2/3/5/7 live-environment evidence.
 - **Next implementation slice:** continue the bounded FFmpeg source/license review in
   `docs/FFMPEG_DISTRIBUTION.md`, while preserving the remaining credential and clean-VM checks in
-  `docs/RELEASE_CHECKLIST.md`. Eighty-five of 92 source locators are reviewed or validated aliases;
+  `docs/RELEASE_CHECKLIST.md`. Eighty-six of 92 source locators are reviewed or validated aliases;
   the current artifacts pass the normal PowerShell 7 package harness and exact-commit hosted-browser
   acceptance.
   Gemini/Deepgram
