@@ -795,7 +795,7 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   independently verified all 60 files plus the existing media and lifecycle checks. Hosted browser
   run `36765143610` passed all six Studio journeys in 43.6 seconds on acceptance-record commit
   `8e33227`.
-- [ ] 2026-09-30 — A bounded Chromaprint, LAME, Theora, and Vorbis review raised source coverage to
+- [x] 2026-09-30 — A bounded Chromaprint, LAME, Theora, and Vorbis review raised source coverage to
   49 of 92 locators and reconciled all 180 candidates: 63 shipped licenses, fifteen supplemental
   notices, 81 recipe-proven not-built records, and 21 build-only/not-shipped records. Eight new
   manifest files preserve the four libraries' exact terms and notices. The batch also corrected
@@ -806,25 +806,26 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   harness, including portable/install payload parity, dependency-license and static-FFTW evidence,
   media generation, uninstall, and user-data preservation. Its schema-v2 acceptance JSON is present;
   hosted-browser evidence remains open.
-- [ ] 2026-10-01 — The ready libxml2, XZ/liblzma, SDL2, and ZVBI batch is promoted and validated,
+- [x] 2026-10-01 — The ready libxml2, XZ/liblzma, SDL2, and ZVBI batch is promoted and validated,
   raising tracked review coverage to 53 of 92 locators and all 200 candidates in the combined
   inventories. The package manifest now contains 70 exact files. ZVBI adds an independently proven
   GPL-2.0-only static-link path, while SDL2 is explicitly build-only because SPLICR excludes
   `ffplay.exe`. Rebuilt dev.16 portable and installer artifacts pass schema-v2 acceptance; hosted
   browser evidence and the remaining prepared source batches are still open.
-- [ ] 2026-10-01 — The ready GNU libiconv batch is promoted and validated, raising tracked coverage
+- [x] 2026-10-01 — The ready GNU libiconv batch is promoted and validated, raising tracked coverage
   to 55 of 92 locators and 213 exact candidates. Four exact libiconv legal files bring the package
   manifest to 74 records; the rebuilt dev.16 portable and installer pass schema-v2 lifecycle
   acceptance under PowerShell 7. Hosted browser evidence, companion-license schema support for the
   font batch, and the remaining prepared batches are still open.
-- [ ] 2026-10-01 — The Fontconfig, HarfBuzz, and bootstrap/final FreeType batch is promoted and
+- [x] 2026-10-01 — The Fontconfig, HarfBuzz, and bootstrap/final FreeType batch is promoted and
   validated, raising tracked coverage to 59 of 92 locators and 232 exact candidates. Nine exact
   font-stack legal files bring the package manifest to 83 records, while the new companion schema
   binds Fontconfig's separate Unicode-3.0 terms to the exact reviewed candidate. The bounded Python
   fetcher handles explicitly declared Gitiles base64 transport and passed both PowerShell 5/7
   negative validation. Rebuilt dev.16 portable and installer artifacts pass schema-v2 lifecycle
-  acceptance under PowerShell 7. Hosted browser evidence and the remaining prepared source batches
-  are still open.
+  acceptance under PowerShell 7. Hosted browser run
+  [`36913670670`](https://github.com/seabAu/Splicr/actions/runs/36913670670) passed all six Studio
+  journeys in 45.8 seconds on commit `9e3d8ee`; the remaining prepared source batches are still open.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
@@ -835,7 +836,7 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
 - **Next implementation slice:** continue the bounded FFmpeg source/license review in
   `docs/FFMPEG_DISTRIBUTION.md`, while preserving the remaining credential and clean-VM checks in
   `docs/RELEASE_CHECKLIST.md`. Fifty-nine of 92 source locators are reviewed; the current artifacts
-  pass the normal PowerShell 7 package harness and still need hosted browser evidence. Gemini/Deepgram
+  pass the normal PowerShell 7 package harness and hosted browser acceptance. Gemini/Deepgram
   credentials, the clean-VM matrix, complete FFmpeg corresponding
   source/compliance publication, malware/signing evidence, and audible sentence-seam acceptance
   remain.
