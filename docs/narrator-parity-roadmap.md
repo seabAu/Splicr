@@ -860,7 +860,8 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   passed schema-v2 lifecycle acceptance at `2026-10-01T21:01:26.4972742Z` with all 115 files.
   Portable SHA-256: `aba0200ad839480fb8b1354d93b4d4f06f5a390de2c325ca1aab330651a6bf25`;
   installer SHA-256: `4899de203fd0ea1007e679df9959112868f70a2b44b24bed25a7955208b9854c`.
-  Hosted browser acceptance is pending on the exact implementation commit.
+  Hosted browser run [`36927179317`](https://github.com/seabAu/Splicr/actions/runs/36927179317)
+  passed all six Studio journeys in 42.1 seconds on implementation commit `13ff415`.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
