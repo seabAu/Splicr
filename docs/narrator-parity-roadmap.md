@@ -909,8 +909,9 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   Cephes implementation markers are incorporated. The real dev.16 portable and installer passed
   schema-v2 lifecycle acceptance at `2026-10-01T22:53:59.5145337Z` with all 172 files. Portable
   SHA-256: `994e056fb9120f725db295d18ab6c7720b25edddfaa7af453b6209f2a75cbc1c`; installer SHA-256:
-  `9e8329c0429ce11662f9d58816a90351a86f7fa2fbfca3f1bcbd3d8d3ea4ee3f`. Hosted browser
-  acceptance is pending for the implementation commit.
+  `9e8329c0429ce11662f9d58816a90351a86f7fa2fbfca3f1bcbd3d8d3ea4ee3f`. Hosted browser run
+  [`36938236224`](https://github.com/seabAu/Splicr/actions/runs/36938236224) passed all six Studio
+  journeys in 44.1 seconds on implementation commit `19850b3`.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
@@ -921,8 +922,7 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
 - **Next implementation slice:** continue the bounded FFmpeg source/license review in
   `docs/FFMPEG_DISTRIBUTION.md`, while preserving the remaining credential and clean-VM checks in
   `docs/RELEASE_CHECKLIST.md`. Eighty-three of 92 source locators are reviewed; the current artifacts
-  pass the normal PowerShell 7 package harness, with exact-commit hosted-browser acceptance pending
-  for the MinGW-w64 batch.
+  pass the normal PowerShell 7 package harness and exact-commit hosted-browser acceptance.
   Gemini/Deepgram
   credentials, the clean-VM matrix, complete FFmpeg corresponding
   source/compliance publication, malware/signing evidence, and audible sentence-seam acceptance
