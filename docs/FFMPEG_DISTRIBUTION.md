@@ -307,7 +307,8 @@ for that LGPL-only path without replacement.
   `2026-10-01T21:55:20.5653230Z`. Portable: 184,579,105 bytes, SHA-256
   `2df198360b03a74ebd21617d10d35091022bf444946295e5901c87bdd1e67f8d`. Installer: 119,997,991
   bytes, SHA-256 `859418fce2d738cd8ca33a87ff6dfcfee3ec41de478aff0398f6a034366199ae`.
-  Hosted browser acceptance is pending on the exact implementation commit.
+  Hosted browser run [`36932068565`](https://github.com/seabAu/Splicr/actions/runs/36932068565)
+  passed all six Studio journeys in 44.4 seconds on implementation commit `fdff678`.
 - [ ] Execute the tracked fetch commands and archive every enabled external dependency source at its
   recipe-pinned revision.
 - [ ] Record the applicable license and notice for every enabled dependency, including libraries

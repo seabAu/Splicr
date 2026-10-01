@@ -878,8 +878,9 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   parser's paired GPL/Bison-exception evidence. The real dev.16 portable and installer passed
   schema-v2 lifecycle acceptance at `2026-10-01T21:55:20.5653230Z` with all 152 files. Portable
   SHA-256: `2df198360b03a74ebd21617d10d35091022bf444946295e5901c87bdd1e67f8d`; installer SHA-256:
-  `859418fce2d738cd8ca33a87ff6dfcfee3ec41de478aff0398f6a034366199ae`. Hosted browser acceptance
-  is pending on the exact implementation commit.
+  `859418fce2d738cd8ca33a87ff6dfcfee3ec41de478aff0398f6a034366199ae`. Hosted browser run
+  [`36932068565`](https://github.com/seabAu/Splicr/actions/runs/36932068565) passed all six Studio
+  journeys in 44.4 seconds on implementation commit `fdff678`.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
