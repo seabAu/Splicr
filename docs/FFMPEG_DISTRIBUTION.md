@@ -321,6 +321,18 @@ for that LGPL-only path without replacement.
   bytes, SHA-256 `221cc01dab433076127f71f0f1e0d6f096bf6e7557ee015294a128ece219231b`.
   Hosted browser run [`36933969511`](https://github.com/seabAu/Splicr/actions/runs/36933969511)
   passed all six Studio journeys in 43.4 seconds on implementation commit `6da624f`.
+- [x] The independently complete OpenAPV, zimg, and AOM subset raised exact coverage to 82 of 92
+  locators and 401 candidates: 136 shipped licenses, 49 supplemental notices, 159 not-built
+  candidates, and 57 build-only/not-shipped candidates. Seven revision-pinned files bring the legal
+  manifest to 169 hash-verified records. OpenAPV's BSD-3-Clause terms and AOM's BSD-2-Clause terms,
+  required patent grant, fastfeat, libyuv, vector, and x86inc notices are packaged exactly; zimg's
+  WTFPL terms remain preserved in corresponding source and impose no binary-notice requirement.
+  VMAF remains deferred until its MinGW stdatomic selection is proved and the mkdirp MIT companion
+  rule is encoded. The rebuilt `0.1.0-dev.16` package passed schema-v2 lifecycle acceptance with all
+  169 files on Windows 10 at `2026-10-01T22:34:12.9787652Z`. Portable: 184,657,432 bytes, SHA-256
+  `e2e905f549144a6e4ba55878199679cfe997aed9f62fb5c3fcd2f3b4356abd08`. Installer: 120,042,072
+  bytes, SHA-256 `de34f869c48488eafffc30ca049877edae6ab666605d54eb639c4cf93a6356fd`.
+  Hosted browser acceptance is pending on the exact implementation commit.
 - [ ] Execute the tracked fetch commands and archive every enabled external dependency source at its
   recipe-pinned revision.
 - [ ] Record the applicable license and notice for every enabled dependency, including libraries

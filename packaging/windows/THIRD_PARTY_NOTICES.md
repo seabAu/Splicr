@@ -1040,6 +1040,41 @@ The compiled utility header's public-domain endian provenance is packaged as
 `ffmpeg/SRT-utilities.h` (`1a7fdbbd32908313003a647da972d7fa9fc2e8de289878f6733824be3d926d2d`).
 The MSVC-only atomic implementation and configure probe are not built by the MinGW/GCC target.
 
+## OpenAPV
+
+OpenAPV at commit `a58ce739be0dfb083643d929aee8f0e0ba9bdf63` is statically incorporated under
+the BSD 3-Clause license. Its exact terms are packaged as `ffmpeg/OPENAPV-LICENSE.txt` (SHA-256
+`7ad8e53c0c3e24e7ba64dbcad5e7706108f3dc67cf6515ef761adac0a39dab25`). Applications and tests
+are disabled by the pinned recipe.
+
+## zimg
+
+zimg at commit `67e0603271c080e22c8429856dd4a8a56587e61e` and its graphengine component are
+statically incorporated under the WTFPL. Those terms impose no binary-notice requirement and remain
+preserved in the corresponding-source archive. The vendored GoogleTest, GoogleMock generator, and
+musl-libm test fixtures are not built.
+
+## AOM
+
+AOM at commit `b4ce2cd097b00921b0327bfb5f07b5f8361ade99` is statically incorporated under
+BSD 2-Clause terms. The exact license and required patent grant are packaged as
+`ffmpeg/AOM-LICENSE.txt` (`4764a286d8b2faeaf42f4418e7d7a28d58fc8fd4d00a3d0a7f44b0a4099de7f2`) and
+`ffmpeg/AOM-PATENTS.txt` (`661fb8e504744e95587b556b94a58343448300606a41bea8c7a9b97125696e61`).
+Compiled third-party encoder components are represented by:
+
+- `ffmpeg/AOM-fastfeat-LICENSE.txt`
+  (`499041ddee5227b6f29ca06c17803e5fe24d60f243c69635cd76b7ba08d0ddd5`), BSD 3-Clause;
+- `ffmpeg/AOM-libyuv-LICENSE.txt`
+  (`2b2cc1180c7e6988328ad2033b04b80117419db9c4c584918bbb3cfec7e9364f`), BSD 3-Clause;
+- `ffmpeg/AOM-vector-LICENSE.txt`
+  (`ff6c857ce2708e87701323078aef115c1872a1f80a9649f86dc899b48083bc60`), MIT; and
+- `ffmpeg/AOM-x86inc-LICENSE.txt`
+  (`719d8fa235f2068e0ae6d6a7dceb0a7720d7840f0f0ebed29957989e6ded3cd8`), ISC.
+
+Tests, applications, examples, and tools are disabled. The pinned configuration also excludes
+Highway and the libwebm object path; their bundled terms are therefore not part of the binary
+notice set.
+
 Advanced audiogram rendering also includes these Python libraries in the frozen desktop package:
 
 - NumPy, distributed under the BSD 3-Clause license: https://numpy.org/doc/stable/license.html
