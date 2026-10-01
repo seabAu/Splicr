@@ -1007,6 +1007,39 @@ headers and grammars. Its aggregate scope and exact terms are packaged as
 Effcee, GoogleTest, and RE2 trees, documentation-only CC-BY material, compliance metadata, and native
 build tools are not incorporated into the distributed media DLLs.
 
+## libcurl
+
+libcurl at commit `4c67658f953751de9e66bb5f9729af821a641341` is statically incorporated into
+the bundled media libraries under the curl license. The repository notice and canonical terms are
+packaged as `ffmpeg/LIBCURL-COPYING.txt` (SHA-256
+`82f2f4427d6545ee5aaac4f0b80428da6cc8ba41c2cf5da3a03680ec327b9681`) and
+`ffmpeg/LIBCURL-LICENSE.txt`
+(`8c93cc9b95bc7d8e37c87fe3645a21d88871e791ef2fec43317f30b649078525`). The static target
+unconditionally compiles ISC-covered address-conversion sources; their exact source notices and ISC
+terms are packaged as `ffmpeg/LIBCURL-inet_ntop.c`
+(`27981b93ba6db6ed89aa8800d97715d2896b255966cd409d1b60a874f9b9cfc9`),
+`ffmpeg/LIBCURL-inet_pton.c`
+(`0d01d39b1b975f5a844e2471fe5040c77dd2acc6554396a6a6349fb61b0d829c`), and
+`ffmpeg/LIBCURL-ISC.txt`
+(`2a9993525c6c65ac944dfea5fbf24a093d61cfaf69039cab1ff471c6aed821cb`). The Windows recipe uses
+Schannel, disables curl's OpenSSL backend, and disables tests; the BSD-4-Clause-UC test-server source
+is not built.
+
+## SRT
+
+SRT at commit `ff8ab25c57aece5b7351defe36dacc94fc28527f` is statically incorporated with
+encryption enabled and applications disabled. Its MPL-2.0 terms are packaged as
+`ffmpeg/SRT-LICENSE.txt` (SHA-256
+`fab3dd6bdab226f1c08630b1dd917e11fcb4ec5e1e020e2c16f83a0a13863e85`). The compiled
+UDT-derived sources preserve the University of Illinois BSD-3-Clause notice in
+`ffmpeg/SRT-api.cpp` (`16da0ea948bd9d3b345024c4f26f566d84bfdff8e4879a5362596139c0e4ec05`) and
+`ffmpeg/SRT-cache.cpp` (`e312d6ac35ea2e65193b6d3d2ac0799fcceb79919a3016076564b40c44245476`).
+The selected atomic implementation carries the Unlicense and is packaged as
+`ffmpeg/SRT-atomic.h` (`1cfec8865cb6b9ba9b253660ee7e465b02c56c3e39219cf7ce2e665302ec4abb`).
+The compiled utility header's public-domain endian provenance is packaged as
+`ffmpeg/SRT-utilities.h` (`1a7fdbbd32908313003a647da972d7fa9fc2e8de289878f6733824be3d926d2d`).
+The MSVC-only atomic implementation and configure probe are not built by the MinGW/GCC target.
+
 Advanced audiogram rendering also includes these Python libraries in the frozen desktop package:
 
 - NumPy, distributed under the BSD 3-Clause license: https://numpy.org/doc/stable/license.html

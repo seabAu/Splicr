@@ -112,8 +112,8 @@ partial or full collection, run `inventory-ffmpeg-source-licenses.sh` against it
 `test-ffmpeg-source-license-inventory.sh` and `test-ffmpeg-source-license-review.sh`. Generated
 candidate rows remain pending until their source identity, SPDX expression, and binary notice
 obligation are added to the tracked `ffmpeg-source-license-review.tsv`. The reviewed set currently
-covers 77 of 92 source locators and 371 detected candidates: 123 shipped licenses, 43 supplemental
-notices, 148 recipe-proven not-built candidates, and 57 build-only candidates absent from the
+covers 79 of 92 source locators and 384 detected candidates: 128 shipped licenses, 48 supplemental
+notices, 151 recipe-proven not-built candidates, and 57 build-only candidates absent from the
 distributed binary. Required notices are hash-anchored byte-for-byte in `THIRD_PARTY_NOTICES.md` or
 separately manifest-bound and packaged, including exact files for ffnvcodec, dav1d, FriBidi,
 TwoLAME, AMF, OpenJPEG, Game Music Emu, GMP, Kvazaar, LCEVCdec, libvpx, libwebp, libzmq, and
@@ -122,7 +122,7 @@ uavs3d, Brotli, JPEG XL, Highway, Mbed TLS, TF-PSA-Crypto, librist, LV2, Serd, Z
 Lilv, FFTW3, Chromaprint, LAME, Theora, Vorbis, libxml2, ZVBI, GNU libiconv, Fontconfig, Unicode,
 HarfBuzz, FreeType, aribb24, libaribcaption, libass, libbluray, OpenSSL, SVT-AV1, libva, VVenC,
 libplacebo, OpenCL, OpenMPT, Vulkan-Headers, Vulkan-Shim-Loader, Shaderc, glslang, SPIRV-Tools,
-SPIRV-Cross, and SPIRV-Headers. The 152-file legal manifest is
+SPIRV-Cross, SPIRV-Headers, libcurl, and SRT. The 162-file legal manifest is
 downloaded from revision-pinned upstream URLs and hash-verified before packaging. The review
 corrected FFTW3 from build-only to
 statically incorporated: the package gate now requires its GPL text and notice, verifies the enabled

@@ -309,6 +309,17 @@ for that LGPL-only path without replacement.
   bytes, SHA-256 `859418fce2d738cd8ca33a87ff6dfcfee3ec41de478aff0398f6a034366199ae`.
   Hosted browser run [`36932068565`](https://github.com/seabAu/Splicr/actions/runs/36932068565)
   passed all six Studio journeys in 44.4 seconds on implementation commit `fdff678`.
+- [x] The independently complete libcurl and SRT subset raised exact coverage to 79 of 92 locators
+  and 384 candidates: 128 shipped licenses, 48 supplemental notices, 151 not-built candidates, and
+  57 build-only/not-shipped candidates. Ten exact files bring the legal manifest to 162
+  hash-verified records. The review packages libcurl's curl/ISC terms and compiled compatibility
+  notices plus SRT's MPL-2.0, UDT-derived BSD, Unlicense, and public-domain notices. libssh remains
+  deferred until its conditional MinGW object selection is proved with a real build log or link map.
+  The rebuilt `0.1.0-dev.16` package passed schema-v2 lifecycle acceptance with all 162 files on
+  Windows 10 at `2026-10-01T22:13:42.0809380Z`. Portable: 184,648,770 bytes, SHA-256
+  `457447fa80315530fe7a631c90788af879fa023e3cf6de1c3c96d072511aaeeb`. Installer: 120,032,060
+  bytes, SHA-256 `221cc01dab433076127f71f0f1e0d6f096bf6e7557ee015294a128ece219231b`.
+  Hosted browser acceptance is pending on the exact implementation commit.
 - [ ] Execute the tracked fetch commands and archive every enabled external dependency source at its
   recipe-pinned revision.
 - [ ] Record the applicable license and notice for every enabled dependency, including libraries

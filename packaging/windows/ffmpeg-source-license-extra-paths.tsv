@@ -37,3 +37,11 @@ scripts.d/47-vulkan/50-shaderc.sh	./third_party/glslang/glslang/MachineIndepende
 scripts.d/47-vulkan/50-shaderc.sh	./third_party/glslang/glslang/MachineIndependent/glslang_tab.cpp.h
 scripts.d/47-vulkan/55-spirv-cross.sh	./GLSL.std.450.h
 scripts.d/47-vulkan/55-spirv-cross.sh	./spirv.hpp
+scripts.d/50-libcurl.sh	./lib/curlx/inet_ntop.c
+scripts.d/50-libcurl.sh	./lib/curlx/inet_pton.c
+scripts.d/50-srt.sh	./scripts/test_vista.c
+scripts.d/50-srt.sh	./srtcore/api.cpp
+scripts.d/50-srt.sh	./srtcore/atomic.h
+scripts.d/50-srt.sh	./srtcore/atomic_msvc.h
+scripts.d/50-srt.sh	./srtcore/cache.cpp
+scripts.d/50-srt.sh	./srtcore/utilities.h
