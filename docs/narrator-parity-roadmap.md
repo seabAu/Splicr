@@ -833,8 +833,9 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   as not built. The real dev.16 portable and installer passed schema-v2 lifecycle acceptance with
   all 92 manifest files. Portable SHA-256:
   `efd590cb5321c3dc1cf62bfb9e88f50c8ed939b989eec26a5beab6fe9eccb854`; installer SHA-256:
-  `ed928b4b0e0f54de2c525fcef98abd22f02131b5bc3b428709a38c0d8817c21c`. Hosted browser evidence
-  for the batch commit remains open.
+  `ed928b4b0e0f54de2c525fcef98abd22f02131b5bc3b428709a38c0d8817c21c`. Hosted browser run
+  [`36917251299`](https://github.com/seabAu/Splicr/actions/runs/36917251299) passed all six Studio
+  journeys in 41.3 seconds on commit `0575c89`.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 

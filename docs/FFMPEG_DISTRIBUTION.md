@@ -245,6 +245,8 @@ for that LGPL-only path without replacement.
   lifecycle acceptance with all 92 files on Windows 10. Portable: 184,241,112 bytes, SHA-256
   `efd590cb5321c3dc1cf62bfb9e88f50c8ed939b989eec26a5beab6fe9eccb854`. Installer: 119,839,389
   bytes, SHA-256 `ed928b4b0e0f54de2c525fcef98abd22f02131b5bc3b428709a38c0d8817c21c`.
+  Hosted browser run [`36917251299`](https://github.com/seabAu/Splicr/actions/runs/36917251299)
+  passed all six Studio journeys in 41.3 seconds on commit `0575c89`.
 - [ ] Execute the tracked fetch commands and archive every enabled external dependency source at its
   recipe-pinned revision.
 - [ ] Record the applicable license and notice for every enabled dependency, including libraries
