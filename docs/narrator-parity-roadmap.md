@@ -869,7 +869,8 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   acceptance at `2026-10-01T21:31:28.4930829Z` with all 124 files. Portable SHA-256:
   `d534fe19b863baf808d368693a26b9a9fda6391b3cb4e70fab8dbaa4e04b6b4f`; installer SHA-256:
   `f08f504073be7a42bac4b7b29a0d6e9764a1d9d35548aa1ebcfa8516acddb816`. Hosted browser
-  acceptance is pending on the exact implementation commit.
+  run [`36929574347`](https://github.com/seabAu/Splicr/actions/runs/36929574347) passed all six
+  Studio journeys in 43.9 seconds on implementation commit `b18f7d4`.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
