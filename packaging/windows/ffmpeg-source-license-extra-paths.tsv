@@ -70,3 +70,13 @@ scripts.d/50-libssh.sh	./src/external/poly1305.c
 scripts.d/50-libssh.sh	./src/external/sc25519.c
 scripts.d/50-libssh.sh	./src/external/sntrup761.c
 scripts.d/50-libssh.sh	./src/match.c
+scripts.d/50-librsvg/10-glib.sh	./glib/gchecksum.c
+scripts.d/50-librsvg/10-glib.sh	./glib/grand.c
+scripts.d/50-librsvg/10-glib.sh	./glib/valgrind.h
+scripts.d/50-librsvg/10-glib.sh	./glib/win_iconv.c
+scripts.d/50-librsvg/20-cairo.sh	./src/cairo-clip-tor-scan-converter.c
+scripts.d/50-librsvg/20-cairo.sh	./src/cairo-freelist.c
+scripts.d/50-librsvg/20-cairo.sh	./src/cairo-mono-scan-converter.c
+scripts.d/50-librsvg/20-cairo.sh	./src/cairo-pattern.c
+scripts.d/50-librsvg/20-cairo.sh	./src/cairo-unicode.c
+scripts.d/50-librsvg/30-pango.sh	./pango/pango-script.c

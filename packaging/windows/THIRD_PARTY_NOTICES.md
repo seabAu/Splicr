@@ -1056,6 +1056,64 @@ and Ed25519 fallbacks, OpenSSL ML-KEM support excludes the libcrux fallback, and
 `getopt` implementation excludes libssh's compatibility copy. CMake module terms apply only to the
 configuration-time build scripts.
 
+## GLib, Cairo, and Pango
+
+The bundled librsvg decoder statically incorporates GLib at commit
+`5a124d1e66a6c2dc56989303b4d6d4781c2952ed`, Cairo at commit
+`74755964edef651691d5cd36ff140108298e4e6e`, and Pango at commit
+`8e74c27c113c98664b77272d16b14bbce542c184`. GLib's LGPL-2.1-or-later terms are
+packaged as `ffmpeg/GLIB-COPYING.txt`
+(`fa6f36630bb1e0c571d34b2bbdf188d08495c9dbf58f28cac112f303fc1f58fb`). The
+selected build also packages these GLib source-specific notices:
+
+- `ffmpeg/GLIB-gchecksum.c`
+  (`55e03a7ed5d654419a24505f39f73bacdbe79d3f2d8075b2724f34c3133dede1`), for the
+  public-domain MD5 implementation and unrestricted SHA implementation;
+- `ffmpeg/GLIB-grand.c`
+  (`7103220604f272ef18e33b5914e23503ebdb3ad9a1f32f8f83f0009c83f4353e`), preserving
+  the Mersenne Twister attribution and terms;
+- `ffmpeg/GLIB-valgrind.h`
+  (`41cedf9956e617794f4535dfa4aa5e71fb39f12f2ccc34198c4a0c7c8f7a9936`), preserving
+  the Valgrind BSD-style terms; and
+- `ffmpeg/GLIB-win_iconv.c`
+  (`cea2ae7f5fb78fbb501a7da8814c32482bf81d46cf8ce79a3bc4ef33d7a70a0e`), preserving
+  its public-domain dedication.
+
+The GVDB submodule pinned by that GLib revision at
+`2b42fc75f09dbe1cd1057580b5782b08f2dcb400` is compiled into GIO and carries its own exact
+LGPL renderings, packaged as
+`ffmpeg/GLIB-GVDB-COPYING.txt`
+(`bdbcdaa7858872393e9d6b216bbdc8a23e99d98dd6cdb7cda19458025b9e19fc`) and
+`ffmpeg/GLIB-GVDB-LGPL-2.1-or-later.txt`
+(`5749785c8bdefafcb5d798270ed0a967036fe2ca63dcedade1627565dfef81d2`). The
+proxy-libintl fallback and test/documentation-only license families are not built by this target.
+
+Cairo's root dual-license notice is packaged as `ffmpeg/CAIRO-COPYING.txt`
+(`67228a9f7c5f9b67c58f556f1be178f62da4d9e2e6285318d8c74d567255abdf`). SPLICR
+distributes Cairo under the LGPL-2.1-only option in `ffmpeg/CAIRO-COPYING-LGPL-2.1.txt`
+(`9e9e8608c4cdda51a78cc3a385f4ec9a2e4c96d5ecad74ac8bca5fca3e563b7d`); the
+alternative MPL-1.1 text is retained for completeness as `ffmpeg/CAIRO-COPYING-MPL-1.1.txt`
+(`53692a2ed6c6a2c6ec9b32dd0b820dfae91e0a1fcdf625ca9ed0bdf8705fcc4f`). The selected
+static build also packages source-specific notices from:
+
+- `ffmpeg/CAIRO-cairo-clip-tor-scan-converter.c`
+  (`cdb5f8bd9c44de1ec6411f273de6884621d3e1dcf57c33e3d9e8276ef4fc3141`);
+- `ffmpeg/CAIRO-cairo-freelist.c`
+  (`572ec16da6f6b3a0a2bf0460dc5e18fb0db68ce756c1d869bd9e0e59c36913b4`);
+- `ffmpeg/CAIRO-cairo-mono-scan-converter.c`
+  (`00a26e05fa71c946cae4fdce052610f126993e2821de815f52802708ae147db5`);
+- `ffmpeg/CAIRO-cairo-pattern.c`
+  (`cb8f096a31a89d0cdbbc89c288e33c41705d8f3af8c5ae755246b14c3980aadc`); and
+- `ffmpeg/CAIRO-cairo-unicode.c`
+  (`d0fb0c6ef5a87d5924f05a1ed8dfee1eeea36656fa7335c41d941756984bad28`).
+
+Cairo's performance, test, and utility programs are disabled and not shipped.
+
+Pango's LGPL-2.0-or-later terms are packaged as `ffmpeg/PANGO-COPYING.txt`
+(`d245807f90032872d1438d741ed21e2490e1175dc8aa3afa5ddb6c8e529b58e5`). The compiled
+Unicode script table carries the additional ICU terms preserved in `ffmpeg/PANGO-pango-script.c`
+(`947fb30989bacbc788a5c4eb293fba31cc767e7973a7c4ab39c5cd3248f5688d`).
+
 ## SRT
 
 SRT at commit `ff8ab25c57aece5b7351defe36dacc94fc28527f` is statically incorporated with
