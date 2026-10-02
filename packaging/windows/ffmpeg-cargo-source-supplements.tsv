@@ -1,0 +1,2 @@
+stage	locator_variable	revision	target	default_features	features	precise_updates	cargo_lock_sha256	vendor_package_count
+scripts.d/50-rav1e.sh	SCRIPT_REPO	31435de9d76fddd38f6dcc31d4014574cebb2092	x86_64-pc-windows-gnu	yes	default	cc=1.4.7,find-msvc-tools=0.1.13,shlex@2.0.1=2.0.1	14a4b2ae596569e83e40a3431ffc4b210dd872e333969ddb18ce895f7b19d7c7	275

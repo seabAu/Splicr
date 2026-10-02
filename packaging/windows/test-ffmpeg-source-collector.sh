@@ -26,6 +26,7 @@ duplicate_archives="$(tail -n +2 "$full_output/collection-plan.tsv" | cut -f4 | 
 grep -Fq 'State: planned-only' "$full_output/COLLECTION_INFO.txt"
 grep -Fq 'Scope: full-graph' "$full_output/COLLECTION_INFO.txt"
 grep -Fq 'Pending source-bearing stage count: 85' "$full_output/COLLECTION_INFO.txt"
+grep -Fq 'Tracked Cargo source supplement count: 1' "$full_output/COLLECTION_INFO.txt"
 grep -Fq 'Minimum free-space reserve: 12 GiB' "$full_output/COLLECTION_INFO.txt"
 grep -Fq 'Corresponding source complete: false' "$full_output/COLLECTION_INFO.txt"
 grep -Fq 'Public release gate satisfied: false' "$full_output/COLLECTION_INFO.txt"
@@ -33,6 +34,22 @@ grep -Fq \
     'ghcr.io/btbn/ffmpeg-builds/base@sha256:ce3051e936d2f67b550efad8c5f07118a14e08f4e15b98e56ce14003e60d54cc' \
     "$full_output/COLLECTION_INFO.txt"
 [[ ! -e "$full_output/.collector-run-plan.tsv" ]]
+
+rav1e_supplement="$script_root/ffmpeg-cargo-source-supplements.tsv"
+grep -Fxq $'scripts.d/50-rav1e.sh\tSCRIPT_REPO\t31435de9d76fddd38f6dcc31d4014574cebb2092\tx86_64-pc-windows-gnu\tyes\tdefault\tcc=1.4.7,find-msvc-tools=0.1.13,shlex@2.0.1=2.0.1\t14a4b2ae596569e83e40a3431ffc4b210dd872e333969ddb18ce895f7b19d7c7\t275' \
+    "$rav1e_supplement"
+
+tampered_supplement="$work_root/tampered-cargo-supplements.tsv"
+cp "$rav1e_supplement" "$tampered_supplement"
+sed -i \
+    's/31435de9d76fddd38f6dcc31d4014574cebb2092/0000000000000000000000000000000000000000/' \
+    "$tampered_supplement"
+if SPLICR_CARGO_SUPPLEMENTS_PATH="$tampered_supplement" \
+    bash "$collector" "$btbn_root" "$work_root/tampered-supplement" \
+        --stage scripts.d/50-rav1e.sh --plan-only >/dev/null 2>&1; then
+    echo "Collector accepted Cargo supplement metadata that differs from the pinned graph" >&2
+    exit 1
+fi
 
 repeat_output="$work_root/repeat"
 bash "$collector" "$btbn_root" "$repeat_output" --plan-only >/dev/null

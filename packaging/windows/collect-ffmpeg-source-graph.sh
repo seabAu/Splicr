@@ -55,6 +55,7 @@ done
 
 script_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 graph_root="$script_root/ffmpeg-source-graph"
+cargo_supplements_path="${SPLICR_CARGO_SUPPLEMENTS_PATH:-$script_root/ffmpeg-cargo-source-supplements.tsv}"
 runner_image="ghcr.io/btbn/ffmpeg-builds/base@sha256:ce3051e936d2f67b550efad8c5f07118a14e08f4e15b98e56ce14003e60d54cc"
 
 [[ -d "$btbn_root" ]] || { echo "BtbN repository not found: $btbn_root" >&2; exit 1; }
@@ -65,7 +66,8 @@ output_root="$(cd "$output_root" && pwd)"
 for required in \
     "$btbn_root/util/dl_functions.sh" \
     "$graph_root/enabled-stages.txt" \
-    "$graph_root/source-commands.txt"; do
+    "$graph_root/source-commands.txt" \
+    "$cargo_supplements_path"; do
     [[ -f "$required" ]] || { echo "Required file not found: $required" >&2; exit 1; }
 done
 
@@ -74,6 +76,43 @@ if [[ ${#enabled_stages[@]} -eq 0 ]]; then
     echo "Tracked source graph contains no enabled stages" >&2
     exit 1
 fi
+
+expected_cargo_supplements_header=$'stage\tlocator_variable\trevision\ttarget\tdefault_features\tfeatures\tprecise_updates\tcargo_lock_sha256\tvendor_package_count'
+[[ "$(head -n 1 "$cargo_supplements_path")" == "$expected_cargo_supplements_header" ]] || {
+    echo "Unexpected Cargo source supplement header" >&2
+    exit 1
+}
+declare -A cargo_supplement_rows=()
+cargo_supplement_count=0
+while IFS=$'\t' read -r supplement_stage locator_variable revision target default_features features \
+    precise_updates cargo_lock_sha256 vendor_package_count extra; do
+    [[ "$supplement_stage" != "stage" ]] || continue
+    [[ -z "${extra:-}" && "$locator_variable" =~ ^[A-Z][A-Z0-9_]*$ && \
+        "$revision" =~ ^[0-9a-f]{40}$ && "$target" =~ ^[A-Za-z0-9_.-]+$ && \
+        ( "$default_features" == "yes" || "$default_features" == "no" ) && \
+        -n "$features" && "$precise_updates" =~ ^[A-Za-z0-9_.+@-]+=[0-9][A-Za-z0-9_.+-]*(,[A-Za-z0-9_.+@-]+=[0-9][A-Za-z0-9_.+-]*)*$ && \
+        "$cargo_lock_sha256" =~ ^[0-9a-f]{64}$ && "$vendor_package_count" =~ ^[1-9][0-9]*$ ]] || {
+        echo "Invalid Cargo source supplement row: $supplement_stage" >&2
+        exit 1
+    }
+    grep -Fxq "$supplement_stage" "$graph_root/enabled-stages.txt" || {
+        echo "Cargo source supplement names a stage outside the enabled graph: $supplement_stage" >&2
+        exit 1
+    }
+    awk -F '\t' -v stage="$supplement_stage" -v variable="$locator_variable" -v commit="$revision" '
+        NR > 1 && $1 == stage && $2 == variable && $5 == commit { found = 1 }
+        END { exit(found ? 0 : 1) }
+    ' "$graph_root/source-revisions.tsv" || {
+        echo "Cargo source supplement differs from the pinned graph: $supplement_stage" >&2
+        exit 1
+    }
+    [[ -z "${cargo_supplement_rows[$supplement_stage]:-}" ]] || {
+        echo "Duplicate Cargo source supplement stage: $supplement_stage" >&2
+        exit 1
+    }
+    cargo_supplement_rows["$supplement_stage"]="$precise_updates|$cargo_lock_sha256|$vendor_package_count"
+    cargo_supplement_count=$((cargo_supplement_count + 1))
+done < "$cargo_supplements_path"
 
 stages=("${enabled_stages[@]}")
 if [[ ${#selected_stages[@]} -gt 0 ]]; then
@@ -162,13 +201,18 @@ for stage in "${stages[@]}"; do
 
     archive_name="${slug}_${command_sha256}.tar.xz"
     printf '%s\t%s\tfetch\t%s\n' "$stage" "$command_sha256" "$archive_name" >> "$plan_path"
-    printf '%s\t%s\t%s\t%s\n' "$stage" "$slug" "$command_sha256" "$archive_name" \
+    supplement="${cargo_supplement_rows[$stage]:-||}"
+    IFS='|' read -r precise_updates cargo_lock_sha256 vendor_package_count <<< "$supplement"
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+        "$stage" "$slug" "$command_sha256" "$archive_name" \
+        "$precise_updates" "$cargo_lock_sha256" "$vendor_package_count" \
         >> "$runner_plan_path"
     source_stage_count=$((source_stage_count + 1))
 done
 
 pending_stage_count=0
-while IFS=$'\t' read -r stage slug command_sha256 archive_name; do
+while IFS=$'\t' read -r stage slug command_sha256 archive_name precise_updates cargo_lock_sha256 \
+    vendor_package_count; do
     [[ -n "$stage" ]] || continue
     archive_path="$output_root/stages/$archive_name"
     if ! [[ -s "$archive_path" ]] || ! xz -t "$archive_path" 2>/dev/null; then
@@ -193,6 +237,7 @@ Runner image: $runner_image
 Tracked enabled stage count: ${#enabled_stages[@]}
 Selected stage count: ${#stages[@]}
 Selected source-bearing stage count: $source_stage_count
+Tracked Cargo source supplement count: $cargo_supplement_count
 Pending source-bearing stage count: $pending_stage_count
 Minimum free-space reserve: $minimum_free_gib GiB
 Corresponding source complete: false
@@ -221,7 +266,8 @@ cat > "$worker_path" <<'WORKER'
 #!/usr/bin/env bash
 set -euo pipefail
 
-while IFS=$'\t' read -r stage slug expected_sha archive_name; do
+while IFS=$'\t' read -r stage slug expected_sha archive_name precise_updates expected_lock_sha \
+    expected_vendor_count; do
     [[ -n "$stage" ]] || continue
     source /btbn/util/dl_functions.sh
     source "/btbn/$stage"
@@ -263,6 +309,35 @@ while IFS=$'\t' read -r stage slug expected_sha archive_name; do
         if ! (
             set -e
             eval "$command_text"
+            if [[ -n "$precise_updates" ]]; then
+                command -v cargo >/dev/null 2>&1 || {
+                    echo "Cargo is required for source supplement: $stage" >&2
+                    exit 1
+                }
+                export CARGO_HOME="$stage_work/.cargo-home"
+                mkdir -p "$CARGO_HOME"
+                IFS=',' read -ra updates <<< "$precise_updates"
+                for update in "${updates[@]}"; do
+                    package_spec="${update%%=*}"
+                    version="${update#*=}"
+                    cargo update -p "$package_spec" --precise "$version" || exit 1
+                done
+                actual_lock_sha="$(sha256sum Cargo.lock | cut -d' ' -f1)"
+                [[ "$actual_lock_sha" == "$expected_lock_sha" ]] || {
+                    echo "Cargo lock reconstruction differs for $stage: $actual_lock_sha" >&2
+                    exit 1
+                }
+                rm -rf vendor .cargo
+                mkdir -p .cargo
+                cargo vendor --locked --versioned-dirs vendor > .cargo/config.toml || exit 1
+                actual_vendor_count="$(find vendor -mindepth 1 -maxdepth 1 -type d | wc -l)"
+                [[ "$actual_vendor_count" -eq "$expected_vendor_count" ]] || {
+                    echo "Cargo vendor package count differs for $stage: $actual_vendor_count" >&2
+                    exit 1
+                }
+                CARGO_NET_OFFLINE=true cargo metadata --locked --offline --format-version 1 >/dev/null || exit 1
+                rm -rf "$CARGO_HOME"
+            fi
         ) > "$log_path.tmp" 2>&1; then
             mv "$log_path.tmp" "$log_path.failed"
             echo "Source fetch failed for $stage; retained diagnostic log: $log_path.failed" >&2

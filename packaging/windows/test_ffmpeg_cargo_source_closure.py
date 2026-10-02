@@ -43,11 +43,19 @@ class CargoSourceClosureTests(unittest.TestCase):
         self.temporary.cleanup()
 
     def test_tracked_closure_is_complete(self) -> None:
-        self.assertEqual(VALIDATOR.validate(self.closure, self.review), (203, 182, 21))
+        self.assertEqual(VALIDATOR.validate(self.closure, self.review), (326, 264, 62))
 
     def test_rejects_target_drift(self) -> None:
         fields, rows = read_tsv(self.closure)
         rows[0]["target"] = "x86_64-pc-windows-msvc"
+        write_tsv(self.closure, fields, rows)
+        with self.assertRaisesRegex(VALIDATOR.ValidationError, "identity mismatch"):
+            VALIDATOR.validate(self.closure, self.review)
+
+    def test_rejects_rav1e_feature_drift(self) -> None:
+        fields, rows = read_tsv(self.closure)
+        rav1e_row = next(row for row in rows if row["stage"] == "scripts.d/50-rav1e.sh")
+        rav1e_row["default_features"] = "no"
         write_tsv(self.closure, fields, rows)
         with self.assertRaisesRegex(VALIDATOR.ValidationError, "identity mismatch"):
             VALIDATOR.validate(self.closure, self.review)
@@ -89,6 +97,18 @@ class CargoSourceClosureTests(unittest.TestCase):
                 row["candidate_disposition"] = "not-built"
         write_tsv(self.review, review_fields, review_rows)
         with self.assertRaisesRegex(VALIDATOR.ValidationError, "lacks the expected"):
+            VALIDATOR.validate(self.closure, self.review)
+
+    def test_rejects_rav1e_candidate_count_drift(self) -> None:
+        fields, rows = read_tsv(self.closure)
+        rav1e_row = next(
+            row
+            for row in rows
+            if row["stage"] == "scripts.d/50-rav1e.sh" and row["source"] == VALIDATOR.REGISTRY_SOURCE
+        )
+        rav1e_row["candidate_count"] = str(int(rav1e_row["candidate_count"]) + 1)
+        write_tsv(self.closure, fields, rows)
+        with self.assertRaisesRegex(VALIDATOR.ValidationError, "candidate count differs"):
             VALIDATOR.validate(self.closure, self.review)
 
 

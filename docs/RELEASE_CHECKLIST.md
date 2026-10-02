@@ -112,7 +112,8 @@ Get-Content .\dist\SPLICR-Studio-0.1.0-SHA256SUMS.txt
 - [x] Run `packaging/windows/test-package.ps1` against the exact portable ZIP and installer. The
   `0.1.0-dev.16` run verified checksums, a Unicode/spaces portable path, an unchanged portable tree,
   redirected mutable state, installed package smoke, exact portable/install parity, the pinned
-  shared FFmpeg configuration, all 124 dependency-license files, transitive static-FFTW GPL evidence,
+  shared FFmpeg configuration, all 339 manifest-bound dependency-license files, transitive
+  static-FFTW GPL evidence,
   a real OpenH264/AAC MP4, application removal, and preserved user data. The packaging workflow runs
   this gate before upload and retains its schema-v2 machine-readable acceptance JSON.
 - [x] Run the harness's optional prior-installer preflight. A development-workstation upgrade from
@@ -128,7 +129,7 @@ Get-Content .\dist\SPLICR-Studio-0.1.0-SHA256SUMS.txt
   source revisions, and fetch commands are versioned and validated. A digest-pinned, graph-verifying,
   resumable source collector and plan acceptance test now exist. A real pinned-image OpenH264 run
   verified archive integrity, the expected commit/license, checksums, fail-closed state, and resume
-  reuse. Incremental bounded runs now cover 91 of 92 source locators and reconcile 1,139 detected
+  reuse. Incremental bounded runs now cover all 92 source locators and reconcile 1,651 detected
   license/notice candidates; the package manifest carries exact pinned ffnvcodec, dav1d, FriBidi,
   TwoLAME, AMF, OpenJPEG, Game Music Emu, GMP, Kvazaar, LCEVCdec, libvpx, libwebp, libzmq, and
   OpenCORE AMR, libudfread, oneVPL, PCRE2, pixman, Little CMS, OpenAL Soft, SoX Resampler, and
@@ -137,14 +138,17 @@ Get-Content .\dist\SPLICR-Studio-0.1.0-SHA256SUMS.txt
   Unicode, HarfBuzz, FreeType, aribb24, libaribcaption, libass, libbluray, OpenSSL, SVT-AV1, libva,
   VVenC, libplacebo, OpenCL, OpenMPT, Vulkan-Headers, Vulkan-Shim-Loader, Shaderc, glslang,
   SPIRV-Tools, SPIRV-Cross, SPIRV-Headers, libcurl, SRT, libssh, OpenAPV, AOM, MinGW-w64, VMAF,
-  GLib, Cairo, Pango, librsvg, and librsvg's exact Windows GNU Cargo closure rather than
+  GLib, Cairo, Pango, librsvg, librsvg's exact Windows GNU Cargo closure, rav1e, and rav1e's exact
+  reconstructed Windows GNU Cargo closure rather than
   treating FFmpeg's own
-  license as equivalent. The 203-package librsvg closure records 182 runtime and 21 build-only
-  packages, validates equal Cargo.lock/vendor checksums, and expands the exact packaged legal
-  manifest to 292 files. Build-only static
+  license as equivalent. The librsvg and rav1e profiles contain 326 packages total (264 runtime and
+  62 build-only), validate exact lock/vendor state, and expand the packaged legal manifest to 339
+  files. The rav1e collector fixes the recipe's moving `cargo update cc` resolution, checks its exact
+  Cargo.lock hash and 275-directory vendor set, and produces a normalized archive with SHA-256
+  `36cdce5987cceb1000ba937e7a96dd7c3713150349bd782f781fbf6ab94af02f`. Build-only static
   libraries absent from the distributed binary are tracked separately from source trees that recipes
-  never build. The remaining full-graph run,
-  notice review, correspondence validation, and hosted source link remain open in
+  never build. The remaining full-graph collection,
+  correspondence validation, rebuild, and hosted source link remain open in
   [`FFMPEG_DISTRIBUTION.md`](FFMPEG_DISTRIBUTION.md).
 - [ ] Scan the installer and portable archive with the organization's selected malware scanner.
   Microsoft Defender's command-line scan returned `0x80004005` because the product/feature is

@@ -111,9 +111,9 @@ The Linux/Docker source collector has a separate fail-closed license-candidate s
 partial or full collection, run `inventory-ffmpeg-source-licenses.sh` against its output, then run
 `test-ffmpeg-source-license-inventory.sh` and `test-ffmpeg-source-license-review.sh`. Generated
 candidate rows remain pending until their source identity, SPDX expression, and binary notice
-obligation are added to the tracked `ffmpeg-source-license-review.tsv`. The reviewed set currently
-covers 91 of 92 source locators and 1,139 detected candidates: 354 shipped licenses, 67 supplemental
-notices, 621 recipe-proven not-built candidates, and 97 build-only candidates absent from the
+obligation are added to the tracked `ffmpeg-source-license-review.tsv`. The reviewed set now covers
+all 92 source locators and 1,651 detected candidates: 441 shipped licenses, 69 supplemental notices,
+970 recipe-proven not-built candidates, and 171 build-only candidates absent from the
 distributed binary. Required notices are hash-anchored byte-for-byte in `THIRD_PARTY_NOTICES.md` or
 separately manifest-bound and packaged, including exact files for ffnvcodec, dav1d, FriBidi,
 TwoLAME, AMF, OpenJPEG, Game Music Emu, GMP, Kvazaar, LCEVCdec, libvpx, libwebp, libzmq, and
@@ -123,7 +123,8 @@ Lilv, FFTW3, Chromaprint, LAME, Theora, Vorbis, libxml2, ZVBI, GNU libiconv, Fon
 HarfBuzz, FreeType, aribb24, libaribcaption, libass, libbluray, OpenSSL, SVT-AV1, libva, VVenC,
 libplacebo, OpenCL, OpenMPT, Vulkan-Headers, Vulkan-Shim-Loader, Shaderc, glslang, SPIRV-Tools,
 SPIRV-Cross, SPIRV-Headers, libcurl, SRT, libssh, OpenAPV, AOM, MinGW-w64, VMAF, GLib, Cairo,
-Pango, librsvg, and librsvg's target-specific Cargo closure. The 292-file legal manifest is
+Pango, librsvg, librsvg's target-specific Cargo closure, rav1e, and rav1e's reconstructed Windows GNU
+Cargo closure. The 339-file legal manifest is
 downloaded from revision-pinned upstream URLs and hash-verified before packaging. The review
 corrected FFTW3 from build-only to
 statically incorporated: the package gate now requires its GPL text and notice, verifies the enabled
@@ -144,14 +145,15 @@ The librsvg record pins the exact 203-package Windows GNU closure (182 runtime a
 for `--no-default-features --features avif`. Its validator binds every runtime package to a shipped
 license record, every build dependency to a build-only record, and every registry package to equal
 Cargo.lock and vendored-package checksums. Crate-backed notice downloads verify the complete `.crate`
-archive before extracting one exact regular member. All 292 manifest-bound files are fetched and
-hash-checked. FFmpeg's own license is
+archive before extracting one exact regular member. The rav1e record reproduces the recipe's
+time-dependent `cargo update cc` deterministically as `cc=1.4.7`, `find-msvc-tools=0.1.13`, and
+`shlex@2.0.1=2.0.1`, verifies the resulting Cargo.lock SHA-256 and 275-directory vendor set, and pins
+the exact 123-package target closure (82 runtime and 41 build-only). Its normalized collected archive
+has SHA-256 `36cdce5987cceb1000ba937e7a96dd7c3713150349bd782f781fbf6ab94af02f`.
+All 339 manifest-bound files are fetched and hash-checked. FFmpeg's own license is
 not treated as a substitute for dependency licenses. The two libiconv fallback transports are
 validated in `ffmpeg-source-locator-aliases.tsv` as commit-identical aliases of the already-reviewed
 primary locators; they increase locator coverage without duplicating one source tree's 13 candidates.
-rav1e is the sole remaining source locator outside the reviewed set because its recipe performs a
-time-dependent Cargo update. Its complete reconstructed dependency notice set still must be
-reconciled before that stage can be accepted.
 Optional-notice, not-built, and build-only/not-shipped candidates remain explicit
 rather than silently ignored. The validator can reconcile every generated candidate to exactly one
 reviewed disposition. Inventory extraction resolves only bounded, relative, in-archive license

@@ -407,6 +407,24 @@ for that LGPL-only path without replacement.
   bytes, SHA-256 `467035251285f01096978aa8a1c2e2349407423d16d430bd227e94bf37453572`.
   Hosted browser run [`36949971407`](https://github.com/seabAu/Splicr/actions/runs/36949971407)
   passed all six Studio journeys in 43.5 seconds on implementation commit `2eed132`.
+- [x] The rav1e stage completes exact review coverage for all 92 locators and 1,651 candidates: 441
+  shipped licenses, 69 supplemental notices, 970 not-built candidates, and 171 build-only/not-shipped
+  candidates. The recipe's time-dependent `cargo update cc` is reconstructed as `cc=1.4.7`,
+  `find-msvc-tools=0.1.13`, and `shlex@2.0.1=2.0.1`; collection verifies Cargo.lock SHA-256
+  `14a4b2ae596569e83e40a3431ffc4b210dd872e333969ddb18ce895f7b19d7c7` and all 275 versioned vendor
+  directories. The exact Windows GNU target closure contains 123 packages (82 runtime and 41
+  build-only), bringing the combined tracked Cargo profiles to 326 packages (264 runtime and 62
+  build-only). Forty-seven exact rav1e/Cargo payloads bring the legal manifest to 339 files; all 339
+  fetched and hash-verified. Four packages whose crate archives intentionally omit a license file are
+  bound to explicit companion records: exact VCS-commit MIT files for `profiling` and
+  `profiling-procmacros`, the closest immutable pre-publication upstream MIT file for `av-metrics`
+  without claiming byte identity to its later crate, and a clearly labeled SPLICR-generated notice
+  for `simd_helpers` because its exact immutable source has no license file. The rebuilt
+  `0.1.0-dev.16` package passed all twelve schema-v2 lifecycle checks at
+  `2026-10-02T02:29:22.8861851Z`, including all 339 dependency-license files. Portable:
+  180,544,170 bytes, SHA-256 `53e590fa92edc98026a97c835d260975c17f397064a61e8f7c509b8a6c3e175f`.
+  Installer: 120,209,563 bytes, SHA-256
+  `0e33ec58e21a203ddd0f257a99ffd19954fff560a26ed5886513d0483822aa58`.
 - [ ] Execute the tracked fetch commands and archive every enabled external dependency source at its
   recipe-pinned revision.
 - [ ] Record the applicable license and notice for every enabled dependency, including libraries
@@ -448,7 +466,30 @@ that full shared-DLL rebuild is the relinking path for the statically incorporat
 
 This record closes the librsvg-specific source and relinking analysis. It does not claim that the
 current primary-source audit ZIP is complete corresponding source for the entire 92-locator bundle;
-rav1e and the final publication/rebuild gates above remain open.
+the final full-graph collection, rebuild, and publication gates above remain open.
+
+## rav1e corresponding-source and relinking record
+
+The pinned rav1e source is commit `31435de9d76fddd38f6dcc31d4014574cebb2092`. Its BtbN recipe
+performs a time-dependent `cargo update cc`; the tracked supplement makes that transformation
+reproducible, validates the resulting lockfile, and vendors all 275 lockfile crates into versioned
+directories. The normalized collected stage archive is
+`scripts.d__50-rav1e_b2d3a4caec12576416c156eb16b4f83433caf3dc3a8270ed0bfe4fb74098dd54.tar.xz`, SHA-256
+`36cdce5987cceb1000ba937e7a96dd7c3713150349bd782f781fbf6ab94af02f`. The selected target closure is
+versioned in [`ffmpeg-cargo-source-closure.tsv`](../packaging/windows/ffmpeg-cargo-source-closure.tsv)
+for `x86_64-pc-windows-gnu`, default features, and the runtime/build context used by the recipe.
+
+To reproduce or relink this component, start from BtbN recipe commit
+`20ad148c3b69a862b061eb7e6cc7b61d896bcfef` and `scripts.d/50-rav1e.sh`. Use the normalized rav1e
+tree and its generated `.cargo/config.toml` with `CARGO_NET_OFFLINE=true`, build the pinned source for
+`x86_64-pc-windows-gnu` with default features, and install the resulting static rav1e library and
+headers. Then rebuild the shared FFmpeg stage with `--enable-librav1e` and the tracked configure line.
+A recipient may modify or replace the collected rav1e/Cargo sources before those steps and substitute
+the resulting normally named FFmpeg DLLs; rebuilding the shared DLL set is the relinking path for the
+statically incorporated rav1e component.
+
+This closes the rav1e-specific source and relinking analysis. Full-graph collection, correspondence
+rebuild verification, archive publication, and download-page attribution remain release gates.
 
 ## Current audit-only kit
 

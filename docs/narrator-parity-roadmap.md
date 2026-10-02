@@ -959,6 +959,17 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   `467035251285f01096978aa8a1c2e2349407423d16d430bd227e94bf37453572`.
   Hosted browser run [`36949971407`](https://github.com/seabAu/Splicr/actions/runs/36949971407) passed
   all six Studio journeys in 43.5 seconds on implementation commit `2eed132`.
+- [x] 2026-10-01 — The final rav1e locator is promoted, completing tracked review for all 92 source
+  locators and 1,651 candidates. Its moving `cargo update cc` is reconstructed and locked; the
+  normalized collected archive has SHA-256
+  `36cdce5987cceb1000ba937e7a96dd7c3713150349bd782f781fbf6ab94af02f`. The 123-package Windows GNU
+  closure contains 82 runtime and 41 build-only packages, bringing both tracked Cargo profiles to 326
+  packages. Forty-seven new legal payloads bring the manifest to 339 files, all fetched and
+  hash-verified. The real dev.16 portable and installer passed all twelve schema-v2 lifecycle checks
+  at `2026-10-02T02:29:22.8861851Z`. Portable SHA-256:
+  `53e590fa92edc98026a97c835d260975c17f397064a61e8f7c509b8a6c3e175f`; installer SHA-256:
+  `0e33ec58e21a203ddd0f257a99ffd19954fff560a26ed5886513d0483822aa58`. Hosted-browser acceptance for
+  this checkpoint is pending.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
@@ -966,13 +977,11 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
 
 - **Active milestone:** Milestone 9 — real-world acceptance and release hardening, including the
   remaining Milestones 2/3/5/7 live-environment evidence.
-- **Next implementation slice:** continue the bounded FFmpeg source/license review in
+- **Next implementation slice:** run and validate the complete collected FFmpeg source graph, perform
+  correspondence/rebuild verification, and publish the final source archive and attribution link in
   `docs/FFMPEG_DISTRIBUTION.md`, while preserving the remaining credential and clean-VM checks in
-  `docs/RELEASE_CHECKLIST.md`. Ninety-one of 92 source locators are reviewed or validated aliases;
-  rav1e is the sole remaining locator and requires final promotion of its reconstructed,
-  time-dependent Cargo dependency closure;
-  the current artifacts pass the normal PowerShell 7 package harness and exact-commit hosted-browser
-  acceptance.
+  `docs/RELEASE_CHECKLIST.md`. All 92 source locators now have reviewed dispositions or validated
+  aliases; exact-commit hosted-browser acceptance for the rav1e checkpoint is still pending.
   Gemini/Deepgram
   credentials, the clean-VM matrix, complete FFmpeg corresponding
   source/compliance publication, malware/signing evidence, and audible sentence-seam acceptance

@@ -1329,3 +1329,57 @@ Other Python and JavaScript dependency licenses remain available from their resp
 packages and lockfiles in the SPLICR Studio source distribution. Before a public release, preserve
 the license/notice files emitted by the frozen package and review this list against the resolved
 `uv.lock` and `studio-web/package-lock.json` dependency graphs.
+
+## rav1e target-specific Cargo notice set
+
+The Windows GNU default-feature rav1e build uses a checksum-verified 123-package target closure. The following exact selected license and notice payloads are included in the Windows package:
+
+- `ffmpeg/RAV1E-CARGO-02b80951ce6c1dd25d727897.txt`
+- `ffmpeg/RAV1E-CARGO-035e70219855119df4273b3c.txt`
+- `ffmpeg/RAV1E-CARGO-0621878e61f0d0fda054bcbe.txt`
+- `ffmpeg/RAV1E-CARGO-0f96a83840e146e43c0ec96a.txt`
+- `ffmpeg/RAV1E-CARGO-1327309babc5f34582ae4731.txt`
+- `ffmpeg/RAV1E-CARGO-1e27e28eafbc439fd153d0cc.txt`
+- `ffmpeg/RAV1E-CARGO-2022c11b24fc1e50fa06a595.txt`
+- `ffmpeg/RAV1E-CARGO-22c404ba4f8503eeef72b1cc.txt`
+- `ffmpeg/RAV1E-CARGO-23860c2a7b5d96b21569afed.txt`
+- `ffmpeg/RAV1E-CARGO-23f18e03dc49df91622fe2a7.txt`
+- `ffmpeg/RAV1E-CARGO-2dd0a109751e939dec3f80dd.txt`
+- `ffmpeg/RAV1E-CARGO-378f5840b258e2779c39418f.txt`
+- `ffmpeg/RAV1E-CARGO-3b2dbf86845042813be71eec.txt`
+- `ffmpeg/RAV1E-CARGO-4d0814fe61e6458a52ce8c74.txt`
+- `ffmpeg/RAV1E-CARGO-4da95ec4ecb65b738d470b7d.txt`
+- `ffmpeg/RAV1E-CARGO-4dbda04344456f09a7a58814.txt`
+- `ffmpeg/RAV1E-CARGO-5734ed989dfca1f625b40281.txt`
+- `ffmpeg/RAV1E-CARGO-5d3c397a3aeeecbc417962e4.txt`
+- `ffmpeg/RAV1E-CARGO-5e05b024f653a5ce199e77cb.txt`
+- `ffmpeg/RAV1E-CARGO-618bcda011fe31b4710082ef.txt`
+- `ffmpeg/RAV1E-CARGO-6485b8ed310d3f0340bf1ad1.txt`
+- `ffmpeg/RAV1E-CARGO-6efb0476a1cc085077ed4935.txt`
+- `ffmpeg/RAV1E-CARGO-7576269ea71f767b99297934.txt`
+- `ffmpeg/RAV1E-CARGO-7a65c85c057a5538fdd8215b.txt`
+- `ffmpeg/RAV1E-CARGO-7b14a70c194b19dbd0625e7e.txt`
+- `ffmpeg/RAV1E-CARGO-7b63ecd5f1902af1b6372994.txt`
+- `ffmpeg/RAV1E-CARGO-8eb4fb5a6505da473ee195f3.txt`
+- `ffmpeg/RAV1E-CARGO-92493cc294f8f2714bb3b2d1.txt`
+- `ffmpeg/RAV1E-CARGO-97d3424e347e8fa236806725.txt`
+- `ffmpeg/RAV1E-CARGO-a8d47ff51ca256f56a8932db.txt`
+- `ffmpeg/RAV1E-CARGO-acc9e236b0011c638714a16f.txt`
+- `ffmpeg/RAV1E-CARGO-b16db96b93b1d7cf7bea533f.txt`
+- `ffmpeg/RAV1E-CARGO-bc8dcbbd559a61b8a8c0c89d.txt`
+- `ffmpeg/RAV1E-CARGO-bf5a93d1014429b43e01c57d.txt`
+- `ffmpeg/RAV1E-CARGO-c2cfccb812fe482101a8f045.txt`
+- `ffmpeg/RAV1E-CARGO-c986bcdb83103d4ddf58aeb7.txt`
+- `ffmpeg/RAV1E-CARGO-d69f24ad84ec2ade64c0b68b.txt`
+- `ffmpeg/RAV1E-CARGO-da23be69ad3ccf7a5823d621.txt`
+- `ffmpeg/RAV1E-CARGO-dbe1fff0fb1314b6af94f161.txt`
+- `ffmpeg/RAV1E-CARGO-e4c9b06fa850cb9b540a5e40.txt`
+- `ffmpeg/RAV1E-CARGO-f21c3bfdc47749b5912eb55f.txt`
+- `ffmpeg/RAV1E-CARGO-f7715d38a3fa1b4ac97c5729.txt`
+- `ffmpeg/RAV1E-CARGO-f7db81051789b729fea528a6.txt`
+- `ffmpeg/RAV1E-av-metrics-0.9.1-LICENSE.txt`
+- `ffmpeg/RAV1E-profiling-1.0.16-LICENSE-MIT.txt`
+- `ffmpeg/RAV1E-profiling-procmacros-1.0.16-LICENSE-MIT.txt`
+- `ffmpeg/RAV1E-simd_helpers-0.1.0-MIT-NOTICE.txt`
+
+The av-metrics payload is an exact repository-root MIT grant from the latest public repository commit before publication of 0.9.1; the crate declares that repository and MIT but excluded the file, so SPLICR does not represent it as a byte-exact crate member. The profiling payloads are exact files from the VCS revision embedded in both crates. The simd_helpers payload is explicitly labeled as a SPLICR distribution notice because both the exact crate and its recorded VCS tree omit a standalone license file.
