@@ -949,6 +949,14 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   `ad45f0e92de3467c03d9e23c00855ff40a77477975400d7421ff4b390aab66e7`. Hosted browser run
   [`36946481820`](https://github.com/seabAu/Splicr/actions/runs/36946481820) passed all six Studio
   journeys in 45.9 seconds on implementation commit `a94e827`.
+- [x] 2026-10-01 — The complete librsvg stage is promoted through 91 of 92 source locators and 1,139
+  exact candidates. The tracked Windows GNU Cargo closure contains 203 packages (182 runtime and 21
+  build-only), binds equal lock/vendor checksums, and maps every selected package to an exact source
+  review. Eighty-six new legal payloads bring the manifest to 292 files; full `.crate` hashes and
+  exact safe members are verified during fetch. The real dev.16 portable and installer passed all
+  twelve schema-v2 lifecycle checks at `2026-10-02T01:07:44.2759357Z`. Portable SHA-256:
+  `42f5fe1deec5ba9de583098680be6305546145bdbab3d4453b79b5354ed7335b`; installer SHA-256:
+  `467035251285f01096978aa8a1c2e2349407423d16d430bd227e94bf37453572`.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
@@ -958,9 +966,9 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   remaining Milestones 2/3/5/7 live-environment evidence.
 - **Next implementation slice:** continue the bounded FFmpeg source/license review in
   `docs/FFMPEG_DISTRIBUTION.md`, while preserving the remaining credential and clean-VM checks in
-  `docs/RELEASE_CHECKLIST.md`. Ninety of 92 source locators are reviewed or validated aliases;
-  the two remaining locators are rav1e and librsvg, each requiring its complete time-dependent or
-  target-specific Cargo dependency closure before promotion;
+  `docs/RELEASE_CHECKLIST.md`. Ninety-one of 92 source locators are reviewed or validated aliases;
+  rav1e is the sole remaining locator and requires final promotion of its reconstructed,
+  time-dependent Cargo dependency closure;
   the current artifacts pass the normal PowerShell 7 package harness and exact-commit hosted-browser
   acceptance.
   Gemini/Deepgram

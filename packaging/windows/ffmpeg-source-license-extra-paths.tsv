@@ -80,3 +80,6 @@ scripts.d/50-librsvg/20-cairo.sh	./src/cairo-mono-scan-converter.c
 scripts.d/50-librsvg/20-cairo.sh	./src/cairo-pattern.c
 scripts.d/50-librsvg/20-cairo.sh	./src/cairo-unicode.c
 scripts.d/50-librsvg/30-pango.sh	./pango/pango-script.c
+scripts.d/50-librsvg/99-librsvg.sh	./vendor/mutants-0.0.4/Cargo.toml
+scripts.d/50-librsvg/99-librsvg.sh	./vendor/selectors-0.40.0/lib.rs
+scripts.d/50-librsvg/99-librsvg.sh	./vendor/winapi-x86_64-pc-windows-gnu-0.4.0/Cargo.toml

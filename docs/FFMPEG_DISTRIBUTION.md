@@ -392,6 +392,19 @@ for that LGPL-only path without replacement.
   bytes, SHA-256 `ad45f0e92de3467c03d9e23c00855ff40a77477975400d7421ff4b390aab66e7`.
   Hosted browser run [`36946481820`](https://github.com/seabAu/Splicr/actions/runs/36946481820)
   passed all six Studio journeys in 45.9 seconds on implementation commit `a94e827`.
+- [x] The librsvg stage raises exact coverage to 91 of 92 locators and 1,139 candidates: 354 shipped
+  licenses, 67 supplemental notices, 621 not-built candidates, and 97 build-only/not-shipped
+  candidates. The target-specific Cargo record contains exactly 203 packages for
+  `x86_64-pc-windows-gnu`, `--no-default-features`, and `--features avif`: 182 runtime packages and
+  21 build-only packages. Equal Cargo.lock/vendor checksums, package-to-review coverage, portable
+  package identities, and the complete selected SPDX set are enforced by a dedicated validator and
+  six negative tests. Eighty-six exact librsvg/Cargo payloads bring the legal manifest to 292 files.
+  The downloader authenticates each complete `.crate` archive before extracting one exact regular
+  member, rejects traversal/non-regular members and checksum drift, and fetched/hash-verified all
+  292 records. The rebuilt `0.1.0-dev.16` package passed all twelve schema-v2 lifecycle checks at
+  `2026-10-02T01:07:44.2759357Z`. Portable: 185,028,993 bytes, SHA-256
+  `42f5fe1deec5ba9de583098680be6305546145bdbab3d4453b79b5354ed7335b`. Installer: 120,196,533
+  bytes, SHA-256 `467035251285f01096978aa8a1c2e2349407423d16d430bd227e94bf37453572`.
 - [ ] Execute the tracked fetch commands and archive every enabled external dependency source at its
   recipe-pinned revision.
 - [ ] Record the applicable license and notice for every enabled dependency, including libraries
@@ -409,6 +422,31 @@ for that LGPL-only path without replacement.
 - [ ] Confirm release terms do not prohibit reverse engineering for LGPL debugging/relinking.
 - [ ] Review codec patent/licensing implications separately; LGPL compliance does not answer patent
   questions.
+
+## librsvg corresponding-source and relinking record
+
+The pinned librsvg source archive is commit
+`7612431eb02dc009319094f8513d63c1faaecfb4`. Its source-collection step runs Cargo vendor with
+versioned directories, so the normalized stage archive carries the exact registry inputs rather
+than depending on crates.io during a rebuild. The selected target closure is versioned in
+[`ffmpeg-cargo-source-closure.tsv`](../packaging/windows/ffmpeg-cargo-source-closure.tsv); it omits
+local audit paths and records the target, feature selection, runtime/build context, package identity,
+Cargo.lock checksum, vendored-package checksum, and candidate count for every package.
+
+To reproduce or relink this component, start from BtbN recipe commit
+`20ad148c3b69a862b061eb7e6cc7b61d896bcfef` and its exact
+`scripts.d/50-librsvg/99-librsvg.sh` stage. Use the collected source tree with
+`CARGO_NET_OFFLINE=true`; remove the recipe's two environment overrides from `meson.build`; then
+configure Meson for a release, static, no-wrap build with the recipe's Rust target and cross file,
+LTO disabled, AVIF enabled, and pixbuf, pixbuf-loader, rsvg-convert, introspection, Vala, docs, and
+tests disabled. Build and install with Ninja, then rebuild the shared FFmpeg stage with
+`--enable-librsvg` and the tracked configure line. A recipient may replace or modify the collected
+librsvg/Cargo sources before those steps and substitute the resulting normally named FFmpeg DLLs;
+that full shared-DLL rebuild is the relinking path for the statically incorporated LGPL components.
+
+This record closes the librsvg-specific source and relinking analysis. It does not claim that the
+current primary-source audit ZIP is complete corresponding source for the entire 92-locator bundle;
+rav1e and the final publication/rebuild gates above remain open.
 
 ## Current audit-only kit
 

@@ -33,13 +33,27 @@ expected_packaged_licenses_header=$'package_path\tsource_url\trevision\tsha256\t
 declare -A packaged_license_hashes=()
 declare -A packaged_license_revisions=()
 declare -A packaged_license_references=()
+
+valid_content_encoding() {
+    local value="$1"
+    local member_path
+    [[ -z "$value" || "$value" == "base64" ]] && return 0
+    [[ "$value" =~ ^crate\+tar\.gz:([0-9a-f]{64}):([A-Za-z0-9][A-Za-z0-9._+/\-]*)$ ]] || return 1
+    member_path="${BASH_REMATCH[2]}"
+    [[ "$member_path" != /* && "$member_path" != *\\* && "/$member_path/" != *"/../"* && \
+        "/$member_path/" != *"/./"* && "$member_path" != *"//"* ]]
+}
+
 while IFS=$'\t' read -r package_path source_url package_revision package_sha256 content_encoding extra; do
     [[ "$package_path" != "package_path" ]] || continue
+    valid_content_encoding "$content_encoding" || {
+        echo "Invalid packaged license file transport encoding: $package_path" >&2
+        exit 1
+    }
     [[ -z "${extra:-}" && "$package_path" =~ ^ffmpeg/[A-Za-z0-9._-]+$ && \
         "$source_url" == https://* && \
         "$package_revision" =~ ^([0-9a-f]{40}|[1-9][0-9]*|v[0-9]+(\.[0-9]+){1,3}([._-][0-9A-Za-z]+)*|openssl-[0-9]+(\.[0-9]+){2,3})$ && \
-        "$package_sha256" =~ ^[0-9a-f]{64}$ && \
-        "$content_encoding" =~ ^(base64)?$ ]] || {
+        "$package_sha256" =~ ^[0-9a-f]{64}$ ]] || {
         echo "Invalid packaged license file manifest row: $package_path" >&2
         exit 1
     }

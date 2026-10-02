@@ -1114,6 +1114,106 @@ Pango's LGPL-2.0-or-later terms are packaged as `ffmpeg/PANGO-COPYING.txt`
 Unicode script table carries the additional ICU terms preserved in `ffmpeg/PANGO-pango-script.c`
 (`947fb30989bacbc788a5c4eb293fba31cc767e7973a7c4ab39c5cd3248f5688d`).
 
+## librsvg and its Rust dependency closure
+
+librsvg at commit `7612431eb02dc009319094f8513d63c1faaecfb4` is statically incorporated under LGPL-2.1-or-later.
+Its exact project grant is packaged as `ffmpeg/LIBRSVG-COPYING.LIB.txt`. The Windows GNU build uses
+`--no-default-features --features avif`; the tracked target closure contains 182 runtime
+packages and 21 build-only packages. The exact checksum-verified license and attribution
+payloads required by that runtime closure are:
+
+- `ffmpeg/LIBRSVG-CARGO-005b3f9b4687364514bb.txt` (`005b3f9b4687364514bbaea2a25e96d54ce6a59277d157386e8259cbcae8e095`)
+- `ffmpeg/LIBRSVG-CARGO-025436edff4cfcdde17a.txt` (`025436edff4cfcdde17a5811fdea78892d8482efd1abdec5a17872d07a4f2112`)
+- `ffmpeg/LIBRSVG-CARGO-0444c6991eead6822f7b.txt` (`0444c6991eead6822f7b9102e654448d51624431119546492e8b231db42c48bb`)
+- `ffmpeg/LIBRSVG-CARGO-058f01fe181608d027fc.txt` (`058f01fe181608d027fcde7e528fc03ea3cf90f30903c407644b0a9bbc54f500`)
+- `ffmpeg/LIBRSVG-CARGO-0621878e61f0d0fda054.txt` (`0621878e61f0d0fda054bcbe02df75192c28bde1ecc8289cbd86aeba2dd72720`)
+- `ffmpeg/LIBRSVG-CARGO-0ab4d106b6faac07fb6a.txt` (`0ab4d106b6faac07fb6a051815fd1b4d862d730895e2d7d7358c2f13565e7a38`)
+- `ffmpeg/LIBRSVG-CARGO-0b28172679e0009b655d.txt` (`0b28172679e0009b655da42797c03fd163a3379d5cfa67ba1f1655e974a2a1a9`)
+- `ffmpeg/LIBRSVG-CARGO-0ceba5b58dfaeb0281cc.txt` (`0ceba5b58dfaeb0281ccd2da83a34eed8b3c5d5e0c1e1b947ce93000043f0200`)
+- `ffmpeg/LIBRSVG-CARGO-0f96a83840e146e43c0e.txt` (`0f96a83840e146e43c0ec96a22ec1f392e0680e6c1226e6f3ba87e0740af850f`)
+- `ffmpeg/LIBRSVG-CARGO-0ffd79084929c4913ea1.txt` (`0ffd79084929c4913ea1223796dccfb1d86abfb359e86ef7c0137d9805bfaacd`)
+- `ffmpeg/LIBRSVG-CARGO-11789f45bb180841cd36.txt` (`11789f45bb180841cd362a5eee6789c68ddb573a11105e30768c308a6add0190`)
+- `ffmpeg/LIBRSVG-CARGO-123a331b5dbf04c30097.txt` (`123a331b5dbf04c30097fa43b8f858bc85df671fe776de498d01f3d6b7c1f69e`)
+- `ffmpeg/LIBRSVG-CARGO-1847e0e0698142ed4347.txt` (`1847e0e0698142ed4347c1441a9fa81c8fbddd44b1d8bbcd5e3647f991759d7f`)
+- `ffmpeg/LIBRSVG-CARGO-1a2f5c12ddc934d58956.txt` (`1a2f5c12ddc934d58956aa5dbdd3255fe55fd957633ab7d0d39e4f0daa73f7df`)
+- `ffmpeg/LIBRSVG-CARGO-1f256ecad192880510e8.txt` (`1f256ecad192880510e84ad60474eab7589218784b9a50bc7ceee34c2b91f1d5`)
+- `ffmpeg/LIBRSVG-CARGO-20c7855c364d57ea4c97.txt` (`20c7855c364d57ea4c97889a5e8d98470a9952dade37bd9248b9a54431670e5e`)
+- `ffmpeg/LIBRSVG-CARGO-219920e865eee70b7dcf.txt` (`219920e865eee70b7dcfc948a86b099e7f4fe2de01bcca2ca9a20c0a033f2b59`)
+- `ffmpeg/LIBRSVG-CARGO-23f18e03dc49df91622f.txt` (`23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3`)
+- `ffmpeg/LIBRSVG-CARGO-2aa92cada6431e75615e.txt` (`2aa92cada6431e75615e3fe6cb1a9082c98f777d48ae1c087c0da0e37f7b8bff`)
+- `ffmpeg/LIBRSVG-CARGO-30fefc3a7d6a00415418.txt` (`30fefc3a7d6a0041541858293bcbea2dde4caa4c0a5802f996a7f7e8c0085652`)
+- `ffmpeg/LIBRSVG-CARGO-378f5840b258e2779c39.txt` (`378f5840b258e2779c39418f3f2d7b2ba96f1c7917dd6be0713f88305dbda397`)
+- `ffmpeg/LIBRSVG-CARGO-3c92a19e541755a97e51.txt` (`3c92a19e541755a97e51b4c963aa4335bbf93b64574dfbc36a5636c2899f3ab9`)
+- `ffmpeg/LIBRSVG-CARGO-3ddf9be5c28fe27dad14.txt` (`3ddf9be5c28fe27dad143a5dc76eea25222ad1dd68934a047064e56ed2fa40c5`)
+- `ffmpeg/LIBRSVG-CARGO-3fa4ca83dcc9237839b1.txt` (`3fa4ca83dcc9237839b1bdeb2e6d16bdfb5ec0c5ce42b24694d8bbf0dcbef72c`)
+- `ffmpeg/LIBRSVG-CARGO-40be1e77825d7e49485a.txt` (`40be1e77825d7e49485a2e43d89bed29dfff29f8f529e71d3c683656021f0d08`)
+- `ffmpeg/LIBRSVG-CARGO-4108245a1f2df9d4e94d.txt` (`4108245a1f2df9d4e94df8abed5b4ba0759bb2f9b40a6b939f1be141077ae50b`)
+- `ffmpeg/LIBRSVG-CARGO-42a35170233e83e18856.txt` (`42a35170233e83e18856792e748de4c1ce4a63b2afce9a370c89ef3fe23f9f2d`)
+- `ffmpeg/LIBRSVG-CARGO-457b464bc0fba8a3d67d.txt` (`457b464bc0fba8a3d67d2458569104f5611869f0c1563a1a12d9c51a0bca9261`)
+- `ffmpeg/LIBRSVG-CARGO-45f522cacecb1023856e.txt` (`45f522cacecb1023856e46df79ca625dfc550c94910078bd8aec6e02880b3d42`)
+- `ffmpeg/LIBRSVG-CARGO-554c76c3cb6277827297.txt` (`554c76c3cb6277827297f0af0ce2dedc0d2bcfef92517f9b4766762ac502eb72`)
+- `ffmpeg/LIBRSVG-CARGO-5734ed989dfca1f625b4.txt` (`5734ed989dfca1f625b40281ee9f4530f91b2411ec01cb748223e7eb87e201ab`)
+- `ffmpeg/LIBRSVG-CARGO-573f5227db835cd30bbd.txt` (`573f5227db835cd30bbdd3aed3f82615f80119a4d5c82b4daf642dbfe2b6afde`)
+- `ffmpeg/LIBRSVG-CARGO-592dc80f1a865d20d61a.txt` (`592dc80f1a865d20d61a2006a2d29ce34a2bc28cd7e868ab300fdeed6da154ca`)
+- `ffmpeg/LIBRSVG-CARGO-5e05b024f653a5ce199e.txt` (`5e05b024f653a5ce199e77cbbbd42fb5553562ec714b819421ed0c3e552a75d7`)
+- `ffmpeg/LIBRSVG-CARGO-60a7062291b01ba068f3.txt` (`60a7062291b01ba068f300612cdbdc20382ac1d4934f07bcdd7167c15299f309`)
+- `ffmpeg/LIBRSVG-CARGO-61d383b05b87d78f94d2.txt` (`61d383b05b87d78f94d2937e2580cce47226d17823c0430fbcad09596537efcf`)
+- `ffmpeg/LIBRSVG-CARGO-62065228e42caebca7e7.txt` (`62065228e42caebca7e7d7db1204cbb867033de5982ca4009928915e4095f3a3`)
+- `ffmpeg/LIBRSVG-CARGO-6485b8ed310d3f0340bf.txt` (`6485b8ed310d3f0340bf1ad1f47645069ce4069dcc6bb46c7d5c6faf41de1fdb`)
+- `ffmpeg/LIBRSVG-CARGO-6652c868f35dfe5e8ef6.txt` (`6652c868f35dfe5e8ef636810a4e576b9d663f3a17fb0f5613ad73583e1b88fd`)
+- `ffmpeg/LIBRSVG-CARGO-69c62cda6938d510467c.txt` (`69c62cda6938d510467c134dc0b5c83fb9c8ca847b9cd9d9d2fe9ab427c82100`)
+- `ffmpeg/LIBRSVG-CARGO-74db5baf44a41b100031.txt` (`74db5baf44a41b1000312c673544b3374e4198af5605c7f9080a402cec42cfa3`)
+- `ffmpeg/LIBRSVG-CARGO-7576269ea71f767b9929.txt` (`7576269ea71f767b99297934c0b2367532690f8c4badc695edf8e04ab6a1e545`)
+- `ffmpeg/LIBRSVG-CARGO-77257f3d2181236b1aee.txt` (`77257f3d2181236b1aee78920238062ae64efe13c5d858b2db126e79c9e1b14f`)
+- `ffmpeg/LIBRSVG-CARGO-792d075c7bad6dac258a.txt` (`792d075c7bad6dac258a44e799eb64cbf465e24d9932d27669be08c5ec957e27`)
+- `ffmpeg/LIBRSVG-CARGO-799e9ca9d179295ef372.txt` (`799e9ca9d179295ef372f25d3769cdda7d25bb2668add6a6a1e22d1e4c678b8d`)
+- `ffmpeg/LIBRSVG-CARGO-7b63ecd5f1902af1b637.txt` (`7b63ecd5f1902af1b63729947373683c32745c16a10e8e6292e2e2dcd7e90ae0`)
+- `ffmpeg/LIBRSVG-CARGO-7ca6700600dfa9c9497b.txt` (`7ca6700600dfa9c9497bf5556365067daa802c871ea78239f129309c7a2048f7`)
+- `ffmpeg/LIBRSVG-CARGO-838118388fe5c2e7f1db.txt` (`838118388fe5c2e7f1dbbaeed13e1c7f3ebf88be91319c7c1d77c18e987d1a50`)
+- `ffmpeg/LIBRSVG-CARGO-8569ebf6bf52937b961d.txt` (`8569ebf6bf52937b961d9c9c934d8400a2bb6b09651a9afacbb3fc18fe5c09b1`)
+- `ffmpeg/LIBRSVG-CARGO-8583712ee2b062ff3d4d.txt` (`8583712ee2b062ff3d4d6d3e16f19ff0f92bc3a0a4beeec11a81ef00146fbd4f`)
+- `ffmpeg/LIBRSVG-CARGO-86dd7f026f916daf7511.txt` (`86dd7f026f916daf7511e39951ad8ea8cf55a8db67ae64060dacf829761c18f3`)
+- `ffmpeg/LIBRSVG-CARGO-8a35369f3ca263b3c62f.txt` (`8a35369f3ca263b3c62fbb5032947e53b6bfebc6c8a4d1bb982de1c069f6fba5`)
+- `ffmpeg/LIBRSVG-CARGO-8b43ce8accd61e9d370b.txt` (`8b43ce8accd61e9d370b5ca9e9c4f953279b5c239926c62315b40e24df51b726`)
+- `ffmpeg/LIBRSVG-CARGO-8ce0830173fdac609dfb.txt` (`8ce0830173fdac609dfb4ea603fdc002c2f4af0dc9b1a005653f5da9cf534b18`)
+- `ffmpeg/LIBRSVG-CARGO-8cf56d10131ce201cf69.txt` (`8cf56d10131ce201cf69ab74b111d3ebac1acca3833d7efb39ae357224b70edb`)
+- `ffmpeg/LIBRSVG-CARGO-8eb4fb5a6505da473ee1.txt` (`8eb4fb5a6505da473ee195f326007c8c7e28357e3e6a11e293ce2a480384030c`)
+- `ffmpeg/LIBRSVG-CARGO-9df9ba60a11af705f2e4.txt` (`9df9ba60a11af705f2e451b53762686e615d86f76b169cf075c3237730dbd7e2`)
+- `ffmpeg/LIBRSVG-CARGO-a825bd853ab71619a492.txt` (`a825bd853ab71619a4923d7b4311221427848070ff44d990da39b0b274c1683f`)
+- `ffmpeg/LIBRSVG-CARGO-b38f11f6096706e6de55.txt` (`b38f11f6096706e6de553dabe2a7ed142d59b6fa8c97e290c67496154745cdd5`)
+- `ffmpeg/LIBRSVG-CARGO-c2cfccb812fe482101a8.txt` (`c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383`)
+- `ffmpeg/LIBRSVG-CARGO-c30152c94a6d75e021ad.txt` (`c30152c94a6d75e021adbc52b3a52470366a46edb917e17deae3259251af244c`)
+- `ffmpeg/LIBRSVG-CARGO-c524732311819f888ce5.txt` (`c524732311819f888ce57b1b56148feaa6e9b1705fcb158e7e5d71554ccf39ed`)
+- `ffmpeg/LIBRSVG-CARGO-c77a4cf9da729987d0fe.txt` (`c77a4cf9da729987d0fe7ccd811e3bd27393914ddf3d23467c18cc22954513b3`)
+- `ffmpeg/LIBRSVG-CARGO-c962ee4d1d05ddc138b2.txt` (`c962ee4d1d05ddc138b202b2540219ebc57893fcf97b364852094a9a94ce1365`)
+- `ffmpeg/LIBRSVG-CARGO-c9a75f18b9ab2927829a.txt` (`c9a75f18b9ab2927829a208fc6aa2cf4e63b8420887ba29cdb265d6619ae82d5`)
+- `ffmpeg/LIBRSVG-CARGO-ce7bc3499fee93d5022e.txt` (`ce7bc3499fee93d5022ef430d5e4201e79a6d9154f3974e42f41349f0569e09b`)
+- `ffmpeg/LIBRSVG-CARGO-ceacfa4d7fa67df64ab0.txt` (`ceacfa4d7fa67df64ab09a56fe248c50a3bfc9bc00374d69bd74ad763b14b89c`)
+- `ffmpeg/LIBRSVG-CARGO-d2a809eafabba137f508.txt` (`d2a809eafabba137f508bea16a1b93d8ff24df7da6f38129d830db9bc118bdfe`)
+- `ffmpeg/LIBRSVG-CARGO-d30047bca3b516639339.txt` (`d30047bca3b516639339a3c279bb84c3483124fb5a9dafe3c75056a85090e745`)
+- `ffmpeg/LIBRSVG-CARGO-d54c6e13e9e952dac17d.txt` (`d54c6e13e9e952dac17d209171df8657e3cae93beaddace4906150cdec8d02e9`)
+- `ffmpeg/LIBRSVG-CARGO-dae402989de65164815b.txt` (`dae402989de65164815b7e2b6bc2b9576285434c3785934c8b6ece0fa055960d`)
+- `ffmpeg/LIBRSVG-CARGO-db11fec9946737df39ca.txt` (`db11fec9946737df39ca3898d9cd8c10ec6f6c3a884a6802b0ad0b81b4e8f23a`)
+- `ffmpeg/LIBRSVG-CARGO-e03e58ea9205f51989b7.txt` (`e03e58ea9205f51989b7a50f450051b24e6516cc1f0b920222dcda992072be99`)
+- `ffmpeg/LIBRSVG-CARGO-e57011537d230b14e790.txt` (`e57011537d230b14e790f6666dc00816f7b371ebbd7da8a12491e51086fec278`)
+- `ffmpeg/LIBRSVG-CARGO-e72111c52b7d96ebe253.txt` (`e72111c52b7d96ebe25348dee19f0744f444d3c95ae6b1ecb6ccaecc5bce05ba`)
+- `ffmpeg/LIBRSVG-CARGO-ea084a2373ebc1f0902c.txt` (`ea084a2373ebc1f0902c09266e7bf25a05ab3814c1805bb017ffa7308f90c061`)
+- `ffmpeg/LIBRSVG-CARGO-eaf40297c75da471f7cd.txt` (`eaf40297c75da471f7cda1f3458e8d91b4b2ec866e609527a13acfa93b638652`)
+- `ffmpeg/LIBRSVG-CARGO-f367c1b8e1aa26243525.txt` (`f367c1b8e1aa262435251e442901da4607b4650e0e63a026f5044473ecfb90f2`)
+- `ffmpeg/LIBRSVG-CARGO-f7715d38a3fa1b4ac97c.txt` (`f7715d38a3fa1b4ac97c5729740752505a39cb92ee83ab5b102aeb5eaa7cdea4`)
+- `ffmpeg/LIBRSVG-CARGO-f7db81051789b729fea5.txt` (`f7db81051789b729fea528a63ec4c938fdcb93d9d61d97dc8cc2e9df6d47f2a1`)
+- `ffmpeg/LIBRSVG-CARGO-fab3dd6bdab226f1c086.txt` (`fab3dd6bdab226f1c08630b1dd917e11fcb4ec5e1e020e2c16f83a0a13863e85`)
+- `ffmpeg/LIBRSVG-CARGO-fb77f0a9c53e473abe51.txt` (`fb77f0a9c53e473abe5103c8632ef9f0f2874d4fb3f17cb2d8c661aab9cee9d7`)
+- `ffmpeg/LIBRSVG-CARGO-fd80a26fbb3f644af1fa.txt` (`fd80a26fbb3f644af1fa994134446702932968519797227e07a1368dea80f0bc`)
+- `ffmpeg/LIBRSVG-CARGO-ff8f68cb076caf8cefe7.txt` (`ff8f68cb076caf8cefe7a6430d4ac086ce6af2ca8ce2c4e5a2004d4552ef52a2`)
+- `ffmpeg/LIBRSVG-COPYING.LIB.txt` (`dc626520dcd53a22f727af3ee42c770e56c97a64fe3adb063799d8ab032fe551`)
+- `ffmpeg/LIBRSVG-mutants-0.0.4-LICENSE.txt` (`479cbeb2506157776cf80abe31df18065d0fe50b5816ff77bfd75d5deb04ab5c`)
+
+Unselected alternative grants and build-only package terms remain preserved in the
+corresponding-source archive. The selectors, mutants_attrs, and target-specific winapi
+packages use the authenticated companion mappings recorded with the exact source review.
+The static LGPL components require corresponding source and a documented relinking path.
+
 ## SRT
 
 SRT at commit `ff8ab25c57aece5b7351defe36dacc94fc28527f` is statically incorporated with

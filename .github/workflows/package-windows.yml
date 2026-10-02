@@ -48,6 +48,7 @@ jobs:
           bash packaging/windows/test-ffmpeg-source-collector.sh "$extracted_root"
           bash packaging/windows/test-ffmpeg-source-license-inventory.sh
           bash packaging/windows/test-ffmpeg-source-license-review.sh
+          python3 packaging/windows/test_ffmpeg_cargo_source_closure.py
 
   package:
     needs: source-collector-plan
@@ -102,6 +103,7 @@ jobs:
           uv run ruff check .
           uv run pytest -q
           .\packaging\windows\test-fetch-ffmpeg-lgpl.ps1
+          python .\packaging\windows\test_ffmpeg_cargo_source_closure.py
           $ffmpegBin = python .\packaging\windows\fetch_ffmpeg_release.py
           .\packaging\windows\build.ps1 `
             -Version "${{ steps.version.outputs.version }}" `

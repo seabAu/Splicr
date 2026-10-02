@@ -110,6 +110,11 @@ try {
         throw "PowerShell fetcher accepted an unsafe packaged-license transport encoding."
     }
 
+    & $Python (Join-Path $PSScriptRoot "test_fetch_ffmpeg_crate.py")
+    if ($LASTEXITCODE -ne 0) {
+        throw "Cargo crate packaged-license transport tests failed."
+    }
+
     Write-Output "FFmpeg packaged-license fetch validation passed tracked and negative cases."
 }
 finally {

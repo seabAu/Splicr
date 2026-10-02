@@ -4,9 +4,11 @@ import argparse
 import base64
 import csv
 import hashlib
+import io
 import re
 import shutil
 import sys
+import tarfile
 import time
 import urllib.request
 import zipfile
@@ -26,6 +28,9 @@ REVISION_RE = re.compile(
     r"openssl-[0-9]+(?:\.[0-9]+){2,3})$"
 )
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+CRATE_ENCODING_RE = re.compile(
+    r"^crate\+tar\.gz:([0-9a-f]{64}):([A-Za-z0-9][A-Za-z0-9._+\-/]*)$"
+)
 
 
 @dataclass(frozen=True)
@@ -45,6 +50,50 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _validate_content_encoding(content_encoding: str) -> bool:
+    if content_encoding in {"", "base64"}:
+        return True
+    match = CRATE_ENCODING_RE.fullmatch(content_encoding)
+    if match is None:
+        return False
+    member_path = match.group(2)
+    return (
+        "\\" not in member_path
+        and not member_path.startswith("/")
+        and all(part not in {"", ".", ".."} for part in member_path.split("/"))
+    )
+
+
+def _decode_content(payload: bytes, content_encoding: str, label: str) -> bytes:
+    if content_encoding == "":
+        return payload
+    if content_encoding == "base64":
+        return base64.b64decode(payload, validate=True)
+
+    match = CRATE_ENCODING_RE.fullmatch(content_encoding)
+    if match is None or not _validate_content_encoding(content_encoding):
+        raise ValueError(f"Unsupported content encoding for {label}: {content_encoding}")
+    expected_archive_sha256, member_path = match.groups()
+    actual_archive_sha256 = hashlib.sha256(payload).hexdigest()
+    if actual_archive_sha256 != expected_archive_sha256:
+        raise ValueError(
+            f"Pinned Cargo crate hash mismatch for {label}: expected "
+            f"{expected_archive_sha256}, received {actual_archive_sha256}"
+        )
+
+    with tarfile.open(fileobj=io.BytesIO(payload), mode="r:gz") as archive:
+        members = [member for member in archive.getmembers() if member.name == member_path]
+        if len(members) != 1 or not members[0].isfile():
+            raise ValueError(
+                f"Pinned Cargo crate must contain exactly one regular file at {member_path}: "
+                f"{label}"
+            )
+        stream = archive.extractfile(members[0])
+        if stream is None:
+            raise ValueError(f"Could not read pinned Cargo crate member {member_path}: {label}")
+        return stream.read()
+
+
 def load_manifest(path: Path) -> list[PackagedLicense]:
     with path.open("r", encoding="utf-8", newline="") as stream:
         rows = list(csv.DictReader(stream, delimiter="\t"))
@@ -62,7 +111,7 @@ def load_manifest(path: Path) -> list[PackagedLicense]:
             or not record.source_url.startswith("https://")
             or REVISION_RE.fullmatch(record.revision) is None
             or SHA256_RE.fullmatch(record.sha256) is None
-            or record.content_encoding not in {"", "base64"}
+            or not _validate_content_encoding(record.content_encoding)
         ):
             raise ValueError(
                 f"Invalid packaged FFmpeg license manifest record: {record.package_path}"
@@ -81,18 +130,25 @@ def download_verified(
     label: str,
     content_encoding: str = "",
     maximum_attempts: int = 5,
+    payload_cache: dict[tuple[str, str], bytes] | None = None,
 ) -> None:
     temporary = destination.with_name(f"{destination.name}.part")
+    crate_match = CRATE_ENCODING_RE.fullmatch(content_encoding)
+    transport_sha256 = crate_match.group(1) if crate_match is not None else expected_sha256
+    cache_key = (url, transport_sha256)
     for attempt in range(1, maximum_attempts + 1):
         try:
-            request = urllib.request.Request(
-                url,
-                headers={"User-Agent": "SPLICR-release-packager/1"},
-            )
-            with urllib.request.urlopen(request, timeout=45) as response:
-                temporary.write_bytes(response.read())
-            if content_encoding == "base64":
-                temporary.write_bytes(base64.b64decode(temporary.read_bytes(), validate=True))
+            payload = payload_cache.get(cache_key) if payload_cache is not None else None
+            if payload is None:
+                request = urllib.request.Request(
+                    url,
+                    headers={"User-Agent": "SPLICR-release-packager/1"},
+                )
+                with urllib.request.urlopen(request, timeout=45) as response:
+                    payload = response.read()
+                if hashlib.sha256(payload).hexdigest() == transport_sha256 and payload_cache is not None:
+                    payload_cache[cache_key] = payload
+            temporary.write_bytes(_decode_content(payload, content_encoding, label))
             actual_sha256 = sha256_file(temporary)
             if actual_sha256 != expected_sha256:
                 raise ValueError(
@@ -143,6 +199,7 @@ def fetch_release(destination: Path, manifest_path: Path) -> Path:
         if not (bin_path / tool).is_file():
             raise FileNotFoundError(f"Pinned FFmpeg archive is missing {tool}")
 
+    payload_cache: dict[tuple[str, str], bytes] = {}
     for record in records:
         download_verified(
             url=record.source_url,
@@ -150,6 +207,7 @@ def fetch_release(destination: Path, manifest_path: Path) -> Path:
             expected_sha256=record.sha256,
             label=record.package_path,
             content_encoding=record.content_encoding,
+            payload_cache=payload_cache,
         )
 
     source_lines = [
