@@ -968,8 +968,9 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   hash-verified. The real dev.16 portable and installer passed all twelve schema-v2 lifecycle checks
   at `2026-10-02T02:29:22.8861851Z`. Portable SHA-256:
   `53e590fa92edc98026a97c835d260975c17f397064a61e8f7c509b8a6c3e175f`; installer SHA-256:
-  `0e33ec58e21a203ddd0f257a99ffd19954fff560a26ed5886513d0483822aa58`. Hosted-browser acceptance for
-  this checkpoint is pending.
+  `0e33ec58e21a203ddd0f257a99ffd19954fff560a26ed5886513d0483822aa58`. Hosted browser run
+  [`36956359725`](https://github.com/seabAu/Splicr/actions/runs/36956359725) passed all six Studio
+  journeys in 40.5 seconds on implementation commit `4f6df70`.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
@@ -981,7 +982,8 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   correspondence/rebuild verification, and publish the final source archive and attribution link in
   `docs/FFMPEG_DISTRIBUTION.md`, while preserving the remaining credential and clean-VM checks in
   `docs/RELEASE_CHECKLIST.md`. All 92 source locators now have reviewed dispositions or validated
-  aliases; exact-commit hosted-browser acceptance for the rav1e checkpoint is still pending.
+  aliases, and the current artifacts pass both the PowerShell 7 lifecycle harness and exact-commit
+  hosted-browser acceptance.
   Gemini/Deepgram
   credentials, the clean-VM matrix, complete FFmpeg corresponding
   source/compliance publication, malware/signing evidence, and audible sentence-seam acceptance
