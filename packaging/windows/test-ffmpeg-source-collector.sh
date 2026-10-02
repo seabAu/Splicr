@@ -36,8 +36,44 @@ grep -Fq \
 [[ ! -e "$full_output/.collector-run-plan.tsv" ]]
 
 rav1e_supplement="$script_root/ffmpeg-cargo-source-supplements.tsv"
+archive_validator="$script_root/validate-ffmpeg-collected-archive.sh"
 grep -Fxq $'scripts.d/50-rav1e.sh\tSCRIPT_REPO\t31435de9d76fddd38f6dcc31d4014574cebb2092\tx86_64-pc-windows-gnu\tyes\tdefault\tcc=1.4.7,find-msvc-tools=0.1.13,shlex@2.0.1=2.0.1\t14a4b2ae596569e83e40a3431ffc4b210dd872e333969ddb18ce895f7b19d7c7\t275' \
     "$rav1e_supplement"
+
+archive_fixture="$work_root/archive-fixture"
+mkdir -p "$archive_fixture/.cargo" "$archive_fixture/vendor/package-a" \
+    "$archive_fixture/vendor/package-b"
+printf 'fixture lock\n' > "$archive_fixture/Cargo.lock"
+printf '[source.crates-io]\nreplace-with = "vendored-sources"\n' \
+    > "$archive_fixture/.cargo/config.toml"
+printf 'a\n' > "$archive_fixture/vendor/package-a/LICENSE"
+printf 'b\n' > "$archive_fixture/vendor/package-b/LICENSE"
+fixture_lock_sha256="$(sha256sum "$archive_fixture/Cargo.lock" | cut -d' ' -f1)"
+fixture_archive="$work_root/cargo-source.tar.xz"
+tar -C "$archive_fixture" -I 'xz -T1' -cpf "$fixture_archive" .
+bash "$archive_validator" "$fixture_archive" "$fixture_lock_sha256" 2
+if bash "$archive_validator" "$fixture_archive" "$fixture_lock_sha256" 3 >/dev/null 2>&1; then
+    echo "Archive validator accepted an incomplete Cargo vendor tree" >&2
+    exit 1
+fi
+if bash "$archive_validator" "$fixture_archive" \
+    0000000000000000000000000000000000000000000000000000000000000000 \
+    2 >/dev/null 2>&1; then
+    echo "Archive validator accepted a mismatched Cargo lock" >&2
+    exit 1
+fi
+
+unsupplemented_fixture="$work_root/unsupplemented-fixture"
+mkdir -p "$unsupplemented_fixture"
+printf 'source\n' > "$unsupplemented_fixture/source.txt"
+unsupplemented_archive="$work_root/unsupplemented-source.tar.xz"
+tar -C "$unsupplemented_fixture" -I 'xz -T1' -cpf "$unsupplemented_archive" .
+bash "$archive_validator" "$unsupplemented_archive" '' ''
+if bash "$archive_validator" "$unsupplemented_archive" "$fixture_lock_sha256" 2 \
+    >/dev/null 2>&1; then
+    echo "Archive validator accepted a stale pre-supplement Cargo archive" >&2
+    exit 1
+fi
 
 tampered_supplement="$work_root/tampered-cargo-supplements.tsv"
 cp "$rav1e_supplement" "$tampered_supplement"

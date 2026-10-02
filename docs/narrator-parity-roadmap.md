@@ -971,6 +971,13 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   `0e33ec58e21a203ddd0f257a99ffd19954fff560a26ed5886513d0483822aa58`. Hosted browser run
   [`36956359725`](https://github.com/seabAu/Splicr/actions/runs/36956359725) passed all six Studio
   journeys in 40.5 seconds on implementation commit `4f6df70`.
+- [x] 2026-10-02 — The complete 90-stage FFmpeg dependency graph is collected and its authoritative
+  inventory is reviewed: 85 source-bearing archives, five no-external-source stages, all 92 pinned
+  locators, 1,684 exact candidates, and nine companion mappings. A new cache guard detected and
+  replaced the stale pre-Cargo-supplement rav1e archive; the corrected full-graph archive has SHA-256
+  `766c883866747d2a3ce1f6202ed3f19da5f72fa397e399a8d4568dc8c821d2b0`. The legal totals are 441
+  shipped licenses, 69 supplemental notices, 1,001 not-built candidates, and 173 build-only/not-
+  shipped candidates. Correspondence/rebuild verification and final source publication remain open.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
@@ -978,8 +985,8 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
 
 - **Active milestone:** Milestone 9 — real-world acceptance and release hardening, including the
   remaining Milestones 2/3/5/7 live-environment evidence.
-- **Next implementation slice:** run and validate the complete collected FFmpeg source graph, perform
-  correspondence/rebuild verification, and publish the final source archive and attribution link in
+- **Next implementation slice:** perform correspondence/rebuild verification for the now-complete
+  collected FFmpeg source graph, then publish the final source archive and attribution link in
   `docs/FFMPEG_DISTRIBUTION.md`, while preserving the remaining credential and clean-VM checks in
   `docs/RELEASE_CHECKLIST.md`. All 92 source locators now have reviewed dispositions or validated
   aliases, and the current artifacts pass both the PowerShell 7 lifecycle harness and exact-commit

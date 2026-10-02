@@ -427,9 +427,16 @@ for that LGPL-only path without replacement.
   `0e33ec58e21a203ddd0f257a99ffd19954fff560a26ed5886513d0483822aa58`.
   Hosted browser run [`36956359725`](https://github.com/seabAu/Splicr/actions/runs/36956359725)
   passed all six Studio journeys in 40.5 seconds on implementation commit `4f6df70`.
-- [ ] Execute the tracked fetch commands and archive every enabled external dependency source at its
+- [x] The complete 90-stage graph has been collected: 85 source-bearing stages and five stages with
+  no external source. The collector now rejects stale Cargo-supplemented archives unless their exact
+  reconstructed Cargo.lock, vendoring config, and 275-package vendor set are present. That guard
+  detected and replaced a pre-supplement rav1e cache entry. The optimized authoritative inventory
+  then reconciled all 1,684 candidates: 441 shipped licenses, 69 supplemental notices, 1,001
+  not-built candidates, and 173 build-only/not-shipped candidates. All 92 pinned source locators and
+  nine external companion mappings validate against the collected archives.
+- [x] Execute the tracked fetch commands and archive every enabled external dependency source at its
   recipe-pinned revision.
-- [ ] Record the applicable license and notice for every enabled dependency, including libraries
+- [x] Record the applicable license and notice for every enabled dependency, including libraries
   statically incorporated into FFmpeg's shared DLLs.
 - [ ] Rebuild from the archived sources or otherwise verify that the source set and instructions
   correspond to the distributed binaries. Record any BtbN-applied patches as `changes.diff` or
@@ -477,7 +484,8 @@ performs a time-dependent `cargo update cc`; the tracked supplement makes that t
 reproducible, validates the resulting lockfile, and vendors all 275 lockfile crates into versioned
 directories. The normalized collected stage archive is
 `scripts.d__50-rav1e_b2d3a4caec12576416c156eb16b4f83433caf3dc3a8270ed0bfe4fb74098dd54.tar.xz`, SHA-256
-`36cdce5987cceb1000ba937e7a96dd7c3713150349bd782f781fbf6ab94af02f`. The selected target closure is
+`766c883866747d2a3ce1f6202ed3f19da5f72fa397e399a8d4568dc8c821d2b0` in the authenticated full-graph
+collection. The selected target closure is
 versioned in [`ffmpeg-cargo-source-closure.tsv`](../packaging/windows/ffmpeg-cargo-source-closure.tsv)
 for `x86_64-pc-windows-gnu`, default features, and the runtime/build context used by the recipe.
 

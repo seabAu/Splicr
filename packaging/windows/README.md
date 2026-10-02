@@ -112,8 +112,9 @@ partial or full collection, run `inventory-ffmpeg-source-licenses.sh` against it
 `test-ffmpeg-source-license-inventory.sh` and `test-ffmpeg-source-license-review.sh`. Generated
 candidate rows remain pending until their source identity, SPDX expression, and binary notice
 obligation are added to the tracked `ffmpeg-source-license-review.tsv`. The reviewed set now covers
-all 92 source locators and 1,651 detected candidates: 441 shipped licenses, 69 supplemental notices,
-970 recipe-proven not-built candidates, and 171 build-only candidates absent from the
+the complete 90-stage collection, all 92 source locators, and 1,684 detected candidates: 441 shipped
+licenses, 69 supplemental notices, 1,001 recipe-proven not-built candidates, and 173 build-only
+candidates absent from the
 distributed binary. Required notices are hash-anchored byte-for-byte in `THIRD_PARTY_NOTICES.md` or
 separately manifest-bound and packaged, including exact files for ffnvcodec, dav1d, FriBidi,
 TwoLAME, AMF, OpenJPEG, Game Music Emu, GMP, Kvazaar, LCEVCdec, libvpx, libwebp, libzmq, and
@@ -149,7 +150,9 @@ archive before extracting one exact regular member. The rav1e record reproduces 
 time-dependent `cargo update cc` deterministically as `cc=1.4.7`, `find-msvc-tools=0.1.13`, and
 `shlex@2.0.1=2.0.1`, verifies the resulting Cargo.lock SHA-256 and 275-directory vendor set, and pins
 the exact 123-package target closure (82 runtime and 41 build-only). Its normalized collected archive
-has SHA-256 `36cdce5987cceb1000ba937e7a96dd7c3713150349bd782f781fbf6ab94af02f`.
+has SHA-256 `766c883866747d2a3ce1f6202ed3f19da5f72fa397e399a8d4568dc8c821d2b0` in the authenticated
+full-graph collection. Reuse is rejected unless a Cargo-supplemented archive contains the exact
+lockfile, vendoring config, and expected vendor-package count.
 All 339 manifest-bound files are fetched and hash-checked. FFmpeg's own license is
 not treated as a substitute for dependency licenses. The two libiconv fallback transports are
 validated in `ffmpeg-source-locator-aliases.tsv` as commit-identical aliases of the already-reviewed

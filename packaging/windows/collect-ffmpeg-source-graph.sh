@@ -56,6 +56,7 @@ done
 script_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 graph_root="$script_root/ffmpeg-source-graph"
 cargo_supplements_path="${SPLICR_CARGO_SUPPLEMENTS_PATH:-$script_root/ffmpeg-cargo-source-supplements.tsv}"
+archive_validator="$script_root/validate-ffmpeg-collected-archive.sh"
 runner_image="ghcr.io/btbn/ffmpeg-builds/base@sha256:ce3051e936d2f67b550efad8c5f07118a14e08f4e15b98e56ce14003e60d54cc"
 
 [[ -d "$btbn_root" ]] || { echo "BtbN repository not found: $btbn_root" >&2; exit 1; }
@@ -67,7 +68,8 @@ for required in \
     "$btbn_root/util/dl_functions.sh" \
     "$graph_root/enabled-stages.txt" \
     "$graph_root/source-commands.txt" \
-    "$cargo_supplements_path"; do
+    "$cargo_supplements_path" \
+    "$archive_validator"; do
     [[ -f "$required" ]] || { echo "Required file not found: $required" >&2; exit 1; }
 done
 
@@ -215,7 +217,8 @@ while IFS=$'\t' read -r stage slug command_sha256 archive_name precise_updates c
     vendor_package_count; do
     [[ -n "$stage" ]] || continue
     archive_path="$output_root/stages/$archive_name"
-    if ! [[ -s "$archive_path" ]] || ! xz -t "$archive_path" 2>/dev/null; then
+    if ! bash "$archive_validator" "$archive_path" "$cargo_lock_sha256" \
+        "$vendor_package_count" >/dev/null 2>&1; then
         pending_stage_count=$((pending_stage_count + 1))
     fi
 done < "$runner_plan_path"
@@ -279,7 +282,8 @@ while IFS=$'\t' read -r stage slug expected_sha archive_name precise_updates exp
     fi
 
     target="/output/stages/$archive_name"
-    if [[ -s "$target" ]] && xz -t "$target"; then
+    if bash /collector/validate-ffmpeg-collected-archive.sh \
+        "$target" "$expected_lock_sha" "$expected_vendor_count" >/dev/null 2>&1; then
         echo "Reusing $archive_name"
         continue
     fi
@@ -353,6 +357,8 @@ while IFS=$'\t' read -r stage slug expected_sha archive_name precise_updates exp
 done < /output/.collector-run-plan.tsv
 WORKER
 chmod +x "$worker_path"
+cp "$archive_validator" "$work_root/validate-ffmpeg-collected-archive.sh"
+chmod +x "$work_root/validate-ffmpeg-collected-archive.sh"
 
 uid_args=()
 if ! docker info -f '{{println .SecurityOptions}}' 2>/dev/null | grep -q rootless; then
@@ -381,7 +387,9 @@ while IFS=$'\t' read -r stage command_sha256 source_status archive_name; do
     fi
     archive_path="$output_root/stages/$archive_name"
     [[ -s "$archive_path" ]] || { echo "Collected archive missing: $archive_name" >&2; exit 1; }
-    xz -t "$archive_path"
+    supplement="${cargo_supplement_rows[$stage]:-||}"
+    IFS='|' read -r _ cargo_lock_sha256 vendor_package_count <<< "$supplement"
+    bash "$archive_validator" "$archive_path" "$cargo_lock_sha256" "$vendor_package_count"
     archive_sha256="$(sha256sum "$archive_path" | cut -d' ' -f1)"
     printf '%s\t%s\tcollected\t%s\t%s\n' \
         "$stage" "$command_sha256" "$archive_name" "$archive_sha256" >> "$manifest_path"

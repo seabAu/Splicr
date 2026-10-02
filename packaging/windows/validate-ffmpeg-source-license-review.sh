@@ -418,7 +418,7 @@ validated_locator_count="$((${#reviewed_locators[@]} + locator_alias_count))"
     echo "Validated source locator count exceeds the pinned graph" >&2
     exit 1
 }
-printf 'Validated %s reviewed FFmpeg source candidate(s): %s shipped license(s), %s supplemental notice(s), %s not built, %s build-only/not shipped; %s of %s pinned source locator(s) have exact review or validated aliases and full-graph review remains open.\n' \
+printf 'Validated %s reviewed FFmpeg source candidate(s): %s shipped license(s), %s supplemental notice(s), %s not built, %s build-only/not shipped; %s of %s pinned source locator(s) have exact review or validated aliases.\n' \
     "$reviewed_count" "$shipped_license_count" "$shipped_notice_count" "$not_built_count" "$build_only_count" \
     "$validated_locator_count" "$source_locator_count"
 printf 'Validated %s commit-identical source locator alias(es).\n' "$locator_alias_count"
