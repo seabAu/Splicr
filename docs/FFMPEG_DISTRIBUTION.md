@@ -367,6 +367,18 @@ for that LGPL-only path without replacement.
   bytes, SHA-256 `babdee6a060ad6f1de53cd0afb473d1651faafa92e91e005efd638dc4c274464`.
   Hosted browser run [`36942172393`](https://github.com/seabAu/Splicr/actions/runs/36942172393)
   passed all six Studio journeys in 41.8 seconds on implementation commit `0898707`.
+- [x] The libssh stage raises exact coverage to 87 of 92 locators and 440 candidates: 151 shipped
+  licenses, 53 supplemental notices, 177 not-built candidates, and 59 build-only/not-shipped
+  candidates. Seven revision-pinned files bring the legal manifest to 189 hash-verified records.
+  Reproducing the exact static-library recipe with GCC 16.2.0, OpenSSL 3.6.4, and zlib 1.3.2.1
+  proves the selected bcrypt, Blowfish, ChaCha20, Poly1305, sntrup761, and match objects and excludes
+  the bundled Curve25519, Ed25519, libcrux ML-KEM, and getopt fallbacks. The rebuilt
+  `0.1.0-dev.16` package passed all twelve schema-v2 lifecycle checks on Windows 10 at
+  `2026-10-02T00:01:27.0681559Z`. Portable: 184,735,584 bytes, SHA-256
+  `bc3be7b2dfaab051dd721b26cc2eab367817400a25ab8d89d2a4f662e7864822`. Installer: 120,081,884
+  bytes, SHA-256 `bb0db4dad2839d18ca12dc443caa4c3a666d5b6aeb0f380f492da4f43d730836`.
+  Hosted browser run [`36943982113`](https://github.com/seabAu/Splicr/actions/runs/36943982113)
+  passed all six Studio journeys in 44.7 seconds on implementation commit `40ea3e5`.
 - [ ] Execute the tracked fetch commands and archive every enabled external dependency source at its
   recipe-pinned revision.
 - [ ] Record the applicable license and notice for every enabled dependency, including libraries

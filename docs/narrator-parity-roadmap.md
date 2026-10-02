@@ -930,6 +930,16 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   `babdee6a060ad6f1de53cd0afb473d1651faafa92e91e005efd638dc4c274464`. Hosted browser run
   [`36942172393`](https://github.com/seabAu/Splicr/actions/runs/36942172393) passed all six Studio
   journeys in 41.8 seconds on implementation commit `0898707`.
+- [x] 2026-10-01 — The libssh stage is promoted and validated, raising tracked coverage to 87 of 92
+  locators and 440 exact candidates. Seven exact legal files bring the manifest to 189 records.
+  Reproducing the pinned static build with GCC 16.2.0, OpenSSL 3.6.4, and zlib 1.3.2.1 proves the
+  selected bcrypt, Blowfish, ChaCha20, Poly1305, sntrup761, and match objects and excludes the
+  bundled Curve25519, Ed25519, libcrux ML-KEM, and getopt fallbacks. The real dev.16 portable and
+  installer passed all twelve schema-v2 lifecycle checks at `2026-10-02T00:01:27.0681559Z`.
+  Portable SHA-256: `bc3be7b2dfaab051dd721b26cc2eab367817400a25ab8d89d2a4f662e7864822`;
+  installer SHA-256: `bb0db4dad2839d18ca12dc443caa4c3a666d5b6aeb0f380f492da4f43d730836`.
+  Hosted browser run [`36943982113`](https://github.com/seabAu/Splicr/actions/runs/36943982113)
+  passed all six Studio journeys in 44.7 seconds on implementation commit `40ea3e5`.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
@@ -939,7 +949,8 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   remaining Milestones 2/3/5/7 live-environment evidence.
 - **Next implementation slice:** continue the bounded FFmpeg source/license review in
   `docs/FFMPEG_DISTRIBUTION.md`, while preserving the remaining credential and clean-VM checks in
-  `docs/RELEASE_CHECKLIST.md`. Eighty-six of 92 source locators are reviewed or validated aliases;
+  `docs/RELEASE_CHECKLIST.md`. Eighty-seven of 92 source locators are reviewed or validated aliases;
+  the five remaining locators are rav1e plus the four-stage GLib/Cairo/Pango/librsvg closure;
   the current artifacts pass the normal PowerShell 7 package harness and exact-commit hosted-browser
   acceptance.
   Gemini/Deepgram
