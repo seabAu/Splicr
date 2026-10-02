@@ -957,6 +957,8 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   twelve schema-v2 lifecycle checks at `2026-10-02T01:07:44.2759357Z`. Portable SHA-256:
   `42f5fe1deec5ba9de583098680be6305546145bdbab3d4453b79b5354ed7335b`; installer SHA-256:
   `467035251285f01096978aa8a1c2e2349407423d16d430bd227e94bf37453572`.
+  Hosted browser run [`36949971407`](https://github.com/seabAu/Splicr/actions/runs/36949971407) passed
+  all six Studio journeys in 43.5 seconds on implementation commit `2eed132`.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
