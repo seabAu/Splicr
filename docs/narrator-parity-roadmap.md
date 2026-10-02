@@ -403,8 +403,13 @@ sequence, cancellation cleanup, deterministic archives, API validation, and the 
 
 ### Live providers and local engines
 
-- [ ] Run the opt-in live contract against Gemini and record model/voice/date/result.
-- [ ] Run it against Deepgram and record model/voice/date/result.
+- [x] Run the opt-in live contract against Gemini and record model/voice/date/result. On
+  2026-10-01, `gemini-3.1-flash-tts-preview` with voice `Kore` returned non-empty canonical 24 kHz
+  mono signed-16-bit PCM through the opt-in provider contract. The live response also exposed and
+  fixed support for parameterized PCM MIME metadata (`audio/l16; rate=24000; channels=1`).
+- [x] Run it against Deepgram and record model/voice/date/result. On 2026-10-01, `aura-2` with voice
+  `aura-2-thalia-en` returned non-empty canonical 24 kHz mono signed-16-bit PCM through the opt-in
+  provider contract.
 - [x] Run it against Inworld and record model/voice/date/result. On 2026-09-29, saved resource
   revision 1 used `inworld-tts-2`, voice `Ashley`, and the current `/tts/v1/voice` endpoint; the
   vault-backed live contract returned non-empty canonical 24 kHz mono signed-16-bit PCM without
@@ -990,11 +995,9 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   `docs/FFMPEG_DISTRIBUTION.md`, while preserving the remaining credential and clean-VM checks in
   `docs/RELEASE_CHECKLIST.md`. All 92 source locators now have reviewed dispositions or validated
   aliases, and the current artifacts pass both the PowerShell 7 lifecycle harness and exact-commit
-  hosted-browser acceptance.
-  Gemini/Deepgram
-  credentials, the clean-VM matrix, complete FFmpeg corresponding
-  source/compliance publication, malware/signing evidence, and audible sentence-seam acceptance
-  remain.
+  hosted-browser acceptance. The Gemini and Deepgram live contracts now pass; the clean-VM matrix,
+  complete FFmpeg corresponding-source/compliance publication, malware/signing evidence, and
+  audible sentence-seam acceptance remain.
 - **Clean-VM routing:** the current workstation has no Windows Sandbox binary or Hyper-V,
   VirtualBox, VMware, or QEMU management CLI. The clean-VM matrix must run on a separate disposable
   Windows environment; local package-harness results are not a substitute.
@@ -1065,3 +1068,10 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   restart/cancel/atomic-output, API/download, and Chromium import/progress/reload tests pass. Real
   `tiny.en` CPU/int8 recognition also passed with expected-term, segment, word-timing, progress, and
   duration evidence; a worker-scoped compatibility shim supports PyAV 19's simplified `open` API.
+- **2026-10-01:** Closed the remaining remote-provider live-contract gaps. Gemini
+  `gemini-3.1-flash-tts-preview` / `Kore` and Deepgram `aura-2` / `aura-2-thalia-en` both returned
+  non-empty canonical 24 kHz mono signed-16-bit PCM. Gemini's live parameterized MIME response
+  exposed and fixed a parser compatibility gap, with regression coverage for parameter-only,
+  case-insensitive, malformed, and conflicting format metadata. The full deterministic regression
+  then passed 553 tests with seven intentional live-environment skips, alongside eight frontend
+  unit tests, Ruff, and the Vite production build.

@@ -12,6 +12,7 @@ import httpx
 from google.genai.interactions import Interaction
 
 from splicr.domain import (
+    CANONICAL_AUDIO_FORMAT,
     DeliveryControls,
     NonverbalFrequency,
     ProviderError,
@@ -180,6 +181,106 @@ def test_accepts_documented_default_pcm_when_optional_metadata_is_omitted() -> N
     assert audio.pcm == pcm
     assert audio.format.sample_rate == 24_000
     assert audio.format.channels == 1
+
+
+@pytest.mark.parametrize(
+    "mime_type,sample_rate,channels",
+    [
+        ("audio/l16; rate=24000; channels=1", 24_000, 1),
+        ("audio/L16; RATE=24000; CHANNELS=1", None, None),
+    ],
+)
+def test_accepts_canonical_pcm_mime_parameters(
+    mime_type: str,
+    sample_rate: int | None,
+    channels: int | None,
+) -> None:
+    pcm = b"\x01\x00\x02\x00"
+    interactions = FakeInteractions(
+        SimpleNamespace(
+            data=base64.b64encode(pcm).decode("ascii"),
+            mime_type=mime_type,
+            sample_rate=sample_rate,
+            channels=channels,
+        )
+    )
+    provider = GeminiTtsProvider(
+        client=SimpleNamespace(aio=SimpleNamespace(interactions=interactions))
+    )
+
+    audio = asyncio.run(
+        provider.synthesize("Parameterized format.", SynthesisOptions(model="model", voice="Kore"))
+    )
+
+    assert audio.pcm == pcm
+    assert audio.format == CANONICAL_AUDIO_FORMAT
+
+
+def test_rejects_conflicting_pcm_mime_parameters() -> None:
+    interactions = FakeInteractions(
+        SimpleNamespace(
+            data=base64.b64encode(b"\x00\x00").decode("ascii"),
+            mime_type="audio/l16; rate=16000; channels=1",
+            sample_rate=24_000,
+            channels=1,
+        )
+    )
+    provider = GeminiTtsProvider(
+        client=SimpleNamespace(aio=SimpleNamespace(interactions=interactions))
+    )
+
+    with pytest.raises(ProviderError, match="conflicting PCM sample-rate"):
+        asyncio.run(
+            provider.synthesize("Conflicting format.", SynthesisOptions(model="model", voice="Kore"))
+        )
+
+
+@pytest.mark.parametrize(
+    "mime_type",
+    ["audio/l16; rate", "audio/l16; rate=not-a-number"],
+)
+def test_rejects_invalid_pcm_mime_parameters(mime_type: str) -> None:
+    interactions = FakeInteractions(
+        SimpleNamespace(
+            data=base64.b64encode(b"\x00\x00").decode("ascii"),
+            mime_type=mime_type,
+            sample_rate=None,
+            channels=None,
+        )
+    )
+    provider = GeminiTtsProvider(
+        client=SimpleNamespace(aio=SimpleNamespace(interactions=interactions))
+    )
+
+    with pytest.raises(ProviderError, match="invalid audio format metadata") as raised:
+        asyncio.run(
+            provider.synthesize("Invalid format.", SynthesisOptions(model="model", voice="Kore"))
+        )
+
+    assert raised.value.retryable is True
+
+
+@pytest.mark.parametrize(
+    "mime_type",
+    ["audio/l16; rate=0; channels=1", "audio/l16; rate=24000; channels=0"],
+)
+def test_rejects_zero_pcm_mime_parameters(mime_type: str) -> None:
+    interactions = FakeInteractions(
+        SimpleNamespace(
+            data=base64.b64encode(b"\x00\x00").decode("ascii"),
+            mime_type=mime_type,
+            sample_rate=None,
+            channels=None,
+        )
+    )
+    provider = GeminiTtsProvider(
+        client=SimpleNamespace(aio=SimpleNamespace(interactions=interactions))
+    )
+
+    with pytest.raises(ProviderError, match="incompatible PCM"):
+        asyncio.run(
+            provider.synthesize("Invalid format.", SynthesisOptions(model="model", voice="Kore"))
+        )
 
 
 def test_rejects_non_pcm_response() -> None:

@@ -303,16 +303,58 @@ class GeminiTtsProvider:
         # Gemini TTS currently rejects audio format overrides. Its documented default
         # is inline, mono, signed 16-bit PCM at 24 kHz; output metadata is optional.
         mime_type = self._string_value(getattr(output_audio, "mime_type", None)) or "audio/l16"
-        if mime_type.lower() not in {"audio/l16", "audio/pcm"}:
+        mime_parts = [part.strip() for part in mime_type.split(";")]
+        if mime_parts[0].lower() not in {"audio/l16", "audio/pcm"}:
             raise ProviderError(
                 f"Gemini returned unsupported audio format: {mime_type}", retryable=False
             )
+        mime_parameters: dict[str, str] = {}
+        for part in mime_parts[1:]:
+            if not part:
+                continue
+            name, separator, value = part.partition("=")
+            if not separator or not name.strip() or not value.strip():
+                raise ProviderError(
+                    f"Gemini returned invalid audio format metadata: {mime_type}",
+                    retryable=True,
+                )
+            mime_parameters[name.strip().lower()] = value.strip().strip('"')
         sample_rate = getattr(output_audio, "sample_rate", None)
         channels = getattr(output_audio, "channels", None)
+        try:
+            mime_sample_rate = (
+                int(mime_parameters["rate"]) if "rate" in mime_parameters else None
+            )
+            mime_channels = (
+                int(mime_parameters["channels"])
+                if "channels" in mime_parameters
+                else None
+            )
+        except (TypeError, ValueError) as error:
+            raise ProviderError(
+                f"Gemini returned invalid audio format metadata: {mime_type}",
+                retryable=True,
+            ) from error
+        if sample_rate is not None and mime_sample_rate not in {None, int(sample_rate)}:
+            raise ProviderError(
+                "Gemini returned conflicting PCM sample-rate metadata", retryable=False
+            )
+        if channels is not None and mime_channels not in {None, int(channels)}:
+            raise ProviderError(
+                "Gemini returned conflicting PCM channel metadata", retryable=False
+            )
         if sample_rate is None:
-            sample_rate = CANONICAL_AUDIO_FORMAT.sample_rate
+            sample_rate = (
+                mime_sample_rate
+                if mime_sample_rate is not None
+                else CANONICAL_AUDIO_FORMAT.sample_rate
+            )
         if channels is None:
-            channels = CANONICAL_AUDIO_FORMAT.channels
+            channels = (
+                mime_channels
+                if mime_channels is not None
+                else CANONICAL_AUDIO_FORMAT.channels
+            )
         audio_format = AudioFormat(sample_rate=int(sample_rate), channels=int(channels))
         if audio_format != CANONICAL_AUDIO_FORMAT:
             raise ProviderError(
