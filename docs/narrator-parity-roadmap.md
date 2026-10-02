@@ -940,6 +940,15 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   installer SHA-256: `bb0db4dad2839d18ca12dc443caa4c3a666d5b6aeb0f380f492da4f43d730836`.
   Hosted browser run [`36943982113`](https://github.com/seabAu/Splicr/actions/runs/36943982113)
   passed all six Studio journeys in 44.7 seconds on implementation commit `40ea3e5`.
+- [x] 2026-10-01 — The native GLib, Cairo, and Pango stages are promoted and validated, raising
+  tracked coverage to 90 of 92 locators and 477 exact candidates. Seventeen legal files bring the
+  manifest to 206 records and preserve every selected runtime license or source-specific notice,
+  including the commit-pinned GVDB submodule. The real dev.16 portable and installer passed all
+  twelve schema-v2 lifecycle checks at `2026-10-02T00:30:32.4766727Z`. Portable SHA-256:
+  `84ab22d6f926876210d6371e3712909c509c58df4216963d0c80ca35350735ca`; installer SHA-256:
+  `ad45f0e92de3467c03d9e23c00855ff40a77477975400d7421ff4b390aab66e7`. Hosted browser run
+  [`36946481820`](https://github.com/seabAu/Splicr/actions/runs/36946481820) passed all six Studio
+  journeys in 45.9 seconds on implementation commit `a94e827`.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
@@ -949,8 +958,9 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   remaining Milestones 2/3/5/7 live-environment evidence.
 - **Next implementation slice:** continue the bounded FFmpeg source/license review in
   `docs/FFMPEG_DISTRIBUTION.md`, while preserving the remaining credential and clean-VM checks in
-  `docs/RELEASE_CHECKLIST.md`. Eighty-seven of 92 source locators are reviewed or validated aliases;
-  the five remaining locators are rav1e plus the four-stage GLib/Cairo/Pango/librsvg closure;
+  `docs/RELEASE_CHECKLIST.md`. Ninety of 92 source locators are reviewed or validated aliases;
+  the two remaining locators are rav1e and librsvg, each requiring its complete time-dependent or
+  target-specific Cargo dependency closure before promotion;
   the current artifacts pass the normal PowerShell 7 package harness and exact-commit hosted-browser
   acceptance.
   Gemini/Deepgram

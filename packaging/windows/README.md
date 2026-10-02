@@ -112,8 +112,8 @@ partial or full collection, run `inventory-ffmpeg-source-licenses.sh` against it
 `test-ffmpeg-source-license-inventory.sh` and `test-ffmpeg-source-license-review.sh`. Generated
 candidate rows remain pending until their source identity, SPDX expression, and binary notice
 obligation are added to the tracked `ffmpeg-source-license-review.tsv`. The reviewed set currently
-covers 86 of 92 source locators and 424 detected candidates: 147 shipped licenses, 50 supplemental
-notices, 169 recipe-proven not-built candidates, and 58 build-only candidates absent from the
+covers 90 of 92 source locators and 477 detected candidates: 165 shipped licenses, 58 supplemental
+notices, 195 recipe-proven not-built candidates, and 59 build-only candidates absent from the
 distributed binary. Required notices are hash-anchored byte-for-byte in `THIRD_PARTY_NOTICES.md` or
 separately manifest-bound and packaged, including exact files for ffnvcodec, dav1d, FriBidi,
 TwoLAME, AMF, OpenJPEG, Game Music Emu, GMP, Kvazaar, LCEVCdec, libvpx, libwebp, libzmq, and
@@ -122,7 +122,8 @@ uavs3d, Brotli, JPEG XL, Highway, Mbed TLS, TF-PSA-Crypto, librist, LV2, Serd, Z
 Lilv, FFTW3, Chromaprint, LAME, Theora, Vorbis, libxml2, ZVBI, GNU libiconv, Fontconfig, Unicode,
 HarfBuzz, FreeType, aribb24, libaribcaption, libass, libbluray, OpenSSL, SVT-AV1, libva, VVenC,
 libplacebo, OpenCL, OpenMPT, Vulkan-Headers, Vulkan-Shim-Loader, Shaderc, glslang, SPIRV-Tools,
-SPIRV-Cross, SPIRV-Headers, libcurl, SRT, OpenAPV, AOM, MinGW-w64, and VMAF. The 182-file legal manifest is
+SPIRV-Cross, SPIRV-Headers, libcurl, SRT, libssh, OpenAPV, AOM, MinGW-w64, VMAF, GLib, Cairo, and
+Pango. The 206-file legal manifest is
 downloaded from revision-pinned upstream URLs and hash-verified before packaging. The review
 corrected FFTW3 from build-only to
 statically incorporated: the package gate now requires its GPL text and notice, verifies the enabled
@@ -136,14 +137,17 @@ conservative even though package inspection shows the relevant math calls resolv
 no distinctive Cephes implementation markers are incorporated. VMAF's compiled embedded notices
 are packaged exactly, including a separately pinned full MIT companion for `mkdirp.c`; reproducing
 the recipe's Windows cross-configuration under GCC 16.2.0 proves that the compiler-provided
-`stdatomic.h` is selected instead of either bundled compatibility header. All 182 manifest-bound files
+`stdatomic.h` is selected instead of either bundled compatibility header. GLib's selected runtime
+notices include its dereferenced LGPL symlink target and the exact commit-pinned GVDB submodule;
+Cairo's selected LGPL option and compiled-source notices and Pango's LGPL/ICU terms are packaged.
+All 206 manifest-bound files
 are fetched and hash-checked. FFmpeg's own license is
 not treated as a substitute for dependency licenses. The two libiconv fallback transports are
 validated in `ffmpeg-source-locator-aliases.tsv` as commit-identical aliases of the already-reviewed
 primary locators; they increase locator coverage without duplicating one source tree's 13 candidates.
-rav1e remains outside the reviewed set because its recipe performs a time-dependent Cargo update and
-downloads a target-specific crate closure; its complete vendored dependency notices must be
-reconciled before that stage can be promoted.
+rav1e remains outside the reviewed set because its recipe performs a time-dependent Cargo update;
+librsvg remains outside it because its target-specific Cargo closure is not yet promoted. Both
+complete vendored dependency notice sets must be reconciled before those stages can be accepted.
 Optional-notice, not-built, and build-only/not-shipped candidates remain explicit
 rather than silently ignored. The validator can reconcile every generated candidate to exactly one
 reviewed disposition. Inventory extraction resolves only bounded, relative, in-archive license

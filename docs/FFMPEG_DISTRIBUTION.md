@@ -379,6 +379,19 @@ for that LGPL-only path without replacement.
   bytes, SHA-256 `bb0db4dad2839d18ca12dc443caa4c3a666d5b6aeb0f380f492da4f43d730836`.
   Hosted browser run [`36943982113`](https://github.com/seabAu/Splicr/actions/runs/36943982113)
   passed all six Studio journeys in 44.7 seconds on implementation commit `40ea3e5`.
+- [x] The native GLib, Cairo, and Pango stages raise exact coverage to 90 of 92 locators and 477
+  candidates: 165 shipped licenses, 58 supplemental notices, 195 not-built candidates, and 59
+  build-only/not-shipped candidates. Seventeen revision-pinned files bring the legal manifest to 206
+  hash-verified records. The audit preserves GLib's exact LGPL terms and compiled checksum, Mersenne
+  Twister, Valgrind, Windows iconv, and pinned GVDB notices; Cairo's selected LGPL-2.1 option, root
+  dual-license notice, informational MPL alternative, and five compiled-source notices; and Pango's
+  LGPL plus the ICU terms in its compiled Unicode script table. The rebuilt `0.1.0-dev.16` package
+  passed all twelve schema-v2 lifecycle checks on Windows 10 at
+  `2026-10-02T00:30:32.4766727Z`. Portable: 184,918,215 bytes, SHA-256
+  `84ab22d6f926876210d6371e3712909c509c58df4216963d0c80ca35350735ca`. Installer: 120,176,664
+  bytes, SHA-256 `ad45f0e92de3467c03d9e23c00855ff40a77477975400d7421ff4b390aab66e7`.
+  Hosted browser run [`36946481820`](https://github.com/seabAu/Splicr/actions/runs/36946481820)
+  passed all six Studio journeys in 45.9 seconds on implementation commit `a94e827`.
 - [ ] Execute the tracked fetch commands and archive every enabled external dependency source at its
   recipe-pinned revision.
 - [ ] Record the applicable license and notice for every enabled dependency, including libraries
