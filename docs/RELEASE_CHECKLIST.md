@@ -95,7 +95,7 @@ uv run pytest -m live_engine tests/test_transcription_live.py
   Deterministic session teardown covers all three outcomes and timeout restart; real Kokoro, Qwen,
   and Audio8 forced-restart gates confirm model ownership remains process/job scoped.
 
-## 4. Build signed release candidates
+## 4. Build release candidates
 
 Requirements are listed in [`../packaging/windows/README.md`](../packaging/windows/README.md).
 
@@ -159,9 +159,14 @@ Get-Content .\dist\SPLICR-Studio-0.1.0-SHA256SUMS.txt
   [`FFMPEG_DISTRIBUTION.md`](FFMPEG_DISTRIBUTION.md).
 - [ ] Scan the installer and portable archive with the organization's selected malware scanner.
   Microsoft Defender's command-line scan returned `0x80004005` because the product/feature is
-  disabled on this workstation; no scan result is claimed.
-- [ ] If signing is configured, verify the Authenticode signature and timestamp. Signing is not
-  configured for the internal development candidate.
+  disabled on this workstation. Windows Security Center reports Bitdefender Antivirus as the active
+  provider, but the installed consumer product has no supported command-line scan. Run and retain a
+  manual Bitdefender custom-scan result against the final installer and portable archive; no scan
+  result is claimed yet.
+- [x] Record the signing disposition and, when configured, verify the Authenticode signature and
+  timestamp. Signing is not configured for this development candidate: the PyInstaller spec has
+  `codesign_identity=None`, the packaging workflow has no signing step or credential, and the
+  dev.16 installer PE security directory reports certificate-table offset/size `0/0`.
 
 ## 5. Clean Windows VM matrix
 
@@ -275,6 +280,7 @@ finding: the same media DLLs are GPL-covered through statically incorporated FFT
 | 2026-10-01 | `2eed132` / `0.1.0-dev.16` | Target-specific librsvg Cargo closure, Windows 10.0.19045 development workstation, and GitHub Actions `windows-2025` | Ninety-one-source librsvg reconciliation and package/browser acceptance | The complete librsvg stage raises exact review coverage to 91 of 92 locators and 1,139 candidates: 354 shipped licenses, 67 supplemental notices, 621 not-built records, and 97 build-only/not-shipped records. The tracked `x86_64-pc-windows-gnu`, no-default-features, AVIF-enabled Cargo closure contains 203 packages (182 runtime and 21 build-only), validates equal lock/vendor checksums, and maps every package to an exact source review. Eighty-six new legal payloads bring the manifest to 292 records; the downloader verifies each complete `.crate` hash and exact safe member, and fetched/hash-verified all 292 records. The rebuilt artifacts passed all twelve schema-v2 lifecycle checks at `2026-10-02T01:07:44.2759357Z`. Portable: 185,028,993 bytes, SHA-256 `42f5fe1deec5ba9de583098680be6305546145bdbab3d4453b79b5354ed7335b`. Installer: 120,196,533 bytes, SHA-256 `467035251285f01096978aa8a1c2e2349407423d16d430bd227e94bf37453572`. Hosted browser run [`36949971407`](https://github.com/seabAu/Splicr/actions/runs/36949971407) passed all six Studio journeys in 43.5 seconds on implementation commit `2eed132`. rav1e remains the sole unaudited locator; clean-VM, signing/malware, live-provider, and final corresponding-source publication gates also remain open. |
 | 2026-10-01 | `4f6df70` / `0.1.0-dev.16` | Reconstructed rav1e Windows GNU Cargo closure, Windows 10.0.19045 development workstation, WSL archive validator, and GitHub Actions `windows-2025` | Complete 92-source reconciliation and package/browser acceptance | The rav1e stage completes exact review coverage for all 92 locators and 1,651 candidates: 441 shipped licenses, 69 supplemental notices, 970 not-built records, and 171 build-only/not-shipped records. The tracked supplement reconstructs the recipe's moving `cargo update cc`, verifies Cargo.lock SHA-256 `14a4b2ae596569e83e40a3431ffc4b210dd872e333969ddb18ce895f7b19d7c7`, all 275 vendor directories, and a 123-package target closure (82 runtime and 41 build-only). Forty-seven new payloads bring the manifest to 339 records; the real downloader fetched and hash-verified all 339. The rebuilt artifacts passed all twelve schema-v2 lifecycle checks at `2026-10-02T02:29:22.8861851Z`. Portable: 180,544,170 bytes, SHA-256 `53e590fa92edc98026a97c835d260975c17f397064a61e8f7c509b8a6c3e175f`. Installer: 120,209,563 bytes, SHA-256 `0e33ec58e21a203ddd0f257a99ffd19954fff560a26ed5886513d0483822aa58`. Hosted browser run [`36956359725`](https://github.com/seabAu/Splicr/actions/runs/36956359725) passed all six Studio journeys in 40.5 seconds on implementation commit `4f6df70`. Clean-VM, signing/malware, live-provider, full-graph correspondence rebuild, and final source publication gates remain open. |
 | 2026-10-01 | Live-provider acceptance update | Windows 10.0.19045 development workstation | Gemini and Deepgram canonical-audio contracts | Gemini `gemini-3.1-flash-tts-preview` / `Kore` and Deepgram `aura-2` / `aura-2-thalia-en` each returned non-empty canonical 24 kHz mono signed-16-bit PCM through the opt-in contract. Gemini's parameterized `audio/l16; rate=24000; channels=1` response exposed and verified the MIME-parser compatibility fix. Credentials remained local and were neither printed nor copied into evidence. Deterministic regression: Ruff passed; 553 Python tests passed with seven intentional live skips; eight frontend unit tests and the Vite production build passed. |
+| 2026-10-02 | Correspondence-build and release-gate update | Windows 10.0.19045, Ubuntu WSL, and isolated Podman WSL | Edge seam refresh, signing disposition, and authenticated offline-build preparation | The live Edge sentence-revision gate regenerated ignored source/revised WAVs with exact engine timing, canonical metadata, a 30 ms crossfade, and +0.167 dB correction; human listening remains pending. Signing is intentionally unavailable: `codesign_identity=None`, no packaging signing step, and installer PE certificate-table offset/size `0/0`. A fresh `D:` context copied and revalidated all 85 dependency archives plus FFmpeg SHA-256 `9da21157f8f6c033c1445a6e69a0650d2bee8a7b669bd1eecb23d79c7fd1baf5`; the generated 72-stage offline Dockerfile is `a04ed5a6f754037f0b32bd68e9651ef8197e7a1c9d8d5b1465b77f5adc4ec17d`. Podman completed builder packages and `cargo-c`, then its WSL container storage remounted read-only during image commit and the distribution failed to restart. Inputs and the full log remain on `D:`; host WSL/container-storage recovery is required before the dependency and final FFmpeg builds can run offline. |
 | Pending | Pending | Clean Windows x64 VM | Fresh install / upgrade / uninstall / portable | Record artifact hashes, Windows version, install paths, and observations here. |
 | Pending | Pending | GitHub Actions `windows-2025` | Package workflow | Link the successful package run and approved retained artifacts when available. |
 

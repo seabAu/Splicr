@@ -320,7 +320,10 @@ Edge TTS was Narrator's zero-setup online fallback. It is not currently a merged
   generated acceptance artifact outside source control. The reproducible live gate passed on
   2026-09-29 using exact Edge word timings grouped into sentence spans; it retained source/revised
   WAVs plus provenance under ignored `.test-runs/seam-acceptance`. The 30 ms crossfade and +0.16 dB
-  level correction are verified; final human listening approval remains pending.
+  level correction are verified. The gate was refreshed successfully on 2026-10-02 with a 30 ms
+  crossfade and +0.167 dB correction. Source SHA-256: `8568aefe3fd9d1981882207676b7e44adadcb1329d2805a12c5f758de2d33dd6`;
+  revised SHA-256: `6b5b68d2ae70da96b7cc14764ae23c49d53451e293e323a0b2bed0a45ea015e4`.
+  Final human listening approval remains pending.
 
 ## Milestone 6 — durable multi-document queue
 
@@ -996,8 +999,18 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   `docs/RELEASE_CHECKLIST.md`. All 92 source locators now have reviewed dispositions or validated
   aliases, and the current artifacts pass both the PowerShell 7 lifecycle harness and exact-commit
   hosted-browser acceptance. The Gemini and Deepgram live contracts now pass; the clean-VM matrix,
-  complete FFmpeg corresponding-source/compliance publication, malware/signing evidence, and
-  audible sentence-seam acceptance remain.
+  complete FFmpeg corresponding-source/compliance publication, malware evidence, and audible
+  sentence-seam acceptance remain. The unsigned development-candidate disposition is now recorded.
+- **Correspondence-build routing:** a fresh context at
+  `/mnt/d/splicr-ffmpeg-rebuild-podman` revalidated and copied all 85 authenticated dependency
+  archives plus the exact FFmpeg source (`9da21157f8f6c033c1445a6e69a0650d2bee8a7b669bd1eecb23d79c7fd1baf5`).
+  The generated 72-stage offline Dockerfile has SHA-256
+  `a04ed5a6f754037f0b32bd68e9651ef8197e7a1c9d8d5b1465b77f5adc4ec17d`. An isolated Podman build
+  completed the Ubuntu/toolchain package layer and compiled `cargo-c`, then its WSL container
+  storage remounted read-only during image commit and the Podman distribution subsequently failed
+  to start with `Wsl/Service/CreateInstance/E_FAIL`. Docker Desktop is stopped. Inputs and the full
+  failure log remain intact on `D:`; the next rebuild attempt requires host WSL/container-storage
+  recovery, not another source-collection pass.
 - **Clean-VM routing:** the current workstation has no Windows Sandbox binary or Hyper-V,
   VirtualBox, VMware, or QEMU management CLI. The clean-VM matrix must run on a separate disposable
   Windows environment; local package-harness results are not a substitute.
@@ -1075,3 +1088,10 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   case-insensitive, malformed, and conflicting format metadata. The full deterministic regression
   then passed 553 tests with seven intentional live-environment skips, alongside eight frontend
   unit tests, Ruff, and the Vite production build.
+- **2026-10-02:** Refreshed the live Edge sentence-revision artifacts and passed the exact-timing,
+  canonical-WAV, 30 ms crossfade, and level-match gate; human listening remains the only seam check.
+  Recorded signing as intentionally unavailable after verifying the build configuration and an
+  empty installer PE certificate table. Reprepared the entire authenticated FFmpeg correspondence
+  context on `D:` and generated the offline 72-stage dependency build. The independent Podman route
+  reproduced the host's read-only container-storage failure after compiling its builder base,
+  isolating the remaining rebuild blocker to WSL/container storage rather than source completeness.
