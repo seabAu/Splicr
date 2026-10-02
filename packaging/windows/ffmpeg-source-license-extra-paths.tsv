@@ -56,3 +56,17 @@ scripts.d/45-vmaf.sh	./libvmaf/src/feature/third_party/xiph/psnr_hvs.c
 scripts.d/45-vmaf.sh	./libvmaf/src/svm.h
 scripts.d/45-vmaf.sh	./libvmaf/src/x86/cpu.c
 scripts.d/45-vmaf.sh	./libvmaf/src/x86/cpuid.asm
+scripts.d/50-libssh.sh	./src/external/bcrypt_pbkdf.c
+scripts.d/50-libssh.sh	./src/external/blowfish.c
+scripts.d/50-libssh.sh	./src/external/chacha.c
+scripts.d/50-libssh.sh	./src/external/curve25519_ref.c
+scripts.d/50-libssh.sh	./src/external/ed25519.c
+scripts.d/50-libssh.sh	./src/external/fe25519.c
+scripts.d/50-libssh.sh	./src/external/ge25519.c
+scripts.d/50-libssh.sh	./src/external/ge25519_base.data
+scripts.d/50-libssh.sh	./src/external/getopt.c
+scripts.d/50-libssh.sh	./src/external/libcrux_mlkem768_sha3.c
+scripts.d/50-libssh.sh	./src/external/poly1305.c
+scripts.d/50-libssh.sh	./src/external/sc25519.c
+scripts.d/50-libssh.sh	./src/external/sntrup761.c
+scripts.d/50-libssh.sh	./src/match.c

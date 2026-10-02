@@ -1025,6 +1025,37 @@ terms are packaged as `ffmpeg/LIBCURL-inet_ntop.c`
 Schannel, disables curl's OpenSSL backend, and disables tests; the BSD-4-Clause-UC test-server source
 is not built.
 
+## libssh
+
+libssh at commit `76e0a8639e61436c28d877586f65a7707edc6ee5` is statically incorporated into
+the bundled media libraries. Its LGPL-2.1-or-later terms are packaged as
+`ffmpeg/LIBSSH-COPYING.txt`
+(`1656186e951db1c010a8485481fa94587f7e53a26d24976bef97945ad0c4df5a`). The selected
+MinGW/GCC build also incorporates these source-specific terms and provenance notices:
+
+- `ffmpeg/LIBSSH-bcrypt_pbkdf.c`
+  (`087ecb005be6245b398852763e1d6f955cc62924e3c2e7114305dd66476378cd`), ISC;
+- `ffmpeg/LIBSSH-blowfish.c`
+  (`da3888ebdd3987b655f5af7b8cca104347df42bff299d6f77b78b63207be6551`), BSD 3-Clause;
+- `ffmpeg/LIBSSH-chacha.c`
+  (`6860533c544e93563a5a58ba7a0cbcfe9cc120431c0157c68694cf31681469b4`), public-domain
+  provenance;
+- `ffmpeg/LIBSSH-poly1305.c`
+  (`2e01c3e78d8a834786bde4494e63de775c5427226785f1ebc8aaf43a26153a8c`), public-domain
+  provenance;
+- `ffmpeg/LIBSSH-sntrup761.c`
+  (`09afdc0d2c19356a9b1878027d9d9426b1369220eeeea39aee480ad8cab34696`), public-domain
+  provenance; and
+- `ffmpeg/LIBSSH-match.c`
+  (`50f2de4cc5a090e7eb55394e0d800f0ef19bf0112fe4829b2903ed451dc5725e`), the Tatu Ylonen
+  SSH-specific grant and BSD 2-Clause terms.
+
+The recipe was reproduced with GCC 16.2.0, OpenSSL 3.6.4, and zlib 1.3.2.1. Its actual object list
+includes the six source-specific files above. The OpenSSL backend excludes the bundled Curve25519
+and Ed25519 fallbacks, OpenSSL ML-KEM support excludes the libcrux fallback, and the detected MinGW
+`getopt` implementation excludes libssh's compatibility copy. CMake module terms apply only to the
+configuration-time build scripts.
+
 ## SRT
 
 SRT at commit `ff8ab25c57aece5b7351defe36dacc94fc28527f` is statically incorporated with
