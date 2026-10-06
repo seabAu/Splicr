@@ -1028,14 +1028,17 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
 - **Active milestone:** Milestone 9 — real-world acceptance and release hardening, including the
   remaining Milestones 2/3/5/7 live-environment evidence.
 - **Next implementation slice:** finish the human Edge seam audition and clean-Windows interactive
-  matrix, then complete public hosting, attribution, release-terms, and patent review for the
+  matrix, then complete public hosting and attribution for the
   validated FFmpeg corresponding-source candidate in
   `docs/FFMPEG_DISTRIBUTION.md`, while preserving the remaining credential and clean-VM checks in
   `docs/RELEASE_CHECKLIST.md`. All 92 source locators now have reviewed dispositions or validated
   aliases, and the current artifacts pass both the PowerShell 7 lifecycle harness and exact-commit
   hosted-browser acceptance. The Gemini and Deepgram live contracts now pass; the clean-VM matrix,
-  FFmpeg corresponding-source publication/compliance, malware evidence, and audible
-  sentence-seam acceptance remain. The unsigned development-candidate disposition is now recorded.
+  FFmpeg corresponding-source publication/attribution, application-license packaging, malware
+  evidence, and audible sentence-seam acceptance remain. Release-terms review found no current
+  anti-reverse-engineering prohibition; codec-patent review is complete but keeps public H.264/AAC
+  binary release blocked pending explicit legal/licensing guidance or codec removal/replacement.
+  The unsigned development-candidate disposition is recorded.
 - **Correspondence-build routing:** a fresh context at
   `/mnt/d/splicr-ffmpeg-rebuild-podman` revalidated and copied all 85 authenticated dependency
   archives plus the exact FFmpeg source (`9da21157f8f6c033c1445a6e69a0650d2bee8a7b669bd1eecb23d79c7fd1baf5`).
@@ -1156,7 +1159,8 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   manifest self-verifying. It now carries source/revised filenames, byte sizes, SHA-256 hashes,
   canonical WAV metadata, exact durations, seam-focused listening windows, and explicit audible
   acceptance criteria. The live provider gate passed with exact engine timing, a 30 ms crossfade,
-  and +0.164196 dB level correction; only the human audition remains open.
+  and +0.164196 dB level correction. Two ignored, hash-recorded focus clips now isolate the same
+  sentence window for a fast source-versus-revised audition; only the human approval remains open.
 - **2026-10-06:** Strengthened the optional prior-installer package gate from marker-only upgrade
   evidence to a real cross-version state handoff. A previous packaged executable can now be required
   to seed the completed job, checkpoint/output media, Library project, immutable render

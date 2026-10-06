@@ -460,9 +460,21 @@ for that LGPL-only path without replacement.
   `LEGAL_INFO.json`; internal builds fail closed with an explicit unpublished-source state, while a
   reviewed public build can expose only an HTTPS source URL paired with its SHA-256. The checkbox
   remains open until the final archive is hosted and that exact URL/digest is embedded and verified.
-- [ ] Confirm release terms do not prohibit reverse engineering for LGPL debugging/relinking.
-- [ ] Review codec patent/licensing implications separately; LGPL compliance does not answer patent
-  questions.
+- [x] Confirm the current release terms do not prohibit reverse engineering for LGPL
+  debugging/relinking. The Windows installer defines no EULA or `LicenseFile`, the packaged
+  third-party license set contains the applicable FFmpeg/dependency terms, and the locally proposed
+  Apache-2.0 application license contains no anti-reverse-engineering restriction. This conclusion
+  must be rechecked if a store agreement, click-through EULA, or other distribution terms are added.
+  The application license itself is not yet tracked or included by `splicr.spec`, so that separate
+  public-release packaging gap remains open.
+- [x] Review codec patent/licensing implications separately. This engineering review does **not**
+  claim patent clearance or provide legal advice. The packaged OpenH264 is rebuilt from source and
+  distributed by SPLICR rather than downloaded as Cisco's binary module, so Cisco's published FAQ
+  says its MPEG LA royalty coverage does not apply. Via Licensing Alliance also publishes a separate
+  AAC patent program for end-user encoder/decoder products. Keep public H.264/AAC binary release
+  blocked until the release owner obtains appropriate legal/licensing guidance or replaces/removes
+  those codec capabilities. Primary references: https://www.openh264.org/faq.html and
+  https://www.via-la.com/licensing-programs/aac/.
 
 ## librsvg corresponding-source and relinking record
 

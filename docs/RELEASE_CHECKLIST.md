@@ -173,8 +173,17 @@ Get-Content .\dist\SPLICR-Studio-0.1.0-SHA256SUMS.txt
   candidate whose manifest marks collection/review/correspondence complete while keeping public
   release false. Build-only static
   libraries absent from the distributed binary are tracked separately from source trees that recipes
-  never build. The remaining hosted source link, attribution, release-terms, and patent-review gates
-  remain open in [`FFMPEG_DISTRIBUTION.md`](FFMPEG_DISTRIBUTION.md).
+  never build. Release-terms and codec-patent reviews are now recorded in
+  [`FFMPEG_DISTRIBUTION.md`](FFMPEG_DISTRIBUTION.md): the current terms contain no
+  anti-reverse-engineering prohibition, but the third-party OpenH264 build is not covered by Cisco's
+  binary-module royalty arrangement and AAC has a separate patent pool. Public H.264/AAC binary
+  release therefore remains blocked on an explicit legal/licensing decision or removal/replacement
+  of those codecs. Hosting the final source archive and publishing the exact attribution/source link
+  remain open.
+- [ ] Commit an application license and include it in both the portable and installed package. A
+  local Apache-2.0 `LICENSE.txt` candidate exists but is currently untracked, and
+  `packaging/windows/splicr.spec` does not yet collect a root application-license file. Do not treat
+  third-party notices as a substitute for the application's own distribution terms.
 - [ ] Scan the installer and portable archive with the organization's selected malware scanner.
   Microsoft Defender's command-line scan returned `0x80004005` because the product/feature is
   disabled on this workstation. Windows Security Center reports Bitdefender Antivirus as the active
