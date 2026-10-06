@@ -152,9 +152,14 @@ try {
         if ($LASTEXITCODE -ne 0) { throw "Inno Setup build failed" }
     }
 
-    $Artifacts = Get-ChildItem -LiteralPath $Dist -File | Where-Object {
-        $_.Name -like "SPLICR-Studio-$Version-Windows-x64*"
-    }
+    $Artifacts = @(
+        Get-Item -LiteralPath $PortableZip
+        if (-not $SkipInstaller) {
+            Get-Item -LiteralPath (
+                Join-Path $Dist "SPLICR-Studio-$Version-Windows-x64-setup.exe"
+            )
+        }
+    )
     $ChecksumPath = Join-Path $Dist "SPLICR-Studio-$Version-SHA256SUMS.txt"
     $ChecksumLines = foreach ($Artifact in $Artifacts) {
         $Stream = [System.IO.File]::OpenRead($Artifact.FullName)

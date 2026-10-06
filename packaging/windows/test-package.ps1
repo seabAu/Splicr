@@ -329,8 +329,14 @@ try {
     $InstalledPayloadChanges = @(
         Compare-Object -ReferenceObject $PortableBefore -DifferenceObject $InstalledPayload
     )
-    Assert-Condition ($InstalledPayloadChanges.Count -eq 0) `
-        "Installed application payload does not exactly match the portable package"
+    if ($InstalledPayloadChanges.Count -ne 0) {
+        $PayloadDiff = @(
+            $InstalledPayloadChanges |
+                Select-Object -First 20 |
+                ForEach-Object { "$($_.SideIndicator) $($_.InputObject)" }
+        ) -join "`n"
+        throw "Installed application payload does not exactly match the portable package:`n$PayloadDiff"
+    }
 
     $Ffmpeg = Join-Path $FfmpegDir "ffmpeg.exe"
     $Ffprobe = Join-Path $FfmpegDir "ffprobe.exe"
