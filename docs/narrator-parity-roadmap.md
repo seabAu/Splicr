@@ -470,7 +470,11 @@ sequence, cancellation cleanup, deterministic archives, API validation, and the 
   the real Tk lifecycle window and private FastAPI server, verifies packaged health and Studio
   assets, proves a second launch reuses the primary instance, and requests a graceful shutdown.
   Visible browser launch/use, credentials migration, Windows Settings, Start-menu invocation, and a
-  genuinely clean VM remain manual release evidence.
+  genuinely clean VM remain manual release evidence. A guided standard-user clean-VM harness now
+  refuses elevated or previously used machines, verifies artifact hashes, automates install/launch/
+  service/shutdown/uninstall assertions, launches and immutability-checks the portable package,
+  prompts for the genuinely visual/media observations, and emits credential-free JSON evidence for
+  that final pass.
   The frozen package smoke now also creates a real WAV, converts it to FLAC through SPLICR's
   production Convert backend, renders it to MP4 through SPLICR's production Audiogram backend, and
   probes both outputs through the packaged FFprobe resolution path. A fresh `0.1.0-dev.17` candidate
@@ -1211,3 +1215,10 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   is hosted clean-runner evidence plus human-visible browser, Start-menu, credentials, and Windows
   Settings verification. The build now rejects using its mutable FFmpeg vendor destination as the
   input directory, preventing source-destination self-deletion before copying.
+- **2026-10-06:** Added a guided clean-VM acceptance harness for the remaining interactive Windows
+  gate. It refuses elevated and previously used environments, binds the run to installer and
+  portable hashes, checks per-user installation, Start-menu launch, instance reuse, private-service
+  shutdown, Windows Settings uninstall, reinstall, preserved data, portable launch, and portable-tree
+  immutability, and emits credential-free JSON evidence. Its non-destructive `-ValidateOnly`
+  preflight passed against both dev.19 artifacts; the actual checklist still requires a disposable
+  standard-user Windows VM and human observations.

@@ -133,6 +133,38 @@ This automated harness does not replace the release checklist's interactive clea
 the visible lifecycle window, actual browser launch, real document playback, Windows Settings,
 launching through the Start menu, credentials migration, or signing/malware review.
 
+For the human-visible portion, copy the installer, portable ZIP, checksum manifest, and repository
+checkout to a disposable clean Windows x64 VM. From a non-elevated PowerShell 7 session run:
+
+```powershell
+.\packaging\windows\run-clean-vm-checklist.ps1 `
+  -Version 0.1.0 `
+  -ArtifactsDir .\dist `
+  -ConfirmDisposableMachine
+```
+
+The guided harness refuses an elevated or previously used machine, verifies both artifact hashes,
+installs per-user, launches through the Start-menu shortcut, checks the loopback health and packaged
+Studio surface, verifies second-launch port reuse, and prompts only for observations that require a
+person: the visible lifecycle/browser experience, actual rendering/playback, bundled media tools,
+Windows Settings, and preserved state after uninstall/reinstall. After the final uninstall it also
+extracts the portable ZIP to a spaces-bearing temporary path, launches the full Studio against the
+preserved user data, verifies clean shutdown, and proves the portable application tree stayed
+unchanged. It stores booleans rather than credentials or document content in
+`SPLICR-Studio-<version>-Windows-x64-CLEAN-VM-ACCEPTANCE.json`, then leaves the intentionally
+preserved data directory and extracted portable tree in place for inspection.
+
+Before copying the candidate to the VM, the same script can perform a non-destructive artifact and
+checksum preflight on the build machine. This mode never installs, launches, uninstalls, prompts, or
+writes clean-VM acceptance evidence:
+
+```powershell
+.\packaging\windows\run-clean-vm-checklist.ps1 `
+  -Version 0.1.0 `
+  -ArtifactsDir .\dist `
+  -ValidateOnly
+```
+
 ## FFmpeg source audit
 
 The packaging workflow also creates and validates an explicitly incomplete FFmpeg primary-source

@@ -112,6 +112,9 @@ jobs:
       - name: Accept portable and installer artifacts
         shell: pwsh
         run: |
+          .\packaging\windows\run-clean-vm-checklist.ps1 `
+            -Version "${{ steps.version.outputs.version }}" `
+            -ValidateOnly
           .\packaging\windows\test-package.ps1 `
             -Version "${{ steps.version.outputs.version }}"
 
