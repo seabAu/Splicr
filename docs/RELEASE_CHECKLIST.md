@@ -283,7 +283,11 @@ clean-VM evidence.
 - [ ] Push a reviewed `vX.Y.Z` tag and confirm the Windows packaging workflow succeeds.
 - [ ] Download the GitHub artifact, verify checksums again, and attach the approved files to the
   release.
-- [ ] Publish concise install, upgrade, known-limit, and data-location notes.
+- [ ] Publish concise install, upgrade, known-limit, and data-location notes. The publishable draft
+  in `CHANGELOG.md` now reflects the actual per-user/portable paths, preservation and rollback
+  policy, completed live-provider evidence, effective GPL media classification, clean-VM/malware/
+  seam gates, unsigned status, application-license gap, and H.264/AAC licensing decision. Keep this
+  item open until that text is attached to the public release.
 - [ ] Keep the previous installer available until the new build passes the post-publish smoke test.
 - [ ] Rollback means reinstalling the previous application package without deleting the shared user
   data directory; document any schema downgrade limitation before release.

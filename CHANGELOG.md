@@ -21,16 +21,21 @@ public release tags begin; the current section describes the unreleased Narrator
 - Windows portable/installer build automation with bundled FFmpeg discovery, checksums, build
   metadata, supervised browser acceptance, packaged-executable smoke tests, and a headless
   `--no-browser` launcher mode for deployment and lifecycle acceptance.
-- Reproducible Windows media-tool acquisition pinned to a checksum-verified BtbN LGPL-shared
-  FFmpeg build, including its shared DLLs, license, and exact source/provenance record.
+- Reproducible Windows media-tool acquisition pinned to a checksum-verified BtbN build whose
+  upstream asset is named `lgpl-shared`, including its shared DLLs, exact source/provenance record,
+  and the later effective-GPL finding caused by statically incorporated FFTW through Chromaprint.
 - A disposable-Windows artifact acceptance harness that verifies checksums, portable isolation,
-  installed package smoke, bundled-media configuration, real OpenH264/AAC output, uninstall
-  cleanup, preserved user data, exact installed-payload contents, and optional prior-version upgrade
-  preflight before CI uploads the release candidate and its evidence JSON.
-- A fail-closed FFmpeg primary-source audit kit with checksum-pinned FFmpeg, OpenH264, and BtbN
-  recipe snapshots plus the exact 90-stage enabled graph, pinned revision table, and source-fetch
-  commands. Its manifest explicitly keeps the public corresponding-source gate open until those
-  dependency sources, notices, and the hosted source link are complete.
+  installed package smoke, real native lifecycle/loopback-service behavior, bundled-media
+  conversion and audiogram rendering, real OpenH264/AAC output, representative state across
+  uninstall/reinstall, exact installed-payload contents, and prior-version upgrade preservation
+  before CI uploads the release candidate and its evidence JSON.
+- A fail-closed FFmpeg corresponding-source kit with checksum-pinned FFmpeg, OpenH264, BtbN recipe,
+  exact 90-stage enabled graph, 85 source archives, reviewed legal material, patches, build logs, and
+  offline rebuild evidence. Its manifest keeps the public-release gate open until the final archive
+  is hosted and the exact attribution/source link is published.
+- A guided clean-Windows acceptance harness with separately hash-bound fresh and previous-installer
+  upgrade scenarios, human-visible lifecycle/media prompts, Windows Settings uninstall/reinstall,
+  and portable launch/immutability evidence.
 
 ### Changed
 
@@ -54,7 +59,21 @@ public release tags begin; the current section describes the unreleased Narrator
 - Windows packaging discovers Inno Setup from `PATH`, user-scope, and machine-scope installations;
   a single discovered compiler path no longer collapses to its first character in PowerShell.
 - MP4 audiograms prefer `libx264` when an external build provides it and otherwise use the bundled
-  LGPL-compatible `libopenh264` encoder with deterministic bitrate-based quality mapping.
+  `libopenh264` encoder with deterministic bitrate-based quality mapping.
+
+### Install and data locations
+
+- The per-user installer places application files under
+  `%LOCALAPPDATA%\Programs\SPLICR Studio` and adds one Start-menu entry plus one Windows uninstall
+  registration. It does not require a system-wide Python, Node.js, FFmpeg, or administrator rights.
+- The portable ZIP can be extracted to any normal writable directory. Application files are treated
+  as immutable; portable and installed builds use the same per-user data directory.
+- Jobs, the SQLite database, profiles, provider-resource metadata, checkpoints, generated media,
+  settings, and logs live under `%LOCALAPPDATA%\SPLICR Studio\data`. Uninstall intentionally leaves
+  this directory in place so a later reinstall can resume and reopen work.
+- Removing the application permanently therefore requires two deliberate steps: uninstall the app,
+  then back up and manually delete `%LOCALAPPDATA%\SPLICR Studio\data` if its jobs and media are no
+  longer wanted.
 
 ### Migration and configuration
 
@@ -71,17 +90,27 @@ public release tags begin; the current section describes the unreleased Narrator
 
 ### Known limitations before a public release
 
-- Gemini and Deepgram still need deliberate credential-backed live contract evidence for this
-  branch. Provider quotas and commercial terms remain the user's responsibility.
+- Gemini, Deepgram, and Inworld credential-backed contracts have passed against their current live
+  endpoints, but remote providers remain external services: API changes, availability, quotas,
+  pricing, content policies, and commercial terms remain the user's responsibility.
 - Qwen3-TTS and Audio8 download multi-gigabyte models and perform best on a CUDA-capable GPU.
   Audio8 uses reviewed Hugging Face custom model code through `trust_remote_code=True`.
 - Sentence revision requires reliable provider or transcription timing; otherwise Studio safely
   falls back to regenerating the whole chunk.
-- Clean-Windows installer upgrade/uninstall/Unicode-path evidence, signed binaries, malware scan,
-  and current-commit GitHub Actions evidence remain release gates.
-- Windows candidates now use a pinned LGPL-shared FFmpeg build rather than the workstation's
-  GPL-enabled build. Public release still requires publication of the exact corresponding source,
-  attribution/source links, and final review against FFmpeg's distribution checklist.
+- The real Edge sentence-revision artifact is retained and hash-verified, but final human audible
+  seam approval remains open.
+- Human-visible fresh/upgrade/uninstall/portable evidence on reverted clean Windows snapshots, a
+  manual scan by the active malware product, and current-commit GitHub Actions evidence remain
+  release gates. The development candidate is intentionally unsigned.
+- Although the upstream FFmpeg asset is named `lgpl-shared`, its statically incorporated FFTW path
+  makes the distributed media binaries GPL-covered. The exact corresponding-source candidate has
+  rebuilt successfully offline, but public release still requires stable hosting plus the precise
+  attribution/source link.
+- The current third-party OpenH264 build is not covered by Cisco's binary-module royalty arrangement,
+  and AAC has a separate patent pool. Public H.264/AAC binary distribution therefore requires an
+  explicit licensing decision or removal/replacement of those codecs.
+- The application itself still needs an explicitly selected and committed license included in both
+  package formats before public distribution.
 
 ### Rollback
 

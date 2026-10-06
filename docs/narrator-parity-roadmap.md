@@ -1227,3 +1227,8 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   preflight passed for fresh dev.19 and for a dev.18-to-dev.19 upgrade, binding all three package
   hashes. Both actual scenarios still require reverted disposable standard-user Windows snapshots
   and human observations.
+- **2026-10-06:** Reconciled the publishable changelog/release-note draft with current evidence. It
+  now gives self-contained install, portable, data-retention, migration, and rollback guidance;
+  records completed Gemini/Deepgram/Inworld live contracts; and accurately retains the unsigned,
+  clean-VM, malware, audible-seam, application-license, source-hosting, effective-GPL, and H.264/AAC
+  licensing gates. Actual release-note publication remains tied to the future public release.
