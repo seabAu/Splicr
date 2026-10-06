@@ -478,8 +478,11 @@ sequence, cancellation cleanup, deterministic archives, API validation, and the 
   The frozen executable also ran the real media smoke, then seeded and semantically reopened all
   seven representative entities plus three hash-bound files across uninstall/reinstall. An older
   candidate exposed Inno Setup's version-suffixed default display name; `ff21f23` now sets the stable
-  product name explicitly. Previous-version migration and interactive evidence on a genuinely clean
-  VM remain open.
+  product name explicitly. A subsequent dev.16-to-dev.17 run exposed two obsolete content-hashed web
+  assets retained during upgrade. Commit `212549b` removes only the application-owned Studio assets
+  before replacement, and the final run passed exact upgraded-payload parity plus byte-identical
+  preservation of external data created by dev.16. Representative-state migration from an older
+  package and interactive evidence on a genuinely clean VM remain open.
 - [x] Verify Chromium acceptance in GitHub Actions and retain failure traces/screenshots/video. The
   workflow runs for pull requests, `main`, `codex/**` integration branches, and release tags. Failed
   run `36664605914` published assertion annotations and retained a 19 MB Playwright diagnostics
@@ -1159,11 +1162,14 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   renders an MP4 through `FfmpegAudiogramRenderer`, and probes both outputs with the packaged
   FFprobe path, without relying on a globally installed media tool.
 - **2026-10-06:** Built and accepted the complete `0.1.0-dev.17` Windows candidate on the development
-  workstation. Portable: 185,126,610 bytes and SHA-256
-  `a624de2a5ac5c90f7128c1915237558f606edea6151331bb6d717f0e50691566`; installer: 120,230,726 bytes
-  and SHA-256 `c1c79d7638b81080fca23f2041fd71961c8961ba310bc2de3aefd104d2f1493d`. The lifecycle harness
+  workstation. Portable: 185,126,264 bytes and SHA-256
+  `1117427f49a2d815dbcf2938df834f3fd5144fa4d380276425e597655b4d10a2`; installer: 120,243,796 bytes
+  and SHA-256 `9d3f675fe0ce050c84e4fe8001fffe528a823752fea923b3e9757cecc14f879b`. The lifecycle harness
   passed portable immutability, exact installed-payload parity, bundle-only media resolution, real
   conversion/audiogram execution, shell registration and cleanup, representative-state preservation,
   semantic reopening after reinstall, and a second uninstall. The first run caught Inno Setup's
-  version-suffixed default uninstall display name; `ff21f23` fixed the product metadata before the
-  passing rebuild. Previous-version migration and interactive clean-VM evidence remain outstanding.
+  version-suffixed default uninstall display name; `ff21f23` fixed the product metadata. A retained
+  dev.16 installer then exposed two stale hashed web assets on upgrade; `212549b` added scoped asset
+  cleanup, bounded diff diagnostics, and exact publishable-artifact checksum selection. The final
+  dev.16-to-dev.17 run passed exact payload parity and external-data preservation. Older-package
+  representative-state migration and interactive clean-VM evidence remain outstanding.

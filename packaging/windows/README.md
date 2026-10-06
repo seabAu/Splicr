@@ -32,8 +32,9 @@ $ffmpegBin = uv run python .\packaging\windows\fetch_ffmpeg_release.py
 
 Use `-SkipInstaller` to build only the portable ZIP. `build.ps1` rebuilds the React assets, copies
 FFmpeg/FFprobe and required shared DLLs into the private app bundle, builds the one-directory
-executable, creates checksums, records the exact bundled media-tool build, and then compiles the
-installer. The fetcher pins the BtbN release tag, asset name, and SHA-256 digest; it also creates a
+executable, creates a checksum manifest containing only the publishable portable ZIP and installer,
+records the exact bundled media-tool build, and then compiles the installer. The fetcher pins the
+BtbN release tag, asset name, and SHA-256 digest; it also creates a
 `SOURCE_INFO.txt` record. Required external-library license files are declared once in
 `ffmpeg-packaged-license-files.tsv`; the standard-library Python fetcher downloads exact revision
 URLs, applies only declared transport decoding, retries bounded transient failures, and rejects a
@@ -106,7 +107,10 @@ On a disposable upgrade-test VM, pass the previous release installer to exercise
 upgrade before the current artifact checks. The harness runs the older package smoke, creates and
 hashes representative external user data, installs the current candidate over it, proves that data
 is byte-identical, and rejects stale application files by comparing the installed payload with the
-current portable package. Once the previous package contains the package-state acceptance command,
+current portable package. The installer clears only its application-owned content-hashed Studio
+asset directory before replacement so obsolete JavaScript and CSS cannot survive an upgrade; the
+separate per-user data root is never part of that cleanup. Once the previous package contains the
+package-state acceptance command,
 add `-RequirePreviousRepresentativeState`: the previous executable then seeds the completed job,
 checkpoint/output media, Library project, render plan/take/artifact, voice profile, and Studio
 profile. The candidate must migrate and semantically reopen that exact state before the harness
