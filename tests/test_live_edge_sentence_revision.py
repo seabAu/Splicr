@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import os
 import shutil
@@ -118,14 +119,45 @@ def test_live_edge_sentence_revision_retains_audible_artifacts(tmp_path: Path) -
     retained_revision = artifact_dir / "edge-sentence-seam-revised.wav"
     shutil.copy2(source_path, retained_source)
     shutil.copy2(revised_path, retained_revision)
-    (artifact_dir / "edge-sentence-seam-manifest.json").write_text(
-        json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
-        encoding="utf-8",
-    )
 
-    for output in (retained_source, retained_revision):
+    artifacts: dict[str, object] = {}
+    for label, output in (("source", retained_source), ("revised", retained_revision)):
         with wave.open(str(output), "rb") as recording:
             assert recording.getnchannels() == 1
             assert recording.getsampwidth() == 2
             assert recording.getframerate() == 24_000
             assert recording.getnframes() > 0
+            frames = recording.getnframes()
+            artifacts[label] = {
+                "filename": output.name,
+                "bytes": output.stat().st_size,
+                "sha256": hashlib.sha256(output.read_bytes()).hexdigest(),
+                "channels": recording.getnchannels(),
+                "sample_width_bytes": recording.getsampwidth(),
+                "sample_rate": recording.getframerate(),
+                "frames": frames,
+                "duration_seconds": frames / recording.getframerate(),
+            }
+
+    revision = manifest["revision"]
+    assert isinstance(revision, dict)
+    original_start = float(revision["original_start"])
+    original_end = float(revision["original_end"])
+    duration_delta = float(revision["duration_delta"])
+    manifest["artifacts"] = artifacts
+    manifest["listening"] = {
+        "source_focus_seconds": [max(0.0, original_start - 0.75), original_end + 0.75],
+        "revised_focus_seconds": [
+            max(0.0, original_start - 0.75),
+            original_end + duration_delta + 0.75,
+        ],
+        "criteria": [
+            "No click, pop, duplicated phoneme, or clipped syllable at either splice.",
+            "Room tone, loudness, pace, and vocal identity remain perceptually continuous.",
+            "The replacement sentence is complete and the following sentence begins naturally.",
+        ],
+    }
+    (artifact_dir / "edge-sentence-seam-manifest.json").write_text(
+        json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )

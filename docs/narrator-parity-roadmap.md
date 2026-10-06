@@ -320,10 +320,13 @@ Edge TTS was Narrator's zero-setup online fallback. It is not currently a merged
   generated acceptance artifact outside source control. The reproducible live gate passed on
   2026-09-29 using exact Edge word timings grouped into sentence spans; it retained source/revised
   WAVs plus provenance under ignored `.test-runs/seam-acceptance`. The 30 ms crossfade and +0.16 dB
-  level correction are verified. The gate was refreshed successfully on 2026-10-02 with a 30 ms
-  crossfade and +0.167 dB correction. Source SHA-256: `8568aefe3fd9d1981882207676b7e44adadcb1329d2805a12c5f758de2d33dd6`;
-  revised SHA-256: `6b5b68d2ae70da96b7cc14764ae23c49d53451e293e323a0b2bed0a45ea015e4`.
-  Final human listening approval remains pending.
+  level correction are verified. The gate was refreshed successfully on 2026-10-06 with a 30 ms
+  crossfade and +0.164196 dB correction. The retained manifest now records each WAV's size, SHA-256,
+  canonical format, duration, listening focus window, and explicit pass criteria so missing or stale
+  artifacts are evident. Source SHA-256: `293a0a70bc33a3777890a3cfdd0f2991b09f369c8bfa330b52e67e6c26dfcbc3`;
+  revised SHA-256: `95a1c71bc5f7d1c2cf41db2c7a40d5ada7ef2a632ebec6b07cd42be35abee02c`.
+  Final human listening approval remains pending; audition the revised take from 3.4375 through
+  8.505833 seconds and compare it with the source from 3.4375 through 8.2625 seconds.
 
 ## Milestone 6 — durable multi-document queue
 
@@ -1122,3 +1125,8 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   compares the reinstalled payload with the portable tree, and uninstalls again while preserving
   data. Tamper, path-escape, repeated-seed, CLI-routing, full Ruff, and full Python regression gates
   pass; the next real package artifact and genuine clean-VM interactive matrix remain open.
+- **2026-10-06:** Regenerated the real Edge sentence-revision evidence and made its ignored
+  manifest self-verifying. It now carries source/revised filenames, byte sizes, SHA-256 hashes,
+  canonical WAV metadata, exact durations, seam-focused listening windows, and explicit audible
+  acceptance criteria. The live provider gate passed with exact engine timing, a 30 ms crossfade,
+  and +0.164196 dB level correction; only the human audition remains open.
