@@ -143,6 +143,24 @@ checkout to a disposable clean Windows x64 VM. From a non-elevated PowerShell 7 
   -ConfirmDisposableMachine
 ```
 
+That is the fresh-install scenario. Preserve its JSON, revert the VM to the original clean snapshot,
+and run the upgrade scenario with the retained previous installer:
+
+```powershell
+.\packaging\windows\run-clean-vm-checklist.ps1 `
+  -Version 0.1.0 `
+  -ArtifactsDir .\dist `
+  -PreviousInstaller .\dist\SPLICR-Studio-0.0.9-Windows-x64-setup.exe `
+  -ConfirmDisposableMachine
+```
+
+The upgrade scenario installs and opens the previous package first, seeds the same representative
+job/project/profile/media graph used by automated package acceptance, asks the operator to prepare
+any additional resumable work and credential metadata, then installs the candidate over it. The
+candidate must verify the package-owned state, preserve a hash-bound external marker, register the
+new version, and reopen the operator-observed state. Fresh and upgrade runs write separate
+`CLEAN-VM-FRESH-ACCEPTANCE.json` and `CLEAN-VM-UPGRADE-ACCEPTANCE.json` files.
+
 The guided harness refuses an elevated or previously used machine, verifies both artifact hashes,
 installs per-user, launches through the Start-menu shortcut, checks the loopback health and packaged
 Studio surface, verifies second-launch port reuse, and prompts only for observations that require a
@@ -151,7 +169,7 @@ Windows Settings, and preserved state after uninstall/reinstall. After the final
 extracts the portable ZIP to a spaces-bearing temporary path, launches the full Studio against the
 preserved user data, verifies clean shutdown, and proves the portable application tree stayed
 unchanged. It stores booleans rather than credentials or document content in
-`SPLICR-Studio-<version>-Windows-x64-CLEAN-VM-ACCEPTANCE.json`, then leaves the intentionally
+`SPLICR-Studio-<version>-Windows-x64-CLEAN-VM-<scenario>-ACCEPTANCE.json`, then leaves the intentionally
 preserved data directory and extracted portable tree in place for inspection.
 
 Before copying the candidate to the VM, the same script can perform a non-destructive artifact and

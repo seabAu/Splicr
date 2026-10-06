@@ -3,6 +3,7 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$Version,
     [string]$ArtifactsDir = (Join-Path $PSScriptRoot "..\..\dist"),
+    [string]$PreviousInstaller = "",
     [string]$EvidencePath = "",
     [switch]$ValidateOnly,
     [switch]$ConfirmDisposableMachine
@@ -90,6 +91,29 @@ function Install-Candidate([string]$InstallerPath) {
         "Installer exited with code $($Process.ExitCode)."
 }
 
+function Invoke-Checked([string]$FilePath, [string[]]$ArgumentList) {
+    $StartInfo = [Diagnostics.ProcessStartInfo]::new()
+    $StartInfo.FileName = $FilePath
+    $StartInfo.UseShellExecute = $false
+    $StartInfo.CreateNoWindow = $true
+    foreach ($Argument in $ArgumentList) {
+        $StartInfo.ArgumentList.Add($Argument)
+    }
+    $Process = [Diagnostics.Process]::new()
+    $Process.StartInfo = $StartInfo
+    try {
+        Assert-Condition ($Process.Start()) "Could not start command: $FilePath"
+        $Process.WaitForExit()
+        $ExitCode = $Process.ExitCode
+    }
+    finally {
+        $Process.Dispose()
+    }
+    if ($ExitCode -ne 0) {
+        throw "Command failed with exit code ${ExitCode}: $FilePath"
+    }
+}
+
 if ($PSVersionTable.PSVersion.Major -lt 7) {
     throw "The clean-VM checklist requires PowerShell 7 or newer (pwsh)."
 }
@@ -138,6 +162,17 @@ Assert-Condition ($ExpectedHashes[$InstallerName] -eq $InstallerSha256) `
 Assert-Condition ($ExpectedHashes[$PortableName] -eq $PortableSha256) `
     "Portable SHA-256 does not match $ChecksumsName."
 
+$PreviousInstallerSha256 = $null
+if ($PreviousInstaller) {
+    $PreviousInstaller = (Resolve-Path -LiteralPath $PreviousInstaller).Path
+    Assert-Condition (Test-Path -LiteralPath $PreviousInstaller -PathType Leaf) `
+        "Previous installer is not a file: $PreviousInstaller"
+    $PreviousInstallerSha256 = Get-Sha256 $PreviousInstaller
+    Assert-Condition ($PreviousInstallerSha256 -ne $InstallerSha256) `
+        "PreviousInstaller must identify a different package from the candidate installer."
+}
+$Scenario = if ($PreviousInstaller) { "upgrade" } else { "fresh" }
+
 if ($ValidateOnly) {
     [ordered]@{
         validation_only = $true
@@ -153,6 +188,17 @@ if ($ValidateOnly) {
             sha256 = $PortableSha256
         }
         checksums = $ChecksumsName
+        scenario = $Scenario
+        previous_installer = if ($PreviousInstaller) {
+            [ordered]@{
+                file = [IO.Path]::GetFileName($PreviousInstaller)
+                bytes = (Get-Item -LiteralPath $PreviousInstaller).Length
+                sha256 = $PreviousInstallerSha256
+            }
+        }
+        else {
+            $null
+        }
         passed = $true
     } | ConvertTo-Json -Depth 4
     return
@@ -161,7 +207,7 @@ if ($ValidateOnly) {
 if (-not $EvidencePath) {
     $EvidencePath = Join-Path `
         $ArtifactsDir `
-        "SPLICR-Studio-$Version-Windows-x64-CLEAN-VM-ACCEPTANCE.json"
+        "SPLICR-Studio-$Version-Windows-x64-CLEAN-VM-$($Scenario.ToUpperInvariant())-ACCEPTANCE.json"
 }
 $EvidencePath = [IO.Path]::GetFullPath($EvidencePath)
 
@@ -187,13 +233,59 @@ foreach ($Property in $AutomatedChecks.GetEnumerator()) {
 
 $script:OperatorChecks = [ordered]@{}
 $Failure = $null
+$PreviousPort = $null
 $FreshPort = $null
 $ReinstallPort = $null
 $PortablePort = $null
 $StartedAt = [DateTime]::UtcNow
+$UpgradeEvidence = $null
+$RepresentativeStateManifest = Join-Path `
+    ([IO.Path]::GetTempPath()) `
+    ("SPLICR-upgrade-state-" + [Guid]::NewGuid().ToString("N") + ".json")
 
 try {
-    Write-Host "Installing $InstallerName as the current standard user..."
+    if ($PreviousInstaller) {
+        Write-Host "Installing the previous package as the current standard user..."
+        Install-Candidate $PreviousInstaller
+        Assert-Condition (Test-Path -LiteralPath $InstallDir -PathType Container) `
+            "Previous installer did not create $InstallDir."
+        Assert-Condition (Test-Path -LiteralPath $StartMenuShortcut -PathType Leaf) `
+            "Previous installer did not create the per-user Start-menu shortcut."
+        Assert-Condition (Test-Path -LiteralPath $UninstallRegistryPath) `
+            "Previous installer did not create the per-user Windows uninstall registration."
+        $PreviousExecutable = Join-Path $InstallDir "SPLICR Studio.exe"
+        Assert-Condition (Test-Path -LiteralPath $PreviousExecutable -PathType Leaf) `
+            "Previous package did not install SPLICR Studio.exe."
+        Invoke-Checked $PreviousExecutable @(
+            "--package-acceptance-state",
+            "seed",
+            $RepresentativeStateManifest
+        )
+        $UpgradeMarker = Join-Path $DataDir "clean-vm-upgrade-marker.txt"
+        [IO.File]::WriteAllText(
+            $UpgradeMarker,
+            "SPLICR clean-VM upgrade must preserve this file.`n"
+        )
+        $UpgradeMarkerSha256 = Get-Sha256 $UpgradeMarker
+
+        Write-Host "Launching the previous package so its state can be inspected..."
+        Start-Process -FilePath $StartMenuShortcut | Out-Null
+        Wait-Condition { $null -ne (Find-StudioPort) } `
+            "Previous SPLICR package did not expose its health and Studio surfaces."
+        $PreviousPort = Find-StudioPort
+        $AutomatedChecks.previous_package_served_studio = $true
+        Confirm-OperatorStep "previous_package_state_prepared" `
+            "Does the previous version show its seeded Library/jobs/profiles/media, and did you prepare any additional resumable work and credential metadata to preserve?"
+        Read-Host "Close the previous version's lifecycle window normally, then press Enter"
+        Wait-Condition { $null -eq (Find-StudioPort) } `
+            "The previous package's private server remained reachable after close."
+        $AutomatedChecks.previous_package_window_close_stopped_server = $true
+        Write-Host "Installing $InstallerName over the previous package..."
+    }
+    else {
+        Write-Host "Installing $InstallerName as the current standard user..."
+    }
+
     Install-Candidate $Installer
     $AutomatedChecks.install_completed = Test-Path -LiteralPath $InstallDir -PathType Container
     $AutomatedChecks.start_menu_created = `
@@ -206,6 +298,34 @@ try {
     Assert-Condition $AutomatedChecks.uninstall_registration_created `
         "Installer did not create the per-user Windows uninstall registration."
 
+    if ($PreviousInstaller) {
+        $CandidateExecutable = Join-Path $InstallDir "SPLICR Studio.exe"
+        Invoke-Checked $CandidateExecutable @(
+            "--package-acceptance-state",
+            "verify",
+            $RepresentativeStateManifest
+        )
+        $AutomatedChecks.upgrade_reopened_representative_state = $true
+        $AutomatedChecks.upgrade_preserved_marker = (
+            (Test-Path -LiteralPath $UpgradeMarker -PathType Leaf) -and
+            (Get-Sha256 $UpgradeMarker) -eq $UpgradeMarkerSha256
+        )
+        Assert-Condition $AutomatedChecks.upgrade_preserved_marker `
+            "Candidate upgrade changed or removed pre-existing user data."
+        $UninstallRegistration = Get-ItemProperty -LiteralPath $UninstallRegistryPath
+        $AutomatedChecks.upgrade_registered_candidate_version = `
+            ($UninstallRegistration.DisplayVersion -eq $Version)
+        Assert-Condition $AutomatedChecks.upgrade_registered_candidate_version `
+            "Candidate upgrade did not register version $Version."
+        $UpgradeEvidence = [ordered]@{
+            file = [IO.Path]::GetFileName($PreviousInstaller)
+            bytes = (Get-Item -LiteralPath $PreviousInstaller).Length
+            sha256 = $PreviousInstallerSha256
+            representative_state_verified = $true
+            preservation_marker_sha256 = $UpgradeMarkerSha256
+        }
+    }
+
     Write-Host "Launching SPLICR through its Start-menu shortcut..."
     Start-Process -FilePath $StartMenuShortcut | Out-Null
     Wait-Condition { $null -ne (Find-StudioPort) } `
@@ -217,6 +337,10 @@ try {
         "Is the native SPLICR Studio lifecycle window visible and showing a running status?"
     Confirm-OperatorStep "browser_opened_to_studio" `
         "Did the default browser open the complete Studio interface automatically?"
+    if ($PreviousInstaller) {
+        Confirm-OperatorStep "upgrade_reopened_operator_state" `
+            "Did the candidate reopen the previous version's jobs, profiles, settings, credentials metadata, resumable work, and media correctly?"
+    }
 
     Start-Process -FilePath $StartMenuShortcut | Out-Null
     Start-Sleep -Seconds 2
@@ -348,8 +472,9 @@ finally {
         ).Count)
     )
     $Evidence = [ordered]@{
-        schema_version = 1
+        schema_version = 2
         version = $Version
+        scenario = $Scenario
         started_at_utc = $StartedAt.ToString("o")
         finished_at_utc = [DateTime]::UtcNow.ToString("o")
         operating_system = [Environment]::OSVersion.VersionString
@@ -366,12 +491,14 @@ finally {
             sha256 = $PortableSha256
         }
         observed_ports = [ordered]@{
-            fresh_install = $FreshPort
+            previous_package = $PreviousPort
+            candidate = $FreshPort
             reinstall = $ReinstallPort
             portable = $PortablePort
         }
         automated_checks = $AutomatedChecks
         operator_checks = $script:OperatorChecks
+        previous_package = $UpgradeEvidence
         failure = $Failure
         passed = ($null -eq $Failure -and $AllAutomatedPassed -and $AllOperatorPassed)
     }

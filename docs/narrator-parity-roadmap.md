@@ -474,7 +474,10 @@ sequence, cancellation cleanup, deterministic archives, API validation, and the 
   refuses elevated or previously used machines, verifies artifact hashes, automates install/launch/
   service/shutdown/uninstall assertions, launches and immutability-checks the portable package,
   prompts for the genuinely visual/media observations, and emits credential-free JSON evidence for
-  that final pass.
+  that final pass. Separate fresh and previous-installer upgrade scenarios must run from the same
+  reverted clean snapshot; the latter seeds and verifies representative previous-version state,
+  records a preservation-marker hash, checks the candidate's registered version, and prompts for
+  additional resumable-work and credential-metadata continuity.
   The frozen package smoke now also creates a real WAV, converts it to FLAC through SPLICR's
   production Convert backend, renders it to MP4 through SPLICR's production Audiogram backend, and
   probes both outputs through the packaged FFprobe resolution path. A fresh `0.1.0-dev.17` candidate
@@ -1219,6 +1222,8 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   gate. It refuses elevated and previously used environments, binds the run to installer and
   portable hashes, checks per-user installation, Start-menu launch, instance reuse, private-service
   shutdown, Windows Settings uninstall, reinstall, preserved data, portable launch, and portable-tree
-  immutability, and emits credential-free JSON evidence. Its non-destructive `-ValidateOnly`
-  preflight passed against both dev.19 artifacts; the actual checklist still requires a disposable
-  standard-user Windows VM and human observations.
+  immutability, and emits credential-free schema-v2 JSON evidence. Distinct fresh and previous-
+  installer upgrade runs cannot overwrite each other's evidence. Non-destructive `-ValidateOnly`
+  preflight passed for fresh dev.19 and for a dev.18-to-dev.19 upgrade, binding all three package
+  hashes. Both actual scenarios still require reverted disposable standard-user Windows snapshots
+  and human observations.
