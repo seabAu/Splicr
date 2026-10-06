@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "inputs": [
+    {
+      "kind": "patch",
+      "stage": "scripts.d/50-onevpl.sh",
+      "purpose": "MinGW wcscpy_s and wcscat_s compatibility patch required by the pinned BtbN recipe",
+      "source_url": "https://github.com/intel/libvpl/pull/198.patch",
+      "upstream_commit": "9cb2dc5643480bde33909e11b0ec1ddeb6339f45",
+      "filename": "onevpl-pr-198.patch",
+      "sha256": "37cfec93ffd6cdc804d1aa576069d843db590c735165e50a058ad692103a8e26"
+    },
+    {
+      "kind": "source_archive",
+      "stages": [
+        "scripts.d/45-fonts/25-freetype.sh",
+        "scripts.d/45-fonts/50-freetype.sh"
+      ],
+      "purpose": "FreeType dlg submodule source omitted from the pinned primary source archive",
+      "source_url": "https://github.com/nyorain/dlg/tree/395ccad2c1e0daae535c4d20bb0a3f2424648e17",
+      "upstream_commit": "395ccad2c1e0daae535c4d20bb0a3f2424648e17",
+      "filename": "dlg-395ccad2c1e0daae535c4d20bb0a3f2424648e17.tar.gz",
+      "sha256": "263a4a3777d9839e34cd41db988310659e0c00eab37beb7aedd30511a460133b"
+    }
+  ]
+}

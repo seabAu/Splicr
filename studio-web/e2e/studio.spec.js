@@ -65,6 +65,24 @@ test("every Studio workspace renders without browser errors", async ({ page }) =
   expect(runtimeErrors).toEqual([]);
 });
 
+test("About and legal exposes attribution and fails closed without published source", async ({ page }) => {
+  const runtimeErrors = captureRuntimeErrors(page);
+
+  await page.getByRole("button", { name: "About & legal", exact: true }).click();
+
+  const dialog = page.getByRole("dialog", { name: "SPLICR Studio & legal" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("heading", { name: "FFmpeg attribution" })).toBeVisible();
+  await expect(dialog.getByText("Internal build: source archive not published")).toBeVisible();
+  await expect(dialog.getByRole("link", { name: "Third-party notices" })).toHaveAttribute(
+    "href",
+    "/v1/studio/legal/documents/third-party-notices",
+  );
+  await dialog.getByRole("button", { name: "Close about and legal information" }).click();
+  await expect(dialog).toBeHidden();
+  expect(runtimeErrors).toEqual([]);
+});
+
 test("Audiogram manages still backgrounds and previews alpha output", async ({ page }) => {
   const runtimeErrors = captureRuntimeErrors(page);
   const created = await page.request.post("/v1/speech/jobs", {

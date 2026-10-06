@@ -245,6 +245,7 @@ try {
     foreach ($RequiredPayload in @(
         $InstalledExecutable,
         (Join-Path $InternalDir "BUILD_INFO.txt"),
+        (Join-Path $InternalDir "LEGAL_INFO.json"),
         (Join-Path $InternalDir "THIRD_PARTY_NOTICES.md"),
         (Join-Path $FfmpegDir "ffmpeg.exe"),
         (Join-Path $FfmpegDir "ffprobe.exe"),
@@ -253,6 +254,21 @@ try {
     )) {
         Assert-Condition (Test-Path -LiteralPath $RequiredPayload -PathType Leaf) `
             "Installed package is missing: $RequiredPayload"
+    }
+    $LegalInfo = Get-Content -LiteralPath (Join-Path $InternalDir "LEGAL_INFO.json") -Raw |
+        ConvertFrom-Json
+    Assert-Condition ($LegalInfo.schema_version -eq 1) "Packaged legal metadata schema is unsupported"
+    Assert-Condition ($LegalInfo.application_version -eq $Version) `
+        "Packaged legal metadata version does not match the package version"
+    $HasSourceUrl = -not [string]::IsNullOrWhiteSpace($LegalInfo.corresponding_source_url)
+    $HasSourceSha = -not [string]::IsNullOrWhiteSpace($LegalInfo.corresponding_source_sha256)
+    Assert-Condition ($HasSourceUrl -eq $HasSourceSha) `
+        "Packaged corresponding-source URL and SHA-256 must be present together"
+    if ($HasSourceUrl) {
+        Assert-Condition ($LegalInfo.corresponding_source_url -match '^https://[^/]+/.+') `
+            "Packaged corresponding-source link must be a direct HTTPS URL"
+        Assert-Condition ($LegalInfo.corresponding_source_sha256 -match '^[0-9a-f]{64}$') `
+            "Packaged corresponding-source SHA-256 is invalid"
     }
     $ValidatedDependencyLicenses = @()
     foreach ($Record in $PackagedLicenseRecords) {
@@ -369,6 +385,7 @@ try {
         shared_ffmpeg_configuration = $true
         transitive_fftw_gpl_terms = $true
         dependency_license_files = $true
+        legal_attribution_metadata = $true
         openh264_h264_aac_mp4 = $true
         uninstall_removed_application = $true
         uninstall_preserved_user_data = $true

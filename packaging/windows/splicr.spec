@@ -15,6 +15,7 @@ datas = [
     (str(SOURCE / "splicr" / "engine_worker.py"), "splicr"),
     (str(ROOT / "packaging" / "windows" / "THIRD_PARTY_NOTICES.md"), "."),
     (str(ROOT / "packaging" / "windows" / "vendor" / "ffmpeg" / "BUILD_INFO.txt"), "."),
+    (str(ROOT / "packaging" / "windows" / "vendor" / "ffmpeg" / "LEGAL_INFO.json"), "."),
 ]
 packaged_license_manifest = ROOT / "packaging" / "windows" / "ffmpeg-packaged-license-files.tsv"
 packaged_license_names = []

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AudioLines,
   AlertTriangle,
@@ -21,6 +21,7 @@ import {
   Plus,
   RefreshCw,
   RotateCcw,
+  Scale,
   Search,
   Scissors,
   Settings2,
@@ -44,6 +45,7 @@ import { DialogueWorkspace } from "./DialogueWorkspace.jsx";
 import { formatCount, percent, statusLabel, textStats } from "./format.js";
 import { ErrorCenter, ProfileManager, ResourceManager } from "./StudioTools.jsx";
 import { LanguageWorkspace } from "./LanguageWorkspace.jsx";
+import { LegalCenter } from "./LegalCenter.jsx";
 import { PublishingWorkspace } from "./PublishingWorkspace.jsx";
 import { TimelineWorkspace } from "./TimelineWorkspace.jsx";
 import { VoiceStudio } from "./VoiceStudio.jsx";
@@ -121,7 +123,7 @@ function RangeControl({ label, values, value, onChange }) {
   );
 }
 
-function Shell({ active, onChange, collapsed, setCollapsed, onOpenErrors, unreadErrors, children }) {
+function Shell({ active, onChange, collapsed, setCollapsed, onOpenErrors, onOpenLegal, unreadErrors, children }) {
   return (
     <div className={`studio-shell${collapsed ? " nav-collapsed" : ""}`}>
       <aside className="studio-nav">
@@ -162,6 +164,7 @@ function Shell({ active, onChange, collapsed, setCollapsed, onOpenErrors, unread
         </nav>
         <div className="nav-footer">
           <button onClick={onOpenErrors} title="Open error center"><AlertTriangle size={17} />{!collapsed && <span>Errors</span>}{unreadErrors > 0 && <i>{unreadErrors > 99 ? "99+" : unreadErrors}</i>}</button>
+          <button onClick={onOpenLegal} title="About and legal information"><Scale size={17} />{!collapsed && <span>About &amp; legal</span>}</button>
           <a href="/" title="Open classic SPLICR"><RotateCcw size={17} />{!collapsed && "Classic UI"}</a>
           <a href="/auth/settings" title="Account settings"><CircleUserRound size={17} />{!collapsed && "Account"}</a>
         </div>
@@ -1056,13 +1059,16 @@ export default function App() {
   const [collapsed, setCollapsed] = useState(false);
   const [projectToLoad, setProjectToLoad] = useState(null);
   const [errorsOpen, setErrorsOpen] = useState(false);
+  const [legalOpen, setLegalOpen] = useState(false);
   const [unreadErrors, setUnreadErrors] = useState(0);
+  const openLegal = useCallback(() => setLegalOpen(true), []);
+  const closeLegal = useCallback(() => setLegalOpen(false), []);
   const openProject = (project) => {
     setProjectToLoad(project);
     setActive("narrate");
   };
   return (
-    <Shell active={active} onChange={setActive} collapsed={collapsed} setCollapsed={setCollapsed} onOpenErrors={() => setErrorsOpen(true)} unreadErrors={unreadErrors}>
+    <Shell active={active} onChange={setActive} collapsed={collapsed} setCollapsed={setCollapsed} onOpenErrors={() => setErrorsOpen(true)} onOpenLegal={openLegal} unreadErrors={unreadErrors}>
       <div hidden={active !== "narrate"}>
         <NarrateWorkspace active={active === "narrate"} projectToLoad={projectToLoad} />
       </div>
@@ -1077,6 +1083,7 @@ export default function App() {
       {active === "voices" && <VoiceStudio />}
       {active !== "narrate" && active !== "library" && active !== "dialogue" && active !== "timeline" && active !== "audiogram" && active !== "publish" && active !== "convert" && active !== "components" && active !== "pronunciation" && active !== "voices" && <WorkspacePlaceholder workspace={active} />}
       <ErrorCenter open={errorsOpen} onClose={() => setErrorsOpen(false)} onOpen={() => setErrorsOpen(true)} onUnreadChange={setUnreadErrors} />
+      <LegalCenter open={legalOpen} onClose={closeLegal} />
     </Shell>
   );
 }

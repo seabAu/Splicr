@@ -184,6 +184,7 @@ from .studio.finishing import (
     FinishingStore,
     InvalidFinishingJobStateError,
 )
+from .studio.legal import LegalAssets, LegalDocumentNotFoundError, LegalMetadataError
 from .studio.publishing import (
     ChapterCue,
     PodcastChannel,
@@ -2707,9 +2708,11 @@ def create_app(
     publishing_service: PublishingService | None = None,
     voice_design_service: VoiceDesignJobService | None = None,
     batch_queue_service: BatchQueueService | None = None,
+    legal_assets: LegalAssets | None = None,
 ) -> FastAPI:
     base_settings = settings or Settings.from_env()
     components = ComponentManager(base_settings)
+    legal = legal_assets or LegalAssets()
     resolved_settings = components.apply(base_settings)
     synthesis = service or create_service(resolved_settings)
     profiles = StudioProfileStore(resolved_settings.database_path)
@@ -2898,6 +2901,7 @@ def create_app(
     application.state.publishing_service = publishing
     application.state.voice_design_service = voice_designs
     application.state.component_manager = components
+    application.state.legal_assets = legal
     application.state.error_event_store = synthesis.store
     application.state.studio_store = studio
     application.state.text_customization_store = customizations
@@ -3746,6 +3750,29 @@ def create_app(
     async def list_components(response: Response) -> dict[str, Any]:
         response.headers["Cache-Control"] = "no-store"
         return await asyncio.to_thread(components.status, resolved_settings)
+
+    @application.get("/v1/studio/legal", tags=["studio"])
+    async def legal_info(response: Response) -> dict[str, Any]:
+        response.headers["Cache-Control"] = "no-store"
+        try:
+            return await asyncio.to_thread(legal.info)
+        except LegalMetadataError as error:
+            raise HTTPException(status_code=500, detail=str(error)) from error
+
+    @application.get("/v1/studio/legal/documents/{document_id}", tags=["studio"])
+    async def legal_document(document_id: str) -> Response:
+        try:
+            content, media_type = await asyncio.to_thread(legal.document, document_id)
+        except LegalDocumentNotFoundError as error:
+            raise HTTPException(status_code=404, detail="legal document not found") from error
+        return Response(
+            content=content,
+            media_type=media_type,
+            headers={
+                "Cache-Control": "no-store",
+                "Content-Disposition": f'inline; filename="{document_id}.txt"',
+            },
+        )
 
     @application.put("/v1/studio/components/engines/{engine_id}", tags=["studio"])
     async def configure_engine_component(

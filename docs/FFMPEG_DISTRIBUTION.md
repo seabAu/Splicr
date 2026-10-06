@@ -447,7 +447,11 @@ for that LGPL-only path without replacement.
 - [ ] Host the final corresponding-source archive on the same release/download server as the
   Windows binaries and preserve it for the required distribution period.
 - [ ] Put the required FFmpeg/LGPL attribution and direct source link on every public SPLICR download
-  page and in the application's About/legal surface.
+  page and in the application's About/legal surface. Studio now has a progressive-disclosure
+  **About & legal** modal backed by fixed read-only API routes. Packaged builds embed validated
+  `LEGAL_INFO.json`; internal builds fail closed with an explicit unpublished-source state, while a
+  reviewed public build can expose only an HTTPS source URL paired with its SHA-256. The checkbox
+  remains open until the final archive is hosted and that exact URL/digest is embedded and verified.
 - [ ] Confirm release terms do not prohibit reverse engineering for LGPL debugging/relinking.
 - [ ] Review codec patent/licensing implications separately; LGPL compliance does not answer patent
   questions.

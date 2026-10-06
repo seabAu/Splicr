@@ -39,7 +39,25 @@ installer. The fetcher pins the BtbN release tag, asset name, and SHA-256 digest
 URLs, applies only declared transport decoding, retries bounded transient failures, and rejects a
 hash mismatch. Generated vendor tools and build outputs are ignored by Git. Every package includes
 `THIRD_PARTY_NOTICES.md`, generated `BUILD_INFO.txt`, the FFmpeg `LICENSE.txt` and
-`SOURCE_INFO.txt`, and each manifest-listed dependency license beside the bundled media tools. The
+`SOURCE_INFO.txt`, generated `LEGAL_INFO.json`, and each manifest-listed dependency license beside
+the bundled media tools. Studio's **About & legal** modal reads those files through fixed,
+read-only API routes; it never exposes a local path. An internal build explicitly reports that no
+published corresponding-source archive is configured.
+
+Only after the final corresponding-source archive has passed review and been assigned its public
+HTTPS location, embed that direct link and the archive's independently computed SHA-256:
+
+```powershell
+.\packaging\windows\build.ps1 `
+  -Version 0.1.0 `
+  -FfmpegBin $ffmpegBin `
+  -CorrespondingSourceUrl "https://downloads.example/SPLICR-Studio-0.1.0-FFmpeg-source.zip" `
+  -CorrespondingSourceSha256 "<64 lowercase hexadecimal characters>"
+```
+
+The two corresponding-source arguments are all-or-nothing and the URL must be HTTPS without
+embedded credentials. Their presence makes the direct download and digest visible in the legal
+modal; it does not itself prove that the archive is complete. The
 build locates Inno Setup from `PATH` or its standard per-user and machine-wide installation
 directories, so installer builds do not require an administrator-only Inno installation.
 
@@ -102,10 +120,28 @@ every pinned source archive inside it. The kit also carries the exact 90-stage e
 recipe-pinned revision table, and raw source-fetch commands extracted from the BtbN generator.
 
 ```powershell
+.\packaging\windows\test-rebuild-ffmpeg-offline-dependencies.ps1
 .\packaging\windows\test-ffmpeg-source-graph.ps1
 .\packaging\windows\prepare-ffmpeg-source-audit.ps1 -Version 0.1.0
 .\packaging\windows\test-ffmpeg-source-audit.ps1 -Version 0.1.0
 ```
+
+For a collected rebuild workspace whose `repo` directory contains the generated BtbN Dockerfile
+and authenticated `.cache/downloads` archives, prepare and build the dependency image without
+network access with:
+
+```powershell
+.\packaging\windows\rebuild-ffmpeg-offline-dependencies.ps1 `
+  -RebuildWorkspace D:\splicr-ffmpeg-rebuild-podman
+```
+
+The helper leaves the preserved Dockerfile and archives unchanged. It embeds an LF-only executable
+stage runner into a derived Dockerfile and descends through a sole archive wrapper directory when
+present. It also verifies every entry in `ffmpeg-offline-build-inputs.json` by SHA-256, replaces
+the oneVPL recipe's live PR-patch fetch with the tracked local patch, and supplies FreeType's exact
+`dlg` submodule revision from the tracked source archive instead of cloning during the build.
+Dependency stages default to sequential execution because Podman 5.6.1 can panic while committing
+parallel Buildah stages; individual dependency build systems may still compile in parallel.
 
 The Linux/Docker source collector has a separate fail-closed license-candidate stage. After a
 partial or full collection, run `inventory-ffmpeg-source-licenses.sh` against its output, then run

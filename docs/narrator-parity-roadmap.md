@@ -1004,13 +1004,18 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
 - **Correspondence-build routing:** a fresh context at
   `/mnt/d/splicr-ffmpeg-rebuild-podman` revalidated and copied all 85 authenticated dependency
   archives plus the exact FFmpeg source (`9da21157f8f6c033c1445a6e69a0650d2bee8a7b669bd1eecb23d79c7fd1baf5`).
-  The generated 72-stage offline Dockerfile has SHA-256
-  `a04ed5a6f754037f0b32bd68e9651ef8197e7a1c9d8d5b1465b77f5adc4ec17d`. An isolated Podman build
-  completed the Ubuntu/toolchain package layer and compiled `cargo-c`, then its WSL container
-  storage remounted read-only during image commit and the Podman distribution subsequently failed
-  to start with `Wsl/Service/CreateInstance/E_FAIL`. Docker Desktop is stopped. Inputs and the full
-  failure log remain intact on `D:`; the next rebuild attempt requires host WSL/container-storage
-  recovery, not another source-collection pass.
+  The network-disabled build then proved and closed two upstream archive gaps: it applies a
+  checksum-pinned oneVPL patch locally and injects the exact omitted FreeType `dlg` submodule source
+  for both FreeType stages. Both passes succeeded and the build reached stage 70 before Podman's VHD
+  filled `D:` and remounted read-only. Orphaned Buildah containers and dangling images were pruned,
+  `fstrim` reclaimed the guest blocks, and the 1.83 GB source cache is preserved outside `D:`. All
+  WSL distributions are now stopped so the 130.939 GiB VHD can be compacted; the build resumes only
+  after host free space verifies that the compaction actually took effect.
+- **Attribution routing:** Studio now includes a progressive-disclosure **About & legal** modal and
+  fixed read-only legal-document API. Packaged builds generate `LEGAL_INFO.json`; unsafe,
+  credential-bearing, digest-less, and non-HTTPS source metadata fail closed. Internal builds state
+  that source is unpublished, while a reviewed public build can expose the exact archive URL and
+  SHA-256. Final hosted-archive publication and embedding remain open.
 - **Clean-VM routing:** the current workstation has no Windows Sandbox binary or Hyper-V,
   VirtualBox, VMware, or QEMU management CLI. The clean-VM matrix must run on a separate disposable
   Windows environment; local package-harness results are not a substitute.
@@ -1095,3 +1100,10 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   context on `D:` and generated the offline 72-stage dependency build. The independent Podman route
   reproduced the host's read-only container-storage failure after compiling its builder base,
   isolating the remaining rebuild blocker to WSL/container storage rather than source completeness.
+- **2026-10-06:** Added the Studio About/legal surface, safe legal-document API, generated package
+  metadata, frozen-route/package acceptance requirements, and browser coverage. The source link is
+  deliberately absent for internal builds and cannot be embedded without an HTTPS URL plus SHA-256;
+  the publication checkbox remains open until the rebuilt corresponding source is hosted. The same
+  working session closed the oneVPL and FreeType/dlg offline-source gaps and advanced the isolated
+  dependency rebuild to stage 70 before host-disk exhaustion; guest storage is trimmed and awaits
+  verified VHD compaction.

@@ -103,6 +103,7 @@ export const api = {
   batchAction: (id, action) =>
     request(`/v1/studio/batches/${encodeURIComponent(id)}/${action}`, { method: "POST" }),
   components: () => request("/v1/studio/components"),
+  legalInfo: () => request("/v1/studio/legal"),
   configureEngineComponent: (id, pythonPath) =>
     request(`/v1/studio/components/engines/${encodeURIComponent(id)}`, {
       method: "PUT",

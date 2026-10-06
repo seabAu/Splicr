@@ -118,6 +118,7 @@ jobs:
       - name: Prepare FFmpeg primary-source audit material
         shell: pwsh
         run: |
+          .\packaging\windows\test-rebuild-ffmpeg-offline-dependencies.ps1
           .\packaging\windows\test-ffmpeg-source-graph.ps1
           .\packaging\windows\prepare-ffmpeg-source-audit.ps1 `
             -Version "${{ steps.version.outputs.version }}"

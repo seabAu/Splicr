@@ -2,6 +2,8 @@
 param(
     [string]$Version = "0.1.0",
     [string]$FfmpegBin = "",
+    [string]$CorrespondingSourceUrl = "",
+    [string]$CorrespondingSourceSha256 = "",
     [switch]$SkipInstaller
 )
 
@@ -20,6 +22,21 @@ $Portable = Join-Path $Dist "SPLICR Studio"
 if ($Version -notmatch '^\d+\.\d+\.\d+([-.][0-9A-Za-z.-]+)?$') {
     throw "Version must look like 1.2.3 or 1.2.3-rc.1"
 }
+if ([bool]$CorrespondingSourceUrl -ne [bool]$CorrespondingSourceSha256) {
+    throw "CorrespondingSourceUrl and CorrespondingSourceSha256 must be provided together."
+}
+if ($CorrespondingSourceUrl) {
+    $ParsedSourceUrl = $null
+    if (-not [Uri]::TryCreate($CorrespondingSourceUrl, [UriKind]::Absolute, [ref]$ParsedSourceUrl) -or
+        $ParsedSourceUrl.Scheme -ne "https" -or -not $ParsedSourceUrl.Host -or
+        -not [string]::IsNullOrEmpty($ParsedSourceUrl.UserInfo)) {
+        throw "CorrespondingSourceUrl must be an HTTPS URL without embedded credentials."
+    }
+    if ($CorrespondingSourceSha256 -notmatch '^[0-9a-fA-F]{64}$') {
+        throw "CorrespondingSourceSha256 must be a 64-character SHA-256 digest."
+    }
+    $CorrespondingSourceSha256 = $CorrespondingSourceSha256.ToLowerInvariant()
+}
 
 Push-Location $Root
 try {
@@ -31,7 +48,7 @@ try {
     New-Item -ItemType Directory -Force -Path $VendorBin | Out-Null
     Get-ChildItem -LiteralPath $VendorBin -File -ErrorAction SilentlyContinue | Remove-Item -Force
     $VendorMetadataRoot = Split-Path $VendorBin -Parent
-    $MetadataNames = @("LICENSE.txt", "SOURCE_INFO.txt") + $RequiredMetadataNames
+    $MetadataNames = @("LICENSE.txt", "SOURCE_INFO.txt", "LEGAL_INFO.json") + $RequiredMetadataNames
     foreach ($Metadata in $MetadataNames) {
         $StaleMetadata = Join-Path $VendorMetadataRoot $Metadata
         if (Test-Path -LiteralPath $StaleMetadata) {
@@ -85,6 +102,16 @@ try {
         "FFprobe:"
         $FfprobeInfo
     ) | Set-Content -LiteralPath (Join-Path (Split-Path $VendorBin -Parent) "BUILD_INFO.txt") -Encoding UTF8
+    $LegalInfo = [ordered]@{
+        schema_version = 1
+        application_version = $Version
+        ffmpeg_effective_license = "GPL-covered (FFTW3 statically incorporated through Chromaprint)"
+        corresponding_source_url = $(if ($CorrespondingSourceUrl) { $CorrespondingSourceUrl } else { $null })
+        corresponding_source_sha256 = $(if ($CorrespondingSourceSha256) { $CorrespondingSourceSha256 } else { $null })
+    }
+    $LegalInfo | ConvertTo-Json -Depth 3 | Set-Content `
+        -LiteralPath (Join-Path (Split-Path $VendorBin -Parent) "LEGAL_INFO.json") `
+        -Encoding UTF8
 
     & uv.exe run --with "pyinstaller==6.16.0" pyinstaller --noconfirm --clean `
         (Join-Path $PSScriptRoot "splicr.spec")

@@ -241,7 +241,13 @@ def package_smoke_test() -> int:
 
     application = create_app()
     route_paths = {route.path for route in application.routes}
-    required_routes = {"/health", "/studio/", "/v1/studio/components"}
+    required_routes = {
+        "/health",
+        "/studio/",
+        "/v1/studio/components",
+        "/v1/studio/legal",
+        "/v1/studio/legal/documents/{document_id}",
+    }
     missing = required_routes - route_paths
     if missing:
         raise RuntimeError(f"packaged app is missing routes: {sorted(missing)}")
@@ -298,9 +304,7 @@ def main() -> None:
     if arguments == ["--package-smoke-test"]:
         raise SystemExit(package_smoke_test())
     if arguments not in ([], ["--no-browser"]):
-        raise SystemExit(
-            "usage: SPLICR Studio.exe [--no-browser | --package-smoke-test]"
-        )
+        raise SystemExit("usage: SPLICR Studio.exe [--no-browser | --package-smoke-test]")
     raise SystemExit(run_desktop(open_browser=arguments != ["--no-browser"]))
 
 
