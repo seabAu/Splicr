@@ -12,6 +12,12 @@ work, not silently forgotten controls.
 
 Current conclusion:
 
+- A 2026-10-06 completion audit reconciled all 26 preserved Narrator render fields and all 10
+  broader native capabilities: 36 entries are `covered` or `intentional_replacement`, with zero
+  `partial` or `gap` entries. `tests/test_ui_control_parity.py` passes against the preserved source
+  schema and this manifest. Human audible-seam and clean-Windows evidence remain release acceptance
+  work, not hidden UI-control gaps.
+
 - Core engine, voice, delivery, profile, conversion, video, publishing, and project controls are
   represented in Studio.
 - Advanced audiogram parity is covered behind progressive disclosure: managed still-image and

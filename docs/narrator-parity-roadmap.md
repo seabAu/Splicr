@@ -1232,3 +1232,8 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   records completed Gemini/Deepgram/Inworld live contracts; and accurately retains the unsigned,
   clean-VM, malware, audible-seam, application-license, source-hosting, effective-GPL, and H.264/AAC
   licensing gates. Actual release-note publication remains tied to the future public release.
+- **2026-10-06:** Re-ran the canonical capability-parity audit against Narrator's preserved source
+  schema. All 26 legacy render fields and 10 broader native capabilities are covered or documented
+  intentional replacements; no `partial` or `gap` entries remain. The focused manifest/source test
+  passes. The still-open audible-seam and clean-Windows items are acceptance evidence, while the
+  later feature ideas remain explicitly deferred rather than parity requirements.
