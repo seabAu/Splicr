@@ -481,8 +481,11 @@ sequence, cancellation cleanup, deterministic archives, API validation, and the 
   product name explicitly. A subsequent dev.16-to-dev.17 run exposed two obsolete content-hashed web
   assets retained during upgrade. Commit `212549b` removes only the application-owned Studio assets
   before replacement, and the final run passed exact upgraded-payload parity plus byte-identical
-  preservation of external data created by dev.16. Representative-state migration from an older
-  package and interactive evidence on a genuinely clean VM remain open.
+  preservation of external data created by dev.16. A subsequent dev.17-to-dev.18 run required the
+  installed dev.17 executable to seed the completed job, media, Library project, plan/take/artifact,
+  voice profile, and Studio profile. Dev.18 preserved and semantically reopened that exact state;
+  its acceptance evidence records `representative_state_origin: previous_package` and all 22 checks
+  true. Only interactive evidence on a genuinely clean VM remains open for this checklist item.
 - [x] Verify Chromium acceptance in GitHub Actions and retain failure traces/screenshots/video. The
   workflow runs for pull requests, `main`, `codex/**` integration branches, and release tags. Failed
   run `36664605914` published assertion annotations and retained a 19 MB Playwright diagnostics
@@ -1177,3 +1180,11 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   permitted the fixed `source-map-js@1.2.2`, so only the transitive lock entry changed. A clean
   install and high-severity audit now report zero vulnerabilities; all eight frontend unit tests and
   the production build pass with unchanged emitted asset names.
+- **2026-10-06:** Closed the automated previous-package representative-state gate with a real
+  dev.17-to-dev.18 upgrade. Dev.17's frozen executable created all seven representative entities and
+  three hash-bound files; dev.18 preserved, migrated, and semantically reopened that exact fixture.
+  Its acceptance JSON records `representative_state_origin: previous_package`, all 22 checks true,
+  portable SHA-256 `996187a4c3b3013e26e9bb00d002bc6ef14a5127a3f7c38b296e8f09d9748de7`,
+  and installer SHA-256 `0bc20df605207a2698da3b8b301d4661db971d4641ec88d351afbe19b84040a3`.
+  The Windows milestone now awaits only interactive lifecycle/browser evidence from a genuinely
+  clean VM.
