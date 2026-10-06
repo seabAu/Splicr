@@ -10,6 +10,7 @@ AppId={{D39B3DFC-EA2E-4BE8-96EC-14D11D67D63C}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher=SGB
+UninstallDisplayName={#MyAppName}
 DefaultDirName={localappdata}\Programs\SPLICR Studio
 DefaultGroupName=SPLICR Studio
 DisableProgramGroupPage=yes
