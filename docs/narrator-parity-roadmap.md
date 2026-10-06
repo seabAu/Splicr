@@ -470,7 +470,16 @@ sequence, cancellation cleanup, deterministic archives, API validation, and the 
   credentials migration, Windows Settings, and a genuinely clean VM remain manual release evidence.
   The frozen package smoke now also creates a real WAV, converts it to FLAC through SPLICR's
   production Convert backend, renders it to MP4 through SPLICR's production Audiogram backend, and
-  probes both outputs through the packaged FFprobe resolution path.
+  probes both outputs through the packaged FFprobe resolution path. A fresh `0.1.0-dev.17` candidate
+  passed the full automated lifecycle harness on a Windows development workstation on 2026-10-06.
+  The portable package ran from a Unicode path with spaces without mutating its tree, the installer
+  matched the portable payload exactly, both install passes registered the Start-menu shortcut and
+  Windows uninstall entry, and both uninstall passes removed them while preserving external data.
+  The frozen executable also ran the real media smoke, then seeded and semantically reopened all
+  seven representative entities plus three hash-bound files across uninstall/reinstall. An older
+  candidate exposed Inno Setup's version-suffixed default display name; `ff21f23` now sets the stable
+  product name explicitly. Previous-version migration and interactive evidence on a genuinely clean
+  VM remain open.
 - [x] Verify Chromium acceptance in GitHub Actions and retain failure traces/screenshots/video. The
   workflow runs for pull requests, `main`, `codex/**` integration branches, and release tags. Failed
   run `36664605914` published assertion annotations and retained a 19 MB Playwright diagnostics
@@ -1149,3 +1158,12 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   media execution. It now generates a WAV, converts it to FLAC through `FfmpegAudioConverter`,
   renders an MP4 through `FfmpegAudiogramRenderer`, and probes both outputs with the packaged
   FFprobe path, without relying on a globally installed media tool.
+- **2026-10-06:** Built and accepted the complete `0.1.0-dev.17` Windows candidate on the development
+  workstation. Portable: 185,126,610 bytes and SHA-256
+  `a624de2a5ac5c90f7128c1915237558f606edea6151331bb6d717f0e50691566`; installer: 120,230,726 bytes
+  and SHA-256 `c1c79d7638b81080fca23f2041fd71961c8961ba310bc2de3aefd104d2f1493d`. The lifecycle harness
+  passed portable immutability, exact installed-payload parity, bundle-only media resolution, real
+  conversion/audiogram execution, shell registration and cleanup, representative-state preservation,
+  semantic reopening after reinstall, and a second uninstall. The first run caught Inno Setup's
+  version-suffixed default uninstall display name; `ff21f23` fixed the product metadata before the
+  passing rebuild. Previous-version migration and interactive clean-VM evidence remain outstanding.
