@@ -256,16 +256,21 @@ if $plan_only; then
     exit 0
 fi
 
-if [[ "$pending_stage_count" -gt 0 && "$minimum_free_kib" -gt 0 ]]; then
-    require_free_space "$output_root" "output filesystem"
-fi
-command -v docker >/dev/null 2>&1 || { echo "Docker is required for source collection" >&2; exit 1; }
 mkdir -p "$output_root/stages"
 
-work_root="$(mktemp -d)"
-trap 'rm -rf -- "$work_root"' EXIT
-worker_path="$work_root/collect-stage-sources.sh"
-cat > "$worker_path" <<'WORKER'
+if [[ "$pending_stage_count" -gt 0 ]]; then
+    if [[ "$minimum_free_kib" -gt 0 ]]; then
+        require_free_space "$output_root" "output filesystem"
+    fi
+    command -v docker >/dev/null 2>&1 || {
+        echo "Docker is required when source archives are missing or invalid" >&2
+        exit 1
+    }
+
+    work_root="$(mktemp -d)"
+    trap 'rm -rf -- "$work_root"' EXIT
+    worker_path="$work_root/collect-stage-sources.sh"
+    cat > "$worker_path" <<'WORKER'
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -356,22 +361,23 @@ while IFS=$'\t' read -r stage slug expected_sha archive_name precise_updates exp
     )
 done < /output/.collector-run-plan.tsv
 WORKER
-chmod +x "$worker_path"
-cp "$archive_validator" "$work_root/validate-ffmpeg-collected-archive.sh"
-chmod +x "$work_root/validate-ffmpeg-collected-archive.sh"
+    chmod +x "$worker_path"
+    cp "$archive_validator" "$work_root/validate-ffmpeg-collected-archive.sh"
+    chmod +x "$work_root/validate-ffmpeg-collected-archive.sh"
 
-uid_args=()
-if ! docker info -f '{{println .SecurityOptions}}' 2>/dev/null | grep -q rootless; then
-    uid_args=(-u "$(id -u):$(id -g)")
+    uid_args=()
+    if ! docker info -f '{{println .SecurityOptions}}' 2>/dev/null | grep -q rootless; then
+        uid_args=(-u "$(id -u):$(id -g)")
+    fi
+
+    docker run --rm "${uid_args[@]}" \
+        -e "SPLICR_MIN_FREE_KIB=$minimum_free_kib" \
+        -v "$btbn_root:/btbn:ro" \
+        -v "$output_root:/output" \
+        -v "$work_root:/collector:ro" \
+        "$runner_image" \
+        bash /collector/collect-stage-sources.sh
 fi
-
-docker run --rm "${uid_args[@]}" \
-    -e "SPLICR_MIN_FREE_KIB=$minimum_free_kib" \
-    -v "$btbn_root:/btbn:ro" \
-    -v "$output_root:/output" \
-    -v "$work_root:/collector:ro" \
-    "$runner_image" \
-    bash /collector/collect-stage-sources.sh
 
 manifest_path="$output_root/collection-manifest.tsv"
 checksums_path="$output_root/COLLECTION-SHA256SUMS.txt"

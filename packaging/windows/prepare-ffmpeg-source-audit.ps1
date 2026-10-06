@@ -86,10 +86,16 @@ Assert-Condition (Test-Path -LiteralPath $GraphPath -PathType Container) `
 & (Join-Path $PSScriptRoot "test-ffmpeg-source-graph.ps1") -GraphDirectory $GraphPath | Out-Null
 
 $Lock = Get-Content -Raw -LiteralPath $LockPath | ConvertFrom-Json
-Assert-Condition ($Lock.completeness.corresponding_source_complete -eq $false) `
-    "Audit kit must not claim complete corresponding source"
 Assert-Condition ($Lock.completeness.public_release_gate_satisfied -eq $false) `
     "Audit kit must not claim the public release gate is satisfied"
+$AuditCompleteness = [ordered]@{
+    primary_sources_pinned = $Lock.completeness.primary_sources_pinned
+    build_recipe_pinned = $Lock.completeness.build_recipe_pinned
+    enabled_external_dependency_graph_generated = $Lock.completeness.enabled_external_dependency_graph_generated
+    all_enabled_external_dependency_sources_included = $false
+    corresponding_source_complete = $false
+    public_release_gate_satisfied = $false
+}
 
 $BuildInfo = Get-Content -Raw -LiteralPath $BuildInfoPath
 foreach ($Token in @(
@@ -142,7 +148,7 @@ try {
         binary = $Lock.binary
         primary_source_archives = $Lock.primary_source_archives
         dependency_graph = $Lock.dependency_graph
-        completeness = $Lock.completeness
+        completeness = $AuditCompleteness
     }
     $Manifest | ConvertTo-Json -Depth 10 | Set-Content `
         -LiteralPath (Join-Path $KitRoot "SOURCE_MANIFEST.json") -Encoding UTF8

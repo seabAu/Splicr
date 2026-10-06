@@ -1013,7 +1013,13 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   replaced the stale pre-Cargo-supplement rav1e archive; the corrected full-graph archive has SHA-256
   `766c883866747d2a3ce1f6202ed3f19da5f72fa397e399a8d4568dc8c821d2b0`. The legal totals are 441
   shipped licenses, 69 supplemental notices, 1,001 not-built candidates, and 173 build-only/not-
-  shipped candidates. Correspondence/rebuild verification and final source publication remain open.
+  shipped candidates.
+- [x] 2026-10-06 — The exact collected graph completed a network-disabled correspondence rebuild.
+  All 73 dependency-image stages and the final compiler container succeeded; the rebuilt archive
+  SHA-256 is `2f9a6bd40c556807871e5cc0d647965c94442757c404cd32f48b0e1770e1ec83`. Toolchain,
+  configure arguments, library ABI versions, WAV output, and OpenH264/AAC MP4 output match the
+  distributed contract. The canonical 85-archive collection and all 1,684 reviewed candidates pass,
+  and the checksummed corresponding-source candidate validates with publication deliberately open.
 - [x] Earlier merger baseline — real FFmpeg conversion/audiogram smoke and frozen Windows package
   smoke passed; see the repository history and linked architecture/handover documents.
 
@@ -1021,24 +1027,23 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
 
 - **Active milestone:** Milestone 9 — real-world acceptance and release hardening, including the
   remaining Milestones 2/3/5/7 live-environment evidence.
-- **Next implementation slice:** perform correspondence/rebuild verification for the now-complete
-  collected FFmpeg source graph, then publish the final source archive and attribution link in
+- **Next implementation slice:** finish the human Edge seam audition and clean-Windows interactive
+  matrix, then complete public hosting, attribution, release-terms, and patent review for the
+  validated FFmpeg corresponding-source candidate in
   `docs/FFMPEG_DISTRIBUTION.md`, while preserving the remaining credential and clean-VM checks in
   `docs/RELEASE_CHECKLIST.md`. All 92 source locators now have reviewed dispositions or validated
   aliases, and the current artifacts pass both the PowerShell 7 lifecycle harness and exact-commit
   hosted-browser acceptance. The Gemini and Deepgram live contracts now pass; the clean-VM matrix,
-  complete FFmpeg corresponding-source/compliance publication, malware evidence, and audible
+  FFmpeg corresponding-source publication/compliance, malware evidence, and audible
   sentence-seam acceptance remain. The unsigned development-candidate disposition is now recorded.
 - **Correspondence-build routing:** a fresh context at
   `/mnt/d/splicr-ffmpeg-rebuild-podman` revalidated and copied all 85 authenticated dependency
   archives plus the exact FFmpeg source (`9da21157f8f6c033c1445a6e69a0650d2bee8a7b669bd1eecb23d79c7fd1baf5`).
-  The network-disabled build then proved and closed two upstream archive gaps: it applies a
-  checksum-pinned oneVPL patch locally and injects the exact omitted FreeType `dlg` submodule source
-  for both FreeType stages. Both passes succeeded and the build reached stage 70 before Podman's VHD
-  filled `D:` and remounted read-only. Orphaned Buildah containers and dangling images were pruned,
-  `fstrim` reclaimed the guest blocks, and the 1.83 GB source cache is preserved outside `D:`. All
-  WSL distributions are now stopped so the 130.939 GiB VHD can be compacted; the build resumes only
-  after host free space verifies that the compaction actually took effect.
+  `fstrim` plus WSL compaction reduced the Podman VHD from 130.939 GiB to 16.796 GiB. The subsequent
+  network-disabled build completed all 73 dependency-image stages and the final FFmpeg compiler
+  container. The 1.83 GiB cache, prepared Dockerfile, exact patch set, logs, rebuilt binary, and two
+  smoke outputs are hash-pinned; the complete source candidate is retained on `D:` and passes its
+  outer checksum validator.
 - **Attribution routing:** Studio now includes a progressive-disclosure **About & legal** modal and
   fixed read-only legal-document API. Packaged builds generate `LEGAL_INFO.json`; unsafe,
   credential-bearing, digest-less, and non-HTTPS source metadata fail closed. Internal builds state

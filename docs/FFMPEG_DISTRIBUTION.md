@@ -55,8 +55,9 @@ for that LGPL-only path without replacement.
 - [x] `collect-ffmpeg-source-graph.sh` verifies each selected recipe's generated fetch command
   against that graph and plans or collects resumable, normalized per-stage archives with the
   BtbN downloader image pinned by digest. `test-ffmpeg-source-collector.sh` covers the complete
-  90-stage plan, one-stage selection, unknown-stage rejection, and recipe-tamper rejection. This is
-  collection machinery, not evidence that the full collection has run.
+  90-stage plan, one-stage selection, unknown-stage rejection, recipe-tamper rejection, and cached
+  collection without Docker. The completed collection contains all 85 source-bearing archives and
+  all five no-external-source stages; its 87 emitted checksum records verify.
 - [x] A real single-stage acceptance run pulled that exact image digest, fetched OpenH264 commit
   `8b2d28faade10d74d99ac80e199aef664c9c5a3b`, produced a valid 118,568,280-byte archive with
   `LICENSE` and the expected detached Git `HEAD`, passed every emitted checksum, retained both
@@ -438,12 +439,19 @@ for that LGPL-only path without replacement.
   recipe-pinned revision.
 - [x] Record the applicable license and notice for every enabled dependency, including libraries
   statically incorporated into FFmpeg's shared DLLs.
-- [ ] Rebuild from the archived sources or otherwise verify that the source set and instructions
-  correspond to the distributed binaries. Record any BtbN-applied patches as `changes.diff` or
-  equivalent patch files.
+- [x] Rebuild from the archived sources and verify that the source set and instructions correspond
+  to the distributed binaries. The 73-stage dependency image and final compiler container ran with
+  networking disabled. The rebuilt archive is 76,916,408 bytes with SHA-256
+  `2f9a6bd40c556807871e5cc0d647965c94442757c404cd32f48b0e1770e1ec83`; it uses the same GCC
+  16.2.0/crosstool-NG toolchain, configure arguments, and library ABI versions as the distributed
+  bundle. Rebuilt FFmpeg/FFprobe produced and probed canonical WAV and OpenH264/AAC MP4 smoke
+  outputs. `ffmpeg-correspondence-evidence.json` pins the prepared Dockerfile, both build logs,
+  rebuilt artifact, smoke outputs, and all five applied patch files by SHA-256.
 - [ ] Produce the final archive only after its manifest sets
   `all_enabled_external_dependency_sources_included`, `corresponding_source_complete`, and
-  `public_release_gate_satisfied` to true following review.
+  `public_release_gate_satisfied` to true following review. A fully checksummed candidate directory
+  now passes `test-ffmpeg-corresponding-source.ps1` with the first two flags true and the public
+  release flag deliberately false; do not rename or publish it as the final archive yet.
 - [ ] Host the final corresponding-source archive on the same release/download server as the
   Windows binaries and preserve it for the required distribution period.
 - [ ] Put the required FFmpeg/LGPL attribution and direct source link on every public SPLICR download
@@ -479,7 +487,8 @@ that full shared-DLL rebuild is the relinking path for the statically incorporat
 
 This record closes the librsvg-specific source and relinking analysis. It does not claim that the
 current primary-source audit ZIP is complete corresponding source for the entire 92-locator bundle;
-the final full-graph collection, rebuild, and publication gates above remain open.
+the newer full-graph candidate supersedes that audit ZIP, while publication and public-release gates
+above remain open.
 
 ## rav1e corresponding-source and relinking record
 
@@ -502,8 +511,9 @@ A recipient may modify or replace the collected rav1e/Cargo sources before those
 the resulting normally named FFmpeg DLLs; rebuilding the shared DLL set is the relinking path for the
 statically incorporated rav1e component.
 
-This closes the rav1e-specific source and relinking analysis. Full-graph collection, correspondence
-rebuild verification, archive publication, and download-page attribution remain release gates.
+This closes the rav1e-specific source and relinking analysis. Full-graph collection and the
+correspondence rebuild now pass; archive publication and download-page attribution remain release
+gates.
 
 ## Current audit-only kit
 
@@ -575,6 +585,27 @@ undocumented reviews. Pass a generated `license-candidate-inventory.tsv` as the 
 optional input to require an exact reviewed disposition for every detected candidate. A disposition
 may identify a shipped license or document, with recipe evidence, that a source subtree is not
 built. It does not claim that a filename search found every applicable term.
+
+After the full collection and correspondence rebuild are complete, materialize and validate a
+publication-pending source candidate with PowerShell 7:
+
+```powershell
+.\packaging\windows\prepare-ffmpeg-corresponding-source.ps1 `
+  -Version 0.1.0-dev.18 `
+  -CollectionRoot D:\splicr-ffmpeg-corresponding-source `
+  -PrimarySourceDirectory .\.test-runs\ffmpeg-source-audit `
+  -RebuildWorkspace D:\splicr-ffmpeg-rebuild-podman `
+  -OutputDirectory D:\SPLICR-Studio-0.1.0-dev.18-FFmpeg-corresponding-source-candidate `
+  -UseHardLinks
+
+.\packaging\windows\test-ffmpeg-corresponding-source.ps1 `
+  -BundleDirectory D:\SPLICR-Studio-0.1.0-dev.18-FFmpeg-corresponding-source-candidate
+```
+
+The preparer verifies the exact collection, 1,684-candidate inventory and tracked review hashes,
+primary sources, offline build inputs/logs, smoke outputs, and patch set before setting
+`corresponding_source_complete=true`. It always leaves `public_release_gate_satisfied=false`; the
+final archive is created only after hosting, attribution, release-terms, and patent review.
 
 Primary references:
 

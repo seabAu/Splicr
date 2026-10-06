@@ -48,8 +48,8 @@
     "primary_sources_pinned": true,
     "build_recipe_pinned": true,
     "enabled_external_dependency_graph_generated": true,
-    "all_enabled_external_dependency_sources_included": false,
-    "corresponding_source_complete": false,
+    "all_enabled_external_dependency_sources_included": true,
+    "corresponding_source_complete": true,
     "public_release_gate_satisfied": false
   }
 }

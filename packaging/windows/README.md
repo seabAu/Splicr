@@ -160,6 +160,27 @@ the oneVPL recipe's live PR-patch fetch with the tracked local patch, and suppli
 Dependency stages default to sequential execution because Podman 5.6.1 can panic while committing
 parallel Buildah stages; individual dependency build systems may still compile in parallel.
 
+Once the full collection, candidate inventory, and network-disabled rebuild match the pinned
+evidence, create the publication-pending corresponding-source directory with:
+
+```powershell
+.\packaging\windows\prepare-ffmpeg-corresponding-source.ps1 `
+  -Version 0.1.0-dev.18 `
+  -CollectionRoot D:\splicr-ffmpeg-corresponding-source `
+  -PrimarySourceDirectory .\.test-runs\ffmpeg-source-audit `
+  -RebuildWorkspace D:\splicr-ffmpeg-rebuild-podman `
+  -OutputDirectory D:\SPLICR-Studio-0.1.0-dev.18-FFmpeg-corresponding-source-candidate `
+  -UseHardLinks
+
+.\packaging\windows\test-ffmpeg-corresponding-source.ps1 `
+  -BundleDirectory D:\SPLICR-Studio-0.1.0-dev.18-FFmpeg-corresponding-source-candidate
+```
+
+Hard links are optional and only avoid duplicating the large archive bytes on the same volume. The
+output manifest records complete collected source and verified correspondence while keeping the
+public-release flag false. Archive and publish it only after the remaining release gates in
+`FFMPEG_DISTRIBUTION.md` are satisfied.
+
 The Linux/Docker source collector has a separate fail-closed license-candidate stage. After a
 partial or full collection, run `inventory-ffmpeg-source-licenses.sh` against its output, then run
 `test-ffmpeg-source-license-inventory.sh` and `test-ffmpeg-source-license-review.sh`. Generated
@@ -216,8 +237,9 @@ reviewed disposition. Inventory extraction resolves only bounded, relative, in-a
 symlinks and rejects escaping, absolute, cyclic, ambiguous, or over-deep links. Repeated `--stage`
 selections permit ordered bounded batches, with a 12 GiB
 default reserve guarding both host output and collector workspace filesystems. Successful fetches
-stay quiet while failures retain and print a bounded diagnostic log. Full-graph and codec patent
-review remain incomplete.
+stay quiet while failures retain and print a bounded diagnostic log. The full-graph source and
+correspondence rebuild are complete. Codec patent review, public hosting, release-page/application
+attribution, and final release-terms review remain incomplete.
 
 See [`../../docs/FFMPEG_DISTRIBUTION.md`](../../docs/FFMPEG_DISTRIBUTION.md) for the exact binary
 identity, upstream checklist mapping, and remaining corresponding-source/publication gates. The

@@ -100,6 +100,31 @@ partial_count="$(($(wc -l < "$partial_output/collection-plan.tsv") - 1))"
 grep -Fq 'Scope: single-stage' "$partial_output/COLLECTION_INFO.txt"
 grep -Fq $'scripts.d/50-openh264.sh\t' "$partial_output/collection-plan.tsv"
 
+cached_output="$work_root/cached"
+bash "$collector" "$btbn_root" "$cached_output" \
+    --stage scripts.d/50-openh264.sh --plan-only >/dev/null
+cached_archive_name="$(sed -n '2p' "$cached_output/collection-plan.tsv" | cut -f4)"
+mkdir -p "$cached_output/stages" "$work_root/no-docker"
+tar -C "$unsupplemented_fixture" -I 'xz -T1' \
+    -cpf "$cached_output/stages/$cached_archive_name" .
+cat > "$work_root/no-docker/docker" <<EOF
+#!/usr/bin/env bash
+touch "$work_root/docker-was-called"
+exit 99
+EOF
+chmod +x "$work_root/no-docker/docker"
+PATH="$work_root/no-docker:$PATH" \
+    bash "$collector" "$btbn_root" "$cached_output" \
+        --stage scripts.d/50-openh264.sh >/dev/null
+[[ ! -e "$work_root/docker-was-called" ]] || {
+    echo "Collector invoked Docker even though every selected archive was already valid" >&2
+    exit 1
+}
+grep -Fq 'State: sources-collected-unreviewed' "$cached_output/COLLECTION_INFO.txt"
+grep -Fq 'Pending source-bearing stage count: 0' "$cached_output/COLLECTION_INFO.txt"
+grep -Fq $'scripts.d/50-openh264.sh\t' "$cached_output/collection-manifest.tsv"
+[[ "$(wc -l < "$cached_output/COLLECTION-SHA256SUMS.txt")" -eq 3 ]]
+
 batch_output="$work_root/batch"
 bash "$collector" "$btbn_root" "$batch_output" \
     --stage scripts.d/25-libogg.sh \

@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "verified_at": "2026-10-06",
+  "source_commit": "a5923073bfd8f25b7300d93af3f8e690174ebd30",
+  "dependency_recipe_commit": "20ad148c3b69a862b061eb7e6cc7b61d896bcfef",
+  "dependency_image": {
+    "tag": "ghcr.io/btbn/ffmpeg-builds/win64-lgpl-shared-9.0:latest",
+    "image_id": "74fffdb46b837bc846205d8d577ffff0c9e6d120c4c13c2eebce248769ef3f2d"
+  },
+  "build_environment": {
+    "host": "Windows 10.0.19045",
+    "builder": "Podman WSL machine",
+    "target": "win64",
+    "variant": "lgpl-shared",
+    "addin": "9.0",
+    "compiler": "GCC 16.2.0 / crosstool-NG 1.29.0.7_b1a94f6",
+    "network_policy": "Both the 73-stage dependency image build and the final compiler container ran with network disabled. The final compiler container reported 0B / 0B network I/O."
+  },
+  "validated_collection": {
+    "enabled_stage_count": 90,
+    "source_bearing_stage_count": 85,
+    "source_locator_count": 92,
+    "reviewed_candidate_count": 1684,
+    "collection_manifest_sha256": "4110b08e859f699dd9d870c8c82f332a04a81fcd9ecb9d3e88c9557fb0c81c46",
+    "collection_plan_sha256": "0d2bc0b3554602acbce6427bf9cb06d28bd3a8ca734e5a378c178dcd806fd706",
+    "collection_checksums_sha256": "0eaab39e9e820c73a91b75f2f1cdd80fc018fc9161ff6edcdfc8cb286e5f9020",
+    "candidate_inventory_sha256": "5f68c410859566cdb00e155c322f5ff2f6323fe63ddb40fa13142416acb3f4b2",
+    "license_review_sha256": "e611ed469d5d83fc16c5f336d17f3c64eb210dbf170cd7a5e443132d7bdbbd49",
+    "third_party_notices_sha256": "72a8044af7447f3a8ba6ec1d064ca0cb4803568483d491bc933fc6275a702aac",
+    "review_validator_sha256": "36b35f95a538a2a68fa8be590f70af5356d0dc2704a1cf569bfae0e93ddbf5c9",
+    "source_locator_aliases_sha256": "03bea5592926a8c93a385544c18054b2e3bb465d603a60f47e476543e9da786a",
+    "packaged_license_files_sha256": "5455d40ae9cc4950208411335dcbe41984c01c8780cb6348fccb5d97b7353a24",
+    "packaged_license_companions_sha256": "5f24375810b170f4533d51042f6907818bbe8814fbdc06ff807baa597d2efaca"
+  },
+  "files": [
+    {
+      "relative_path": "Dockerfile.offline.prepared",
+      "size_bytes": 46684,
+      "sha256": "a49a63b493d0ac31d6a4894a83ed109ced2d9769960b05bfa234c2f91a1ef8cf",
+      "include_in_source_bundle": true
+    },
+    {
+      "relative_path": "podman-offline-dependencies.log",
+      "size_bytes": 8148135,
+      "sha256": "cd61f64fa750fbebb9fc99207d7c928c4bb17cb08eef7012b2513c70d4996686",
+      "include_in_source_bundle": true
+    },
+    {
+      "relative_path": "ffmpeg-offline-binary.log",
+      "size_bytes": 11615040,
+      "sha256": "9e4d89b6e4cdfada5706cbf35739a597bea2d45cb7c9ce03fcfa1fb21bca54e5",
+      "include_in_source_bundle": true
+    },
+    {
+      "relative_path": "repo/artifacts/ffmpeg-9.0.2-win64-lgpl-shared-9.0.zip",
+      "size_bytes": 76916408,
+      "sha256": "2f9a6bd40c556807871e5cc0d647965c94442757c404cd32f48b0e1770e1ec83",
+      "include_in_source_bundle": false
+    },
+    {
+      "relative_path": "rebuilt-smoke.wav",
+      "size_bytes": 48078,
+      "sha256": "3fc673b6c6a6d2a6bcc3c67ab2dc689fcc39bf15e3022383f92345612938d895",
+      "include_in_source_bundle": true
+    },
+    {
+      "relative_path": "rebuilt-smoke.mp4",
+      "size_bytes": 15286,
+      "sha256": "53257453102aad67e060a96106e5862e0d54857d8cf04a681d1b2fd01a1c7e59",
+      "include_in_source_bundle": true
+    }
+  ],
+  "patches": [
+    {
+      "relative_path": "repo/patches/aom/0001-Fall-back-to-built-in-vmaf-model-on-load-failure.patch",
+      "sha256": "c3b757903be9b98b52b23ac40f7c49dd562cd999b5151890d19dfaf82f40ddb0"
+    },
+    {
+      "relative_path": "repo/patches/aribb24/12.patch",
+      "sha256": "9059639e9577b123ac4ab3b53771e947b791c42d07b0444cf90e82f563d6d261"
+    },
+    {
+      "relative_path": "repo/patches/aribb24/13.patch",
+      "sha256": "4812661f1c77ec06a5a12548f166ac8646d4c7c1574848a005f0578f3d8cfc7c"
+    },
+    {
+      "relative_path": "repo/patches/aribb24/17.patch",
+      "sha256": "1a4fc77f677a6ff87d024e3a218186160b23620c84dbd791ec5c425de0a8e6c2"
+    },
+    {
+      "relative_path": "tooling/ffmpeg-build-patches/onevpl-pr-198.patch",
+      "sha256": "37cfec93ffd6cdc804d1aa576069d843db590c735165e50a058ad692103a8e26"
+    }
+  ],
+  "correspondence": {
+    "rebuilt_reported_version": "9.0.2-20260924",
+    "distributed_reported_version": "n9.0.2-3-ga5923073bf-20260924",
+    "source_archive_omits_git_metadata": true,
+    "configure_arguments_equal": true,
+    "compiler_toolchain_equal": true,
+    "library_abi_versions_equal": true,
+    "wav_smoke": "PCM signed 16-bit little-endian, 24000 Hz, mono, 1.0 second",
+    "mp4_smoke": "H.264 through libopenh264 plus AAC, 320x180, 44100 Hz mono, 1.0 second"
+  }
+}
