@@ -5,6 +5,7 @@ param(
     [string]$Version,
     [string]$ArtifactsDir = (Join-Path $PSScriptRoot "..\..\dist"),
     [string]$PreviousInstaller = "",
+    [switch]$RequirePreviousRepresentativeState,
     [string]$WorkRoot = (Join-Path ([IO.Path]::GetTempPath()) "splicr-package-acceptance"),
     [string]$EvidencePath = "",
     [switch]$KeepWorkRoot
@@ -14,6 +15,9 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 if ($PSVersionTable.PSVersion.Major -lt 7) {
     throw "Package acceptance requires PowerShell 7 or newer (pwsh)."
+}
+if ($RequirePreviousRepresentativeState -and -not $PreviousInstaller) {
+    throw "RequirePreviousRepresentativeState requires PreviousInstaller."
 }
 
 function Assert-Condition([bool]$Condition, [string]$Message) {
@@ -195,6 +199,8 @@ try {
     $InstalledLocalAppData = Join-Path $RunRoot "installed-localappdata"
     New-Item -ItemType Directory -Path $InstalledLocalAppData | Out-Null
     $env:LOCALAPPDATA = $InstalledLocalAppData
+    $RepresentativeStateManifest = Join-Path $RunRoot "representative-state.json"
+    $RepresentativeStateSeededByPrevious = $false
     $UpgradeEvidence = $null
     $UpgradeMarker = $null
     $UpgradeMarkerSha256 = $null
@@ -218,6 +224,14 @@ try {
         $PreviousDataDir = Join-Path $InstalledLocalAppData "SPLICR Studio\data"
         Assert-Condition (Test-Path -LiteralPath $PreviousDataDir -PathType Container) `
             "Previous package did not create redirected per-user data"
+        if ($RequirePreviousRepresentativeState) {
+            Invoke-Checked $PreviousExecutable @(
+                "--package-acceptance-state",
+                "seed",
+                $RepresentativeStateManifest
+            )
+            $RepresentativeStateSeededByPrevious = $true
+        }
         $UpgradeMarker = Join-Path $PreviousDataDir "upgrade-preservation-marker.txt"
         [IO.File]::WriteAllText($UpgradeMarker, "SPLICR upgrade must preserve this file.`n")
         $UpgradeMarkerSha256 = Get-Sha256 $UpgradeMarker
@@ -225,6 +239,7 @@ try {
             file = [IO.Path]::GetFileName($PreviousInstaller)
             sha256 = $PreviousInstallerSha256
             package_smoke = $true
+            representative_state_seeded = $RepresentativeStateSeededByPrevious
         }
     }
 
@@ -332,12 +347,21 @@ try {
             "Upgrade changed pre-existing user data"
         $UpgradeEvidence.user_data_preserved = $true
     }
-    $RepresentativeStateManifest = Join-Path $RunRoot "representative-state.json"
-    Invoke-Checked $InstalledExecutable @(
-        "--package-acceptance-state",
-        "seed",
-        $RepresentativeStateManifest
-    )
+    if ($RepresentativeStateSeededByPrevious) {
+        Invoke-Checked $InstalledExecutable @(
+            "--package-acceptance-state",
+            "verify",
+            $RepresentativeStateManifest
+        )
+        $UpgradeEvidence["representative_state_verified"] = $true
+    }
+    else {
+        Invoke-Checked $InstalledExecutable @(
+            "--package-acceptance-state",
+            "seed",
+            $RepresentativeStateManifest
+        )
+    }
     $RepresentativeState = Get-Content -LiteralPath $RepresentativeStateManifest -Raw |
         ConvertFrom-Json
     Assert-Condition ($RepresentativeState.schema_version -eq 1) `
@@ -442,6 +466,9 @@ try {
         $Checks.upgrade_package_smoke = $true
         $Checks.upgrade_preserved_user_data = $true
     }
+    if ($RepresentativeStateSeededByPrevious) {
+        $Checks.upgrade_reopened_representative_state = $true
+    }
     $Evidence = [ordered]@{
         schema_version = 2
         version = $Version
@@ -464,6 +491,12 @@ try {
             dependency_licenses = $ValidatedDependencyLicenses
         }
         representative_state = $RepresentativeState
+        representative_state_origin = if ($RepresentativeStateSeededByPrevious) {
+            "previous_package"
+        }
+        else {
+            "candidate"
+        }
         upgrade = $UpgradeEvidence
         checks = $Checks
     }

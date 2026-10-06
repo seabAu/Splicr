@@ -128,7 +128,10 @@ Get-Content .\dist\SPLICR-Studio-0.1.0-SHA256SUMS.txt
 - [x] Run the harness's optional prior-installer preflight. A development-workstation upgrade from
   `0.1.0-dev.4` to `0.1.0-dev.5` passed both frozen package smokes, kept an external user-data marker
   byte-identical, and left an installed application payload exactly matching the current portable
-  package. Representative-job/profile/media migration in a clean VM remains required below.
+  package. The harness now also supports `-RequirePreviousRepresentativeState`: a compatible
+  previous executable must seed the real job/project/profile/media fixture and the candidate must
+  migrate and semantically reopen it; the evidence JSON records `previous_package` as the fixture
+  origin. Running that expanded path in a clean VM remains required below.
 - [ ] Publish the exact corresponding FFmpeg source and required attribution/source link, then
   complete the FFmpeg distribution checklist review. The current media DLLs are GPL-covered because
   enabled Chromaprint statically incorporates FFTW3; absence of FFmpeg's `--enable-gpl` flag does

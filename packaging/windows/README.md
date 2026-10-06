@@ -103,17 +103,22 @@ On a disposable upgrade-test VM, pass the previous release installer to exercise
 upgrade before the current artifact checks. The harness runs the older package smoke, creates and
 hashes representative external user data, installs the current candidate over it, proves that data
 is byte-identical, and rejects stale application files by comparing the installed payload with the
-current portable package:
+current portable package. Once the previous package contains the package-state acceptance command,
+add `-RequirePreviousRepresentativeState`: the previous executable then seeds the completed job,
+checkpoint/output media, Library project, render plan/take/artifact, voice profile, and Studio
+profile. The candidate must migrate and semantically reopen that exact state before the harness
+continues, and the evidence JSON records `representative_state_origin` as `previous_package`:
 
 ```powershell
 .\packaging\windows\test-package.ps1 `
   -Version 0.2.0 `
-  -PreviousInstaller .\previous\SPLICR-Studio-0.1.0-Windows-x64-setup.exe
+  -PreviousInstaller .\previous\SPLICR-Studio-0.1.0-Windows-x64-setup.exe `
+  -RequirePreviousRepresentativeState
 ```
 
 This automated harness does not replace the release checklist's interactive clean-VM checks for
-the lifecycle window, browser launch/reuse, real document playback, upgrade migration, Windows
-Settings, Start menu behavior, or signing/malware review.
+the lifecycle window, browser launch/reuse, real document playback, Windows Settings, Start menu
+behavior, credentials migration, or signing/malware review.
 
 ## FFmpeg source audit
 
