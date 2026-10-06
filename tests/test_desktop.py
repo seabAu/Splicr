@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import socket
 import sys
@@ -16,6 +17,7 @@ from splicr.desktop import (
     main,
     package_smoke_test,
     prepare_desktop_environment,
+    run_desktop,
 )
 
 
@@ -108,6 +110,44 @@ def test_existing_instance_scan_checks_fallback_ports(monkeypatch: pytest.Monkey
     assert find_running_splicr("127.0.0.1", 8765, attempts=5) == 8767
 
 
+def test_desktop_acceptance_requires_distinct_ready_and_close_files(tmp_path: Path) -> None:
+    signal_file = tmp_path / "desktop.signal"
+
+    with pytest.raises(ValueError, match="ready and close files must differ"):
+        run_desktop(
+            open_browser=False,
+            acceptance_ready_file=signal_file,
+            acceptance_close_file=signal_file,
+        )
+
+
+def test_desktop_acceptance_reports_a_preexisting_instance(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ready_file = tmp_path / "ready.json"
+    close_file = tmp_path / "close.signal"
+    monkeypatch.setenv("SPLICR_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setattr("splicr.desktop.find_running_splicr", lambda *_args: 8768)
+
+    assert (
+        run_desktop(
+            open_browser=False,
+            acceptance_ready_file=ready_file,
+            acceptance_close_file=close_file,
+        )
+        == 0
+    )
+    evidence = json.loads(ready_file.read_text(encoding="utf-8"))
+    assert evidence == {
+        "existing_instance": True,
+        "host": "127.0.0.1",
+        "pid": os.getpid(),
+        "port": 8768,
+        "schema_version": 1,
+    }
+
+
 def test_package_smoke_test_initializes_routes_assets_worker_and_media_tools(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -166,6 +206,38 @@ def test_frozen_entrypoint_routes_package_acceptance_state(
 
     assert raised.value.code == 29
     assert calls == [("verify", str(manifest))]
+
+
+def test_frozen_entrypoint_routes_package_lifecycle_test(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ready_file = tmp_path / "ready.json"
+    close_file = tmp_path / "close.signal"
+    calls: list[tuple[bool, Path, Path]] = []
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "SPLICR Studio.exe",
+            "--package-lifecycle-test",
+            str(ready_file),
+            str(close_file),
+        ],
+    )
+    monkeypatch.setattr(
+        "splicr.desktop.run_desktop",
+        lambda *, open_browser, acceptance_ready_file, acceptance_close_file: calls.append(
+            (open_browser, acceptance_ready_file, acceptance_close_file)
+        )
+        or 31,
+    )
+
+    with pytest.raises(SystemExit) as raised:
+        main()
+
+    assert raised.value.code == 31
+    assert calls == [(False, ready_file, close_file)]
 
 
 def test_frozen_entrypoint_rejects_unknown_arguments(

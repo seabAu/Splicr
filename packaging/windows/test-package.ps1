@@ -101,6 +101,29 @@ function Wait-PathRemoved([string]$Path, [int]$TimeoutSeconds = 30) {
     Assert-Condition (-not (Test-Path -LiteralPath $Path)) "Timed out waiting for removal: $Path"
 }
 
+function Wait-PathCreated([string]$Path, [int]$TimeoutSeconds = 60) {
+    $Deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+    while (-not (Test-Path -LiteralPath $Path -PathType Leaf) -and [DateTime]::UtcNow -lt $Deadline) {
+        Start-Sleep -Milliseconds 200
+    }
+    Assert-Condition (Test-Path -LiteralPath $Path -PathType Leaf) `
+        "Timed out waiting for creation: $Path"
+}
+
+function Start-TrackedProcess([string]$FilePath, [string[]]$ArgumentList) {
+    $StartInfo = [Diagnostics.ProcessStartInfo]::new()
+    $StartInfo.FileName = $FilePath
+    $StartInfo.UseShellExecute = $false
+    $StartInfo.CreateNoWindow = $false
+    foreach ($Argument in $ArgumentList) {
+        $StartInfo.ArgumentList.Add($Argument)
+    }
+    $Process = [Diagnostics.Process]::new()
+    $Process.StartInfo = $StartInfo
+    Assert-Condition ($Process.Start()) "Could not start command: $FilePath"
+    return $Process
+}
+
 function Stop-ProcessesUnder([string]$Root) {
     $Prefix = $Root.TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
     foreach ($Process in Get-Process -ErrorAction SilentlyContinue) {
@@ -180,6 +203,7 @@ $StartMenuShortcut = Join-Path `
 $UninstallRegistryPath = `
     "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{D39B3DFC-EA2E-4BE8-96EC-14D11D67D63C}_is1"
 $Installed = $false
+$LifecycleProcess = $null
 
 try {
     $PortableRoot = Join-Path $RunRoot "Portable Test – résumé"
@@ -338,6 +362,62 @@ try {
         throw "Installed application payload does not exactly match the portable package:`n$PayloadDiff"
     }
 
+    $LifecycleReadyFile = Join-Path $RunRoot "desktop-lifecycle-ready.json"
+    $LifecycleCloseFile = Join-Path $RunRoot "desktop-lifecycle-close.signal"
+    $LifecycleProcess = Start-TrackedProcess $InstalledExecutable @(
+        "--package-lifecycle-test",
+        $LifecycleReadyFile,
+        $LifecycleCloseFile
+    )
+    try {
+        Wait-PathCreated $LifecycleReadyFile
+        $LifecycleReady = Get-Content -LiteralPath $LifecycleReadyFile -Raw | ConvertFrom-Json
+        Assert-Condition ($LifecycleReady.schema_version -eq 1) `
+            "Desktop lifecycle evidence schema is unsupported"
+        Assert-Condition (-not $LifecycleReady.existing_instance) `
+            "Desktop lifecycle test attached to a pre-existing SPLICR instance"
+        Assert-Condition ($LifecycleReady.pid -eq $LifecycleProcess.Id) `
+            "Desktop lifecycle evidence was written by an unexpected process"
+        Assert-Condition ($LifecycleReady.host -eq "127.0.0.1") `
+            "Desktop lifecycle bound to an unexpected host"
+        Assert-Condition (
+            $LifecycleReady.port -ge 8765 -and $LifecycleReady.port -le 8774
+        ) "Desktop lifecycle selected a port outside its bounded fallback range"
+        Assert-Condition (-not $LifecycleProcess.HasExited) `
+            "Desktop lifecycle process exited immediately after readiness"
+
+        $LifecycleUrl = "http://$($LifecycleReady.host):$($LifecycleReady.port)"
+        $LifecycleHealth = Invoke-RestMethod -Uri "$LifecycleUrl/health" -TimeoutSec 5
+        Assert-Condition ($LifecycleHealth.status -eq "ok") `
+            "Desktop lifecycle health endpoint did not report ready"
+        $LifecycleStudio = Invoke-WebRequest -Uri "$LifecycleUrl/studio/" -TimeoutSec 5
+        Assert-Condition ($LifecycleStudio.Content -match '<title>SPLICR Studio</title>') `
+            "Desktop lifecycle did not serve the built Studio application"
+
+        $ReadySha256 = Get-Sha256 $LifecycleReadyFile
+        Invoke-Checked $InstalledExecutable @("--no-browser")
+        Assert-Condition (-not $LifecycleProcess.HasExited) `
+            "Second launch stopped the primary desktop lifecycle"
+        Assert-Condition ((Get-Sha256 $LifecycleReadyFile) -eq $ReadySha256) `
+            "Second launch replaced the primary desktop lifecycle evidence"
+
+        [IO.File]::WriteAllText($LifecycleCloseFile, "close`n")
+        Assert-Condition ($LifecycleProcess.WaitForExit(30000)) `
+            "Desktop lifecycle did not stop after the close request"
+        Assert-Condition ($LifecycleProcess.ExitCode -eq 0) `
+            "Desktop lifecycle exited with code $($LifecycleProcess.ExitCode)"
+    }
+    finally {
+        if ($LifecycleProcess -and -not $LifecycleProcess.HasExited) {
+            $LifecycleProcess.Kill($true)
+            $LifecycleProcess.WaitForExit()
+        }
+        if ($LifecycleProcess) {
+            $LifecycleProcess.Dispose()
+            $LifecycleProcess = $null
+        }
+    }
+
     $Ffmpeg = Join-Path $FfmpegDir "ffmpeg.exe"
     $Ffprobe = Join-Path $FfmpegDir "ffprobe.exe"
     $FfmpegVersion = Invoke-Captured $Ffmpeg @("-version")
@@ -490,6 +570,10 @@ try {
         portable_per_user_data = $true
         installed_payload_matches_portable = $true
         installed_package_smoke = $true
+        native_desktop_lifecycle = $true
+        studio_health_and_assets = $true
+        second_launch_reused_instance = $true
+        graceful_desktop_shutdown = $true
         application_media_pipeline = $true
         shared_ffmpeg_configuration = $true
         transitive_fftw_gpl_terms = $true
@@ -552,6 +636,18 @@ try {
 }
 finally {
     $env:LOCALAPPDATA = $OriginalLocalAppData
+    if ($LifecycleProcess) {
+        try {
+            if (-not $LifecycleProcess.HasExited) {
+                $LifecycleProcess.Kill($true)
+                $LifecycleProcess.WaitForExit()
+            }
+            $LifecycleProcess.Dispose()
+        }
+        catch {
+            Write-Warning "Acceptance cleanup could not stop the desktop lifecycle: $_"
+        }
+    }
     if ($Installed) {
         $Uninstaller = Join-Path $InstallDir "unins000.exe"
         if (Test-Path -LiteralPath $Uninstaller -PathType Leaf) {

@@ -45,6 +45,15 @@ try {
     & npm.cmd --prefix $StudioWeb run build
     if ($LASTEXITCODE -ne 0) { throw "Studio web build failed" }
 
+    $ResolvedFfmpegBin = $null
+    if ($FfmpegBin) {
+        $ResolvedFfmpegBin = (Resolve-Path -LiteralPath $FfmpegBin).Path
+        $ResolvedVendorBin = [IO.Path]::GetFullPath($VendorBin)
+        if ($ResolvedFfmpegBin.Equals($ResolvedVendorBin, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "-FfmpegBin cannot be the package vendor destination: $ResolvedVendorBin"
+        }
+    }
+
     New-Item -ItemType Directory -Force -Path $VendorBin | Out-Null
     Get-ChildItem -LiteralPath $VendorBin -File -ErrorAction SilentlyContinue | Remove-Item -Force
     $VendorMetadataRoot = Split-Path $VendorBin -Parent
@@ -55,8 +64,7 @@ try {
             Remove-Item -LiteralPath $StaleMetadata -Force
         }
     }
-    if ($FfmpegBin) {
-        $ResolvedFfmpegBin = (Resolve-Path -LiteralPath $FfmpegBin).Path
+    if ($ResolvedFfmpegBin) {
         foreach ($Tool in @("ffmpeg.exe", "ffprobe.exe")) {
             $Source = Join-Path $ResolvedFfmpegBin $Tool
             if (-not (Test-Path -LiteralPath $Source)) {

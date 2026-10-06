@@ -95,12 +95,38 @@ def run_desktop(
     host: str = "127.0.0.1",
     preferred_port: int = 8765,
     open_browser: bool = True,
+    acceptance_ready_file: Path | None = None,
+    acceptance_close_file: Path | None = None,
 ) -> int:
     """Run SPLICR behind a small native lifecycle window and open the Studio browser UI."""
+
+    if (acceptance_ready_file is None) != (acceptance_close_file is None):
+        raise ValueError("desktop acceptance requires both ready and close files")
+    if acceptance_ready_file is not None:
+        acceptance_ready_file = acceptance_ready_file.resolve()
+        acceptance_close_file = acceptance_close_file.resolve()
+        if acceptance_ready_file == acceptance_close_file:
+            raise ValueError("desktop acceptance ready and close files must differ")
+        acceptance_ready_file.parent.mkdir(parents=True, exist_ok=True)
+        acceptance_close_file.parent.mkdir(parents=True, exist_ok=True)
 
     data_dir = prepare_desktop_environment()
     running_port = find_running_splicr(host, preferred_port)
     if running_port is not None:
+        if acceptance_ready_file is not None:
+            acceptance_ready_file.write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "pid": os.getpid(),
+                        "host": host,
+                        "port": running_port,
+                        "existing_instance": True,
+                    },
+                    sort_keys=True,
+                ),
+                encoding="utf-8",
+            )
         if open_browser:
             webbrowser.open(f"http://{host}:{running_port}/studio/")
         return 0
@@ -196,6 +222,24 @@ def run_desktop(
         if is_splicr_running(host, port, timeout=0.5):
             status.set(f"Running locally at {url}\nKeep this window open while using SPLICR.")
             open_button.configure(state="normal")
+            if acceptance_ready_file is not None:
+                temporary_ready_file = acceptance_ready_file.with_name(
+                    f".{acceptance_ready_file.name}.{os.getpid()}.tmp"
+                )
+                temporary_ready_file.write_text(
+                    json.dumps(
+                        {
+                            "schema_version": 1,
+                            "pid": os.getpid(),
+                            "host": host,
+                            "port": port,
+                            "existing_instance": False,
+                        },
+                        sort_keys=True,
+                    ),
+                    encoding="utf-8",
+                )
+                os.replace(temporary_ready_file, acceptance_ready_file)
             if open_browser:
                 webbrowser.open(url)
             return
@@ -226,8 +270,18 @@ def run_desktop(
 
         wait_for_stop()
 
+    def acceptance_close_check() -> None:
+        if closing or acceptance_close_file is None:
+            return
+        if acceptance_close_file.is_file():
+            close()
+            return
+        root.after(100, acceptance_close_check)
+
     root.protocol("WM_DELETE_WINDOW", close)
     root.after(50, ready_check)
+    if acceptance_close_file is not None:
+        root.after(100, acceptance_close_check)
     root.mainloop()
     return 0
 
@@ -440,10 +494,19 @@ def main() -> None:
         raise SystemExit(package_smoke_test())
     if len(arguments) == 3 and arguments[0] == "--package-acceptance-state":
         raise SystemExit(package_acceptance_state(arguments[1], arguments[2]))
+    if len(arguments) == 3 and arguments[0] == "--package-lifecycle-test":
+        raise SystemExit(
+            run_desktop(
+                open_browser=False,
+                acceptance_ready_file=Path(arguments[1]),
+                acceptance_close_file=Path(arguments[2]),
+            )
+        )
     if arguments not in ([], ["--no-browser"]):
         raise SystemExit(
             "usage: SPLICR Studio.exe [--no-browser | --package-smoke-test | "
-            "--package-acceptance-state {seed|verify} MANIFEST_PATH]"
+            "--package-acceptance-state {seed|verify} MANIFEST_PATH | "
+            "--package-lifecycle-test READY_PATH CLOSE_PATH]"
         )
     raise SystemExit(run_desktop(open_browser=arguments != ["--no-browser"]))
 

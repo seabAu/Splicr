@@ -103,6 +103,12 @@ and uninstalls again without removing user data. It writes a machine-readable
 `SPLICR-Studio-<version>-Windows-x64-ACCEPTANCE.json` beside the packages. The release workflow
 runs this gate before uploading any artifact.
 
+The installed-package phase also starts the real native lifecycle window and local FastAPI server,
+waits for the packaged `/health` and `/studio/` surfaces, proves that a second desktop launch reuses
+the running instance, and requests a graceful lifecycle shutdown. This package-only probe never
+opens an external browser and communicates through unique files under the disposable acceptance
+run directory.
+
 On a disposable upgrade-test VM, pass the previous release installer to exercise an in-place
 upgrade before the current artifact checks. The harness runs the older package smoke, creates and
 hashes representative external user data, installs the current candidate over it, proves that data
@@ -124,8 +130,8 @@ continues, and the evidence JSON records `representative_state_origin` as `previ
 ```
 
 This automated harness does not replace the release checklist's interactive clean-VM checks for
-the lifecycle window, browser launch/reuse, real document playback, Windows Settings, Start menu
-behavior, credentials migration, or signing/malware review.
+the visible lifecycle window, actual browser launch, real document playback, Windows Settings,
+launching through the Start menu, credentials migration, or signing/malware review.
 
 ## FFmpeg source audit
 

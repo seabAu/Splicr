@@ -466,8 +466,11 @@ sequence, cancellation cleanup, deterministic archives, API validation, and the 
   can now require that previous executable to seed the full representative state; the candidate
   must migrate and semantically reopen it before continuing, and the evidence records which package
   created the fixture. The harness also verifies creation and uninstall cleanup of the per-user
-  Start-menu shortcut and Windows uninstall registration. Interactive lifecycle/browser use,
-  credentials migration, Windows Settings, and a genuinely clean VM remain manual release evidence.
+  Start-menu shortcut and Windows uninstall registration. The dev.19 harness additionally starts
+  the real Tk lifecycle window and private FastAPI server, verifies packaged health and Studio
+  assets, proves a second launch reuses the primary instance, and requests a graceful shutdown.
+  Visible browser launch/use, credentials migration, Windows Settings, Start-menu invocation, and a
+  genuinely clean VM remain manual release evidence.
   The frozen package smoke now also creates a real WAV, converts it to FLAC through SPLICR's
   production Convert backend, renders it to MP4 through SPLICR's production Audiogram backend, and
   probes both outputs through the packaged FFprobe resolution path. A fresh `0.1.0-dev.17` candidate
@@ -1195,5 +1198,16 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   Its acceptance JSON records `representative_state_origin: previous_package`, all 22 checks true,
   portable SHA-256 `996187a4c3b3013e26e9bb00d002bc6ef14a5127a3f7c38b296e8f09d9748de7`,
   and installer SHA-256 `0bc20df605207a2698da3b8b301d4661db971d4641ec88d351afbe19b84040a3`.
-  The Windows milestone now awaits only interactive lifecycle/browser evidence from a genuinely
-  clean VM.
+  The Windows milestone then awaited interactive lifecycle/browser evidence from a genuinely clean
+  VM.
+- **2026-10-06:** Expanded frozen-package acceptance with a real native lifecycle probe. The
+  `0.1.0-dev.19` installed executable opened its Tk lifecycle window, started the private FastAPI
+  server, served packaged health and Studio assets, survived a second launch that reused the same
+  instance, and shut down gracefully. All 24 schema-v2 package checks passed. The portable archive
+  is 185,126,699 bytes at SHA-256
+  `8d60d95a28fd9f4b09a75310e5b28f6e21f0d2a0d47a467e7d827b85e7925b99`; the installer is
+  120,240,742 bytes at SHA-256
+  `a9329a21976c154a25ba1d435b31f7cbcfd0bf9fadfa904805425fa7341892dd`. The remaining Windows gate
+  is hosted clean-runner evidence plus human-visible browser, Start-menu, credentials, and Windows
+  Settings verification. The build now rejects using its mutable FFmpeg vendor destination as the
+  input directory, preventing source-destination self-deletion before copying.
