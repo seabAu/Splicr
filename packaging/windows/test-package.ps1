@@ -484,6 +484,7 @@ try {
         portable_per_user_data = $true
         installed_payload_matches_portable = $true
         installed_package_smoke = $true
+        application_media_pipeline = $true
         shared_ffmpeg_configuration = $true
         transitive_fftw_gpl_terms = $true
         dependency_license_files = $true

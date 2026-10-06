@@ -1,13 +1,18 @@
 from __future__ import annotations
 
+import asyncio
 import json
+import math
 import os
 import shutil
 import socket
+import struct
 import sys
+import tempfile
 import threading
 import urllib.error
 import urllib.request
+import wave
 import webbrowser
 from pathlib import Path
 from typing import TextIO
@@ -233,6 +238,115 @@ def _desktop_log(data_dir: Path) -> TextIO:
     return (log_dir / "desktop.log").open("a", encoding="utf-8", buffering=1)
 
 
+def _packaged_media_tools() -> tuple[Path, Path]:
+    ffmpeg = shutil.which("ffmpeg")
+    ffprobe = shutil.which("ffprobe")
+    if ffmpeg is None or ffprobe is None:
+        raise RuntimeError("packaged FFmpeg and FFprobe were not detected")
+    resolved = (Path(ffmpeg).resolve(), Path(ffprobe).resolve())
+    if getattr(sys, "frozen", False):
+        executable_root = Path(sys.executable).resolve().parent
+        bundled_directories = {
+            (executable_root / "ffmpeg").resolve(),
+            (executable_root / "_internal" / "ffmpeg").resolve(),
+        }
+        if (
+            resolved[0].parent not in bundled_directories
+            or resolved[1].parent != resolved[0].parent
+        ):
+            raise RuntimeError("packaged media tools resolved outside the application bundle")
+    return resolved
+
+
+async def _package_media_smoke_test() -> None:
+    """Exercise the application conversion and audiogram backends with bundled tools."""
+
+    from .studio.audiogram import (
+        AudiogramOutputFormat,
+        AudiogramSpec,
+        FfmpegAudiogramRenderer,
+    )
+    from .studio.conversion import (
+        AudioOutputFormat,
+        ConversionSpec,
+        FfmpegAudioConverter,
+    )
+
+    sample_rate = 24_000
+    frame_count = sample_rate // 2
+    pcm = b"".join(
+        struct.pack("<h", round(math.sin(2 * math.pi * 330 * index / sample_rate) * 3_000))
+        for index in range(frame_count)
+    )
+    with tempfile.TemporaryDirectory(prefix="splicr-package-media-") as temporary:
+        root = Path(temporary)
+        source = root / "source.wav"
+        with wave.open(str(source), "wb") as recording:
+            recording.setnchannels(1)
+            recording.setsampwidth(2)
+            recording.setframerate(sample_rate)
+            recording.writeframes(pcm)
+
+        converter = FfmpegAudioConverter()
+        if not converter.available:
+            raise RuntimeError("packaged Convert backend could not resolve FFmpeg/FFprobe")
+        duration = await converter.probe_duration(source)
+        converted = root / "converted.flac"
+        conversion_progress: list[float] = []
+        await converter.convert(
+            source,
+            converted,
+            ConversionSpec(
+                output_format=AudioOutputFormat.FLAC,
+                sample_rate=sample_rate,
+                bit_depth=16,
+                channels=1,
+            ),
+            duration_seconds=duration,
+            on_progress=conversion_progress.append,
+            is_cancelled=lambda: False,
+        )
+        converted_duration = await converter.probe_duration(converted)
+        if (
+            not converted.is_file()
+            or converted.stat().st_size <= 0
+            or not conversion_progress
+            or conversion_progress[-1] != 1.0
+            or abs(converted_duration - duration) > 0.05
+        ):
+            raise RuntimeError("packaged Convert backend produced an invalid FLAC")
+
+        renderer = FfmpegAudiogramRenderer()
+        if AudiogramOutputFormat.MP4 not in renderer.supported_output_formats:
+            raise RuntimeError("packaged Audiogram backend could not resolve an MP4 encoder")
+        video = root / "audiogram.mp4"
+        audiogram_progress: list[float] = []
+        await renderer.render(
+            source,
+            video,
+            AudiogramSpec(
+                width=320,
+                height=180,
+                fps=12,
+                visualizer_height=90,
+                bar_count=24,
+                output_format=AudiogramOutputFormat.MP4,
+            ),
+            render_seconds=duration,
+            on_progress=audiogram_progress.append,
+            is_cancelled=lambda: False,
+        )
+        video_duration = await converter.probe_duration(video)
+        if (
+            not video.is_file()
+            or video.stat().st_size <= 0
+            or not audiogram_progress
+            or audiogram_progress[-1] != 1.0
+            or abs(video_duration - duration) > 0.15
+        ):
+            raise RuntimeError("packaged Audiogram backend produced an invalid MP4")
+
+
 def package_smoke_test() -> int:
     """Verify the frozen bundle can initialize its app, worker, UI, and media tools."""
 
@@ -259,8 +373,7 @@ def package_smoke_test() -> int:
     missing_files = [str(path) for path in required_files if not path.is_file()]
     if missing_files:
         raise RuntimeError(f"packaged app is missing files: {missing_files}")
-    if shutil.which("ffmpeg") is None or shutil.which("ffprobe") is None:
-        raise RuntimeError("packaged FFmpeg and FFprobe were not detected")
+    _packaged_media_tools()
     # Advanced audiograms import Pillow/NumPy lazily. Exercise the actual drawing path so a
     # frozen build cannot pass while silently omitting those runtime-only modules.
     import numpy as np
@@ -296,6 +409,7 @@ def package_smoke_test() -> int:
     )
     if frame.size != (spec.width, spec.height) or frame.getbbox() is None:
         raise RuntimeError("packaged advanced audiogram renderer did not produce a frame")
+    asyncio.run(_package_media_smoke_test())
     return 0
 
 

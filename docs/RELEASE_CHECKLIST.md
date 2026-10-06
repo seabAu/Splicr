@@ -118,7 +118,9 @@ Get-Content .\dist\SPLICR-Studio-0.1.0-SHA256SUMS.txt
   redirected mutable state, installed package smoke, exact portable/install parity, the pinned
   shared FFmpeg configuration, all 339 manifest-bound dependency-license files, transitive
   static-FFTW GPL evidence,
-  a real OpenH264/AAC MP4, application removal, and preserved user data. The packaging workflow runs
+  a real OpenH264/AAC MP4, application removal, and preserved user data. The frozen smoke now also
+  runs the production Convert backend from WAV to FLAC and the production Audiogram backend from
+  WAV to MP4, probing both through the packaged FFprobe resolution path. The packaging workflow runs
   this gate before upload and retains its schema-v2 machine-readable acceptance JSON. The next
   package candidate must also pass the expanded gate: the packaged executable seeds a completed
   synthesis job, checkpoint/output media, Library project, immutable render plan/take/artifact,

@@ -89,8 +89,10 @@ The harness independently verifies the checksum manifest, extracts the portable 
 spaces, proves portable smoke leaves every package file unchanged, redirects mutable state to a
 separate per-user data root, silently installs the real installer, checks FFmpeg's shared
 configuration, effective-license evidence, and provenance files, proves the installed payload exactly matches the portable
-payload, renders and probes an OpenH264/AAC MP4, uninstalls, and proves the application directory is
-removed while user data remains. It also verifies the per-user Start-menu shortcut and Windows
+payload, and runs SPLICR's own Convert backend from WAV to FLAC plus its Audiogram backend from WAV
+to MP4 using the bundled FFmpeg/FFprobe resolution path. It separately renders and probes an
+OpenH264/AAC MP4, uninstalls, and proves the application directory is removed while user data
+remains. It also verifies the per-user Start-menu shortcut and Windows
 uninstall registration after install/reinstall and proves both are removed after each uninstall.
 Before uninstall, the packaged application seeds a real completed job with source/checkpoint/output
 media plus a Library project, immutable render plan/take/artifact, voice profile, and Studio profile.

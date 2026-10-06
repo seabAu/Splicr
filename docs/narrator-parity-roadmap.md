@@ -468,6 +468,9 @@ sequence, cancellation cleanup, deterministic archives, API validation, and the 
   created the fixture. The harness also verifies creation and uninstall cleanup of the per-user
   Start-menu shortcut and Windows uninstall registration. Interactive lifecycle/browser use,
   credentials migration, Windows Settings, and a genuinely clean VM remain manual release evidence.
+  The frozen package smoke now also creates a real WAV, converts it to FLAC through SPLICR's
+  production Convert backend, renders it to MP4 through SPLICR's production Audiogram backend, and
+  probes both outputs through the packaged FFprobe resolution path.
 - [x] Verify Chromium acceptance in GitHub Actions and retain failure traces/screenshots/video. The
   workflow runs for pull requests, `main`, `codex/**` integration branches, and release tags. Failed
   run `36664605914` published assertion annotations and retained a 19 MB Playwright diagnostics
@@ -1142,3 +1145,7 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
 - **2026-10-06:** Added package-level shell-registration acceptance. Install and reinstall must
   create the per-user Start-menu shortcut plus the versioned Windows uninstall registration;
   uninstall must remove both while preserving the separate application data directory.
+- **2026-10-06:** Upgraded the frozen package smoke from media-binary discovery to real application
+  media execution. It now generates a WAV, converts it to FLAC through `FfmpegAudioConverter`,
+  renders an MP4 through `FfmpegAudiogramRenderer`, and probes both outputs with the packaged
+  FFprobe path, without relying on a globally installed media tool.

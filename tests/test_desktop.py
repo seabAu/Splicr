@@ -9,6 +9,7 @@ import pytest
 
 from splicr.config import Settings
 from splicr.desktop import (
+    _packaged_media_tools,
     available_port,
     desktop_data_dir,
     find_running_splicr,
@@ -59,6 +60,29 @@ def test_packaged_ffmpeg_directory_is_added_without_overwriting_user_data(
     assert prepare_desktop_environment() == data.resolve()
     assert marker.read_text(encoding="utf-8") == "preserve"
     assert str(tools) in os.environ["PATH"].split(os.pathsep)
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    assert _packaged_media_tools() == (
+        (tools / "ffmpeg.exe").resolve(),
+        (tools / "ffprobe.exe").resolve(),
+    )
+
+
+def test_frozen_media_tools_cannot_fall_back_to_global_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    install = tmp_path / "install"
+    install.mkdir()
+    global_tools = tmp_path / "global-tools"
+    global_tools.mkdir()
+    monkeypatch.setattr(sys, "executable", str(install / "SPLICR Studio.exe"))
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(
+        "splicr.desktop.shutil.which",
+        lambda name: str(global_tools / f"{name}.exe"),
+    )
+
+    with pytest.raises(RuntimeError, match="outside the application bundle"):
+        _packaged_media_tools()
 
 
 def test_available_port_skips_an_occupied_port() -> None:
