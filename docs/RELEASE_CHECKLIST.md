@@ -119,7 +119,12 @@ Get-Content .\dist\SPLICR-Studio-0.1.0-SHA256SUMS.txt
   shared FFmpeg configuration, all 339 manifest-bound dependency-license files, transitive
   static-FFTW GPL evidence,
   a real OpenH264/AAC MP4, application removal, and preserved user data. The packaging workflow runs
-  this gate before upload and retains its schema-v2 machine-readable acceptance JSON.
+  this gate before upload and retains its schema-v2 machine-readable acceptance JSON. The next
+  package candidate must also pass the expanded gate: the packaged executable seeds a completed
+  synthesis job, checkpoint/output media, Library project, immutable render plan/take/artifact,
+  voice profile, and Studio profile; after uninstall/reinstall it must semantically reopen every
+  record, hash-check all files, match the portable payload again, and preserve the data through a
+  second uninstall. This new artifact-level evidence is implemented but not claimed for dev.16.
 - [x] Run the harness's optional prior-installer preflight. A development-workstation upgrade from
   `0.1.0-dev.4` to `0.1.0-dev.5` passed both frozen package smokes, kept an external user-data marker
   byte-identical, and left an installed application payload exactly matching the current portable

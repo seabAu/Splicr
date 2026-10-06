@@ -455,9 +455,12 @@ sequence, cancellation cleanup, deterministic archives, API validation, and the 
   intentional user-data policy, and portable ZIP execution in a clean VM. The reusable PowerShell
   artifact harness now automates the non-interactive subset on a disposable Windows machine and is
   required before workflow upload. Its optional dev.4-to-dev.5 preflight passed both frozen smokes,
-  byte-identical external-data preservation, and exact upgraded-payload comparison. Lifecycle /
-  Start-menu/browser use, real project/profile/media migration, Windows Settings, and a genuinely
-  clean VM remain manual release evidence.
+  byte-identical external-data preservation, and exact upgraded-payload comparison. The next
+  candidate additionally seeds an actual completed job, checkpoint/output media, Library project,
+  immutable render plan/take/artifact, voice profile, and Studio profile through the packaged
+  executable, then semantically reopens and hash-verifies them after uninstall/reinstall before a
+  second uninstall. Lifecycle / Start-menu/browser use, migration from a genuinely older schema,
+  Windows Settings, and a genuinely clean VM remain manual release evidence.
 - [x] Verify Chromium acceptance in GitHub Actions and retain failure traces/screenshots/video. The
   workflow runs for pull requests, `main`, `codex/**` integration branches, and release tags. Failed
   run `36664605914` published assertion annotations and retained a 19 MB Playwright diagnostics
@@ -1018,7 +1021,11 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   SHA-256. Final hosted-archive publication and embedding remain open.
 - **Clean-VM routing:** the current workstation has no Windows Sandbox binary or Hyper-V,
   VirtualBox, VMware, or QEMU management CLI. The clean-VM matrix must run on a separate disposable
-  Windows environment; local package-harness results are not a substitute.
+  Windows environment; local package-harness results are not a substitute. The artifact harness now
+  reduces that manual surface by using the packaged executable to seed seven real durable entities
+  plus source/checkpoint/output media, then semantically reopening and hash-verifying them after
+  uninstall/reinstall. Older-schema migration and interactive Windows shell behavior still require
+  the genuine clean environment.
 - **Known unrelated worktree item:** `LICENSE.txt` is untracked and not part of this roadmap unless
   deliberately adopted later.
 
@@ -1107,3 +1114,11 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   working session closed the oneVPL and FreeType/dlg offline-source gaps and advanced the isolated
   dependency rebuild to stage 70 before host-disk exhaustion; guest storage is trimmed and awaits
   verified VHD compaction.
+- **2026-10-06:** Replaced the Windows lifecycle harness's marker-only reinstall evidence with a
+  package-owned representative-state probe. The frozen executable now seeds and later semantically
+  verifies a completed synthesis job, checkpoint and canonical WAV, Library project, immutable
+  render plan/take/artifact, voice profile, and Studio profile. The harness performs a full
+  uninstall, reinstalls the same candidate, reopens all seven records, hash-checks all three files,
+  compares the reinstalled payload with the portable tree, and uninstalls again while preserving
+  data. Tamper, path-escape, repeated-seed, CLI-routing, full Ruff, and full Python regression gates
+  pass; the next real package artifact and genuine clean-VM interactive matrix remain open.

@@ -299,12 +299,38 @@ def package_smoke_test() -> int:
     return 0
 
 
+def package_acceptance_state(action: str, manifest_path: str) -> int:
+    """Seed or verify representative per-user data for the package lifecycle harness."""
+
+    prepare_desktop_environment()
+    from .config import Settings
+    from .package_acceptance_state import (
+        seed_package_acceptance_state,
+        verify_package_acceptance_state,
+    )
+
+    settings = Settings.from_env()
+    manifest = Path(manifest_path)
+    if action == "seed":
+        seed_package_acceptance_state(settings, manifest)
+    elif action == "verify":
+        verify_package_acceptance_state(settings, manifest)
+    else:
+        raise ValueError("package acceptance state action must be 'seed' or 'verify'")
+    return 0
+
+
 def main() -> None:
     arguments = sys.argv[1:]
     if arguments == ["--package-smoke-test"]:
         raise SystemExit(package_smoke_test())
+    if len(arguments) == 3 and arguments[0] == "--package-acceptance-state":
+        raise SystemExit(package_acceptance_state(arguments[1], arguments[2]))
     if arguments not in ([], ["--no-browser"]):
-        raise SystemExit("usage: SPLICR Studio.exe [--no-browser | --package-smoke-test]")
+        raise SystemExit(
+            "usage: SPLICR Studio.exe [--no-browser | --package-smoke-test | "
+            "--package-acceptance-state {seed|verify} MANIFEST_PATH]"
+        )
     raise SystemExit(run_desktop(open_browser=arguments != ["--no-browser"]))
 
 

@@ -37,9 +37,7 @@ def test_frozen_settings_default_outside_install_directory(
     monkeypatch.setattr(sys, "frozen", True, raising=False)
     monkeypatch.setattr(sys, "platform", "win32")
 
-    assert Settings.from_env().data_dir == (
-        tmp_path / "Local" / "SPLICR Studio" / "data"
-    ).resolve()
+    assert Settings.from_env().data_dir == (tmp_path / "Local" / "SPLICR Studio" / "data").resolve()
 
 
 def test_packaged_ffmpeg_directory_is_added_without_overwriting_user_data(
@@ -116,6 +114,34 @@ def test_frozen_entrypoint_controls_browser_launch(
 
     assert raised.value.code == 23
     assert calls == [open_browser]
+
+
+def test_frozen_entrypoint_routes_package_acceptance_state(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    manifest = tmp_path / "state.json"
+    calls: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "SPLICR Studio.exe",
+            "--package-acceptance-state",
+            "verify",
+            str(manifest),
+        ],
+    )
+    monkeypatch.setattr(
+        "splicr.desktop.package_acceptance_state",
+        lambda action, path: calls.append((action, path)) or 29,
+    )
+
+    with pytest.raises(SystemExit) as raised:
+        main()
+
+    assert raised.value.code == 29
+    assert calls == [("verify", str(manifest))]
 
 
 def test_frozen_entrypoint_rejects_unknown_arguments(

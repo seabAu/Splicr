@@ -332,6 +332,20 @@ try {
             "Upgrade changed pre-existing user data"
         $UpgradeEvidence.user_data_preserved = $true
     }
+    $RepresentativeStateManifest = Join-Path $RunRoot "representative-state.json"
+    Invoke-Checked $InstalledExecutable @(
+        "--package-acceptance-state",
+        "seed",
+        $RepresentativeStateManifest
+    )
+    $RepresentativeState = Get-Content -LiteralPath $RepresentativeStateManifest -Raw |
+        ConvertFrom-Json
+    Assert-Condition ($RepresentativeState.schema_version -eq 1) `
+        "Representative package-state manifest schema is unsupported"
+    Assert-Condition (@($RepresentativeState.entities.psobject.Properties).Count -eq 7) `
+        "Representative package state does not include every required entity"
+    Assert-Condition (@($RepresentativeState.files.psobject.Properties).Count -eq 3) `
+        "Representative package state does not include source, checkpoint, and output media"
     $PreservationMarker = Join-Path $InstalledDataDir "uninstall-preservation-marker.txt"
     [IO.File]::WriteAllText($PreservationMarker, "SPLICR uninstall must preserve this file.`n")
 
@@ -371,6 +385,37 @@ try {
     Assert-Condition (Test-Path -LiteralPath $PreservationMarker -PathType Leaf) `
         "Uninstall removed per-user data"
 
+    $ReinstallLog = Join-Path $RunRoot "reinstall.log"
+    Invoke-Checked $Installer @(
+        "/VERYSILENT",
+        "/SUPPRESSMSGBOXES",
+        "/NORESTART",
+        "/SP-",
+        "/DIR=$InstallDir",
+        "/LOG=$ReinstallLog"
+    )
+    $Installed = $true
+    $ReinstalledExecutable = Join-Path $InstallDir "SPLICR Studio.exe"
+    Invoke-Checked $ReinstalledExecutable @(
+        "--package-acceptance-state",
+        "verify",
+        $RepresentativeStateManifest
+    )
+    $ReinstalledPayload = Get-TreeManifest $InstallDir -ExcludeUninstaller
+    $ReinstalledPayloadChanges = @(
+        Compare-Object -ReferenceObject $PortableBefore -DifferenceObject $ReinstalledPayload
+    )
+    Assert-Condition ($ReinstalledPayloadChanges.Count -eq 0) `
+        "Reinstalled application payload does not exactly match the portable package"
+    $ReinstallUninstaller = Join-Path $InstallDir "unins000.exe"
+    Assert-Condition (Test-Path -LiteralPath $ReinstallUninstaller -PathType Leaf) `
+        "Reinstalled package does not contain its uninstaller"
+    Invoke-Checked $ReinstallUninstaller @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART")
+    $Installed = $false
+    Wait-PathRemoved $InstallDir
+    Assert-Condition (Test-Path -LiteralPath $PreservationMarker -PathType Leaf) `
+        "Second uninstall removed representative per-user data"
+
     $SourceInfo = Get-Content -LiteralPath (Join-Path $PortableAppRoot "_internal\ffmpeg\SOURCE_INFO.txt")
     $SourceShaLine = $SourceInfo | Where-Object { $_ -like "SHA-256:*" } | Select-Object -First 1
     Assert-Condition ([bool]$SourceShaLine) "Bundled FFmpeg source record does not contain SHA-256"
@@ -387,8 +432,11 @@ try {
         dependency_license_files = $true
         legal_attribution_metadata = $true
         openh264_h264_aac_mp4 = $true
+        representative_state_seeded = $true
         uninstall_removed_application = $true
         uninstall_preserved_user_data = $true
+        reinstall_reopened_representative_state = $true
+        reinstall_payload_matches_portable = $true
     }
     if ($UpgradeEvidence) {
         $Checks.upgrade_package_smoke = $true
@@ -415,6 +463,7 @@ try {
             shared_dll_count = $FfmpegDlls.Count
             dependency_licenses = $ValidatedDependencyLicenses
         }
+        representative_state = $RepresentativeState
         upgrade = $UpgradeEvidence
         checks = $Checks
     }
