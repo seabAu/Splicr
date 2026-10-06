@@ -1173,3 +1173,7 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   cleanup, bounded diff diagnostics, and exact publishable-artifact checksum selection. The final
   dev.16-to-dev.17 run passed exact payload parity and external-data preservation. Older-package
   representative-state migration and interactive clean-VM evidence remain outstanding.
+- **2026-10-06:** Cleared the frontend build audit in `0d8f3d6`. Vite's PostCSS dependency already
+  permitted the fixed `source-map-js@1.2.2`, so only the transitive lock entry changed. A clean
+  install and high-severity audit now report zero vulnerabilities; all eight frontend unit tests and
+  the production build pass with unchanged emitted asset names.
