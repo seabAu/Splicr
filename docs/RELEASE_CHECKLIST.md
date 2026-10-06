@@ -124,7 +124,9 @@ Get-Content .\dist\SPLICR-Studio-0.1.0-SHA256SUMS.txt
   synthesis job, checkpoint/output media, Library project, immutable render plan/take/artifact,
   voice profile, and Studio profile; after uninstall/reinstall it must semantically reopen every
   record, hash-check all files, match the portable payload again, and preserve the data through a
-  second uninstall. This new artifact-level evidence is implemented but not claimed for dev.16.
+  second uninstall. It must also prove the per-user Start-menu shortcut and Windows uninstall
+  registration exist after install/reinstall and are removed after both uninstalls. This expanded
+  artifact-level evidence is implemented but not claimed for dev.16.
 - [x] Run the harness's optional prior-installer preflight. A development-workstation upgrade from
   `0.1.0-dev.4` to `0.1.0-dev.5` passed both frozen package smokes, kept an external user-data marker
   byte-identical, and left an installed application payload exactly matching the current portable

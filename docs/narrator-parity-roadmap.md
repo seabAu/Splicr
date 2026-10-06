@@ -465,8 +465,9 @@ sequence, cancellation cleanup, deterministic archives, API validation, and the 
   second uninstall. When given a previous package that supports the acceptance command, the harness
   can now require that previous executable to seed the full representative state; the candidate
   must migrate and semantically reopen it before continuing, and the evidence records which package
-  created the fixture. Lifecycle / Start-menu/browser use, credentials migration, Windows Settings,
-  and a genuinely clean VM remain manual release evidence.
+  created the fixture. The harness also verifies creation and uninstall cleanup of the per-user
+  Start-menu shortcut and Windows uninstall registration. Interactive lifecycle/browser use,
+  credentials migration, Windows Settings, and a genuinely clean VM remain manual release evidence.
 - [x] Verify Chromium acceptance in GitHub Actions and retain failure traces/screenshots/video. The
   workflow runs for pull requests, `main`, `codex/**` integration branches, and release tags. Failed
   run `36664605914` published assertion annotations and retained a 19 MB Playwright diagnostics
@@ -1138,3 +1139,6 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   to seed the completed job, checkpoint/output media, Library project, immutable render
   plan/take/artifact, voice profile, and Studio profile; the candidate must migrate and semantically
   reopen that exact fixture, and the acceptance JSON records its package of origin.
+- **2026-10-06:** Added package-level shell-registration acceptance. Install and reinstall must
+  create the per-user Start-menu shortcut plus the versioned Windows uninstall registration;
+  uninstall must remove both while preserving the separate application data directory.

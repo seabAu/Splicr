@@ -90,12 +90,13 @@ spaces, proves portable smoke leaves every package file unchanged, redirects mut
 separate per-user data root, silently installs the real installer, checks FFmpeg's shared
 configuration, effective-license evidence, and provenance files, proves the installed payload exactly matches the portable
 payload, renders and probes an OpenH264/AAC MP4, uninstalls, and proves the application directory is
-removed while user data remains. Before uninstall, the packaged application seeds a real completed
-job with source/checkpoint/output media plus a Library project, immutable render plan/take/artifact,
-voice profile, and Studio profile. The harness reinstalls the exact candidate, makes the packaged
-application semantically reopen every record and hash-check all three files, compares the
-reinstalled payload with the portable payload, and uninstalls again without removing user data. It
-writes a machine-readable
+removed while user data remains. It also verifies the per-user Start-menu shortcut and Windows
+uninstall registration after install/reinstall and proves both are removed after each uninstall.
+Before uninstall, the packaged application seeds a real completed job with source/checkpoint/output
+media plus a Library project, immutable render plan/take/artifact, voice profile, and Studio profile.
+The harness reinstalls the exact candidate, makes the packaged application semantically reopen every
+record and hash-check all three files, compares the reinstalled payload with the portable payload,
+and uninstalls again without removing user data. It writes a machine-readable
 `SPLICR-Studio-<version>-Windows-x64-ACCEPTANCE.json` beside the packages. The release workflow
 runs this gate before uploading any artifact.
 

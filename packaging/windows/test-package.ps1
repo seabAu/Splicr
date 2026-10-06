@@ -174,6 +174,11 @@ if (-not $EvidencePath) {
 $EvidencePath = [IO.Path]::GetFullPath($EvidencePath)
 $OriginalLocalAppData = $env:LOCALAPPDATA
 $InstallDir = Join-Path $RunRoot "installed"
+$StartMenuShortcut = Join-Path `
+    ([Environment]::GetFolderPath([Environment+SpecialFolder]::Programs)) `
+    "SPLICR Studio.lnk"
+$UninstallRegistryPath = `
+    "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{D39B3DFC-EA2E-4BE8-96EC-14D11D67D63C}_is1"
 $Installed = $false
 
 try {
@@ -257,6 +262,22 @@ try {
     $InstalledExecutable = Join-Path $InstallDir "SPLICR Studio.exe"
     $InternalDir = Join-Path $InstallDir "_internal"
     $FfmpegDir = Join-Path $InternalDir "ffmpeg"
+    Assert-Condition (Test-Path -LiteralPath $StartMenuShortcut -PathType Leaf) `
+        "Installer did not create the per-user Start menu shortcut"
+    Assert-Condition (Test-Path -LiteralPath $UninstallRegistryPath) `
+        "Installer did not register SPLICR Studio for per-user uninstall"
+    $UninstallRegistration = Get-ItemProperty -LiteralPath $UninstallRegistryPath
+    Assert-Condition ($UninstallRegistration.DisplayName -eq "SPLICR Studio") `
+        "Per-user uninstall registration has the wrong display name"
+    Assert-Condition ($UninstallRegistration.DisplayVersion -eq $Version) `
+        "Per-user uninstall registration has the wrong version"
+    $ExpectedUninstaller = Join-Path $InstallDir "unins000.exe"
+    Assert-Condition (
+        $UninstallRegistration.UninstallString.IndexOf(
+            $ExpectedUninstaller,
+            [StringComparison]::OrdinalIgnoreCase
+        ) -ge 0
+    ) "Per-user uninstall registration points outside the candidate installation"
     foreach ($RequiredPayload in @(
         $InstalledExecutable,
         (Join-Path $InternalDir "BUILD_INFO.txt"),
@@ -406,6 +427,10 @@ try {
     Invoke-Checked $Uninstaller @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART")
     $Installed = $false
     Wait-PathRemoved $InstallDir
+    Assert-Condition (-not (Test-Path -LiteralPath $StartMenuShortcut)) `
+        "Uninstall left the SPLICR Studio Start menu shortcut behind"
+    Assert-Condition (-not (Test-Path -LiteralPath $UninstallRegistryPath)) `
+        "Uninstall left the SPLICR Studio registry entry behind"
     Assert-Condition (Test-Path -LiteralPath $PreservationMarker -PathType Leaf) `
         "Uninstall removed per-user data"
 
@@ -420,6 +445,10 @@ try {
     )
     $Installed = $true
     $ReinstalledExecutable = Join-Path $InstallDir "SPLICR Studio.exe"
+    Assert-Condition (Test-Path -LiteralPath $StartMenuShortcut -PathType Leaf) `
+        "Reinstall did not restore the per-user Start menu shortcut"
+    Assert-Condition (Test-Path -LiteralPath $UninstallRegistryPath) `
+        "Reinstall did not restore the per-user uninstall registration"
     Invoke-Checked $ReinstalledExecutable @(
         "--package-acceptance-state",
         "verify",
@@ -437,6 +466,10 @@ try {
     Invoke-Checked $ReinstallUninstaller @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART")
     $Installed = $false
     Wait-PathRemoved $InstallDir
+    Assert-Condition (-not (Test-Path -LiteralPath $StartMenuShortcut)) `
+        "Second uninstall left the SPLICR Studio Start menu shortcut behind"
+    Assert-Condition (-not (Test-Path -LiteralPath $UninstallRegistryPath)) `
+        "Second uninstall left the SPLICR Studio registry entry behind"
     Assert-Condition (Test-Path -LiteralPath $PreservationMarker -PathType Leaf) `
         "Second uninstall removed representative per-user data"
 
@@ -457,7 +490,10 @@ try {
         legal_attribution_metadata = $true
         openh264_h264_aac_mp4 = $true
         representative_state_seeded = $true
+        start_menu_registration = $true
+        windows_uninstall_registration = $true
         uninstall_removed_application = $true
+        uninstall_removed_shell_registration = $true
         uninstall_preserved_user_data = $true
         reinstall_reopened_representative_state = $true
         reinstall_payload_matches_portable = $true
