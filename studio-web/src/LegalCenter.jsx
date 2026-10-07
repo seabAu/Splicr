@@ -62,7 +62,10 @@ export function LegalCenter({ open, onClose }) {
           <div className="legal-content">
             <section className="legal-summary">
               <span className="legal-icon"><Info size={19} /></span>
-              <div><strong>{info.application.name}</strong><span>Version {info.application.version}</span></div>
+              <div>
+                <strong>{info.application.name}</strong>
+                <span>Version {info.application.version} · {info.application.license.id}</span>
+              </div>
             </section>
 
             <section className="legal-section">

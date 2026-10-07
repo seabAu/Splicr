@@ -39,7 +39,8 @@ BtbN release tag, asset name, and SHA-256 digest; it also creates a
 `ffmpeg-packaged-license-files.tsv`; the standard-library Python fetcher downloads exact revision
 URLs, applies only declared transport decoding, retries bounded transient failures, and rejects a
 hash mismatch. Generated vendor tools and build outputs are ignored by Git. Every package includes
-`THIRD_PARTY_NOTICES.md`, generated `BUILD_INFO.txt`, the FFmpeg `LICENSE.txt` and
+the application's root Apache-2.0 `LICENSE.txt`, `THIRD_PARTY_NOTICES.md`, generated
+`BUILD_INFO.txt`, the FFmpeg `LICENSE.txt` and
 `SOURCE_INFO.txt`, generated `LEGAL_INFO.json`, and each manifest-listed dependency license beside
 the bundled media tools. Studio's **About & legal** modal reads those files through fixed,
 read-only API routes; it never exposes a local path. An internal build explicitly reports that no
@@ -86,7 +87,8 @@ Start menu entry while it runs. The harness requires PowerShell 7 (`pwsh`):
 .\packaging\windows\test-package.ps1 -Version 0.1.0
 ```
 
-The harness independently verifies the checksum manifest, extracts the portable ZIP to a path with
+The harness independently verifies the checksum manifest and the application license/digest,
+extracts the portable ZIP to a path with
 spaces, proves portable smoke leaves every package file unchanged, redirects mutable state to a
 separate per-user data root, silently installs the real installer, checks FFmpeg's shared
 configuration, effective-license evidence, and provenance files, proves the installed payload exactly matches the portable

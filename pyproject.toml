@@ -7,6 +7,8 @@ name = "splicr-tts"
 version = "0.1.0"
 description = "Provider-neutral long-document text-to-speech microservice"
 readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE.txt"]
 requires-python = ">=3.11"
 dependencies = [
   "cryptography>=44,<50",

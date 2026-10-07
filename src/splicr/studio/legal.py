@@ -11,6 +11,7 @@ from urllib.parse import urlparse
 
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _DOCUMENTS = {
+    "application-license": ("LICENSE.txt", "text/plain; charset=utf-8"),
     "third-party-notices": ("THIRD_PARTY_NOTICES.md", "text/markdown; charset=utf-8"),
     "ffmpeg-license": ("ffmpeg/LICENSE.txt", "text/plain; charset=utf-8"),
     "ffmpeg-source-info": ("ffmpeg/SOURCE_INFO.txt", "text/plain; charset=utf-8"),
@@ -37,10 +38,12 @@ class LegalAssets:
         roots: list[Path] = []
         bundle_root = getattr(sys, "_MEIPASS", None)
         if bundle_root:
+            roots.append(Path(sys.executable).resolve().parent)
             roots.append(Path(bundle_root))
         repository_root = Path(__file__).resolve().parents[3]
         roots.extend(
             [
+                repository_root,
                 repository_root / "packaging" / "windows",
                 repository_root / "packaging" / "windows" / "vendor",
                 repository_root / "packaging" / "windows" / "vendor" / "ffmpeg",
@@ -77,6 +80,7 @@ class LegalAssets:
                 "url": f"/v1/studio/legal/documents/{document_id}",
             }
             for document_id, label in (
+                ("application-license", "SPLICR Studio Apache-2.0 license"),
                 ("third-party-notices", "Third-party notices"),
                 ("ffmpeg-license", "Bundled FFmpeg license"),
                 ("ffmpeg-source-info", "Bundled binary source record"),
@@ -85,13 +89,22 @@ class LegalAssets:
             if self._find_document(document_id) is not None
         ]
         app_version = str(metadata.get("application_version") or self._application_version())
+        app_license = str(metadata.get("application_license") or "Apache-2.0")
+        app_license_available = self._find_document("application-license") is not None
         effective_license = str(
             metadata.get("ffmpeg_effective_license")
             or "GPL-covered (FFTW3 statically incorporated through Chromaprint)"
         )
         return {
             "schema_version": 1,
-            "application": {"name": "SPLICR Studio", "version": app_version},
+            "application": {
+                "name": "SPLICR Studio",
+                "version": app_version,
+                "license": {
+                    "id": app_license,
+                    "document_available": app_license_available,
+                },
+            },
             "ffmpeg": {
                 "project_url": "https://ffmpeg.org/",
                 "legal_url": "https://ffmpeg.org/legal.html",
@@ -106,7 +119,11 @@ class LegalAssets:
                     "sha256": corresponding_source_sha256,
                 },
             },
-            "public_release_ready": bool(corresponding_source_url and corresponding_source_sha256),
+            "public_release_ready": bool(
+                app_license_available
+                and corresponding_source_url
+                and corresponding_source_sha256
+            ),
             "documents": documents,
         }
 

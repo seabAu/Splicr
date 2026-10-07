@@ -18,10 +18,15 @@ $RequiredMetadataNames = @(
 )
 $Dist = Join-Path $Root "dist"
 $Portable = Join-Path $Dist "SPLICR Studio"
+$ApplicationLicense = Join-Path $Root "LICENSE.txt"
 
 if ($Version -notmatch '^\d+\.\d+\.\d+([-.][0-9A-Za-z.-]+)?$') {
     throw "Version must look like 1.2.3 or 1.2.3-rc.1"
 }
+if (-not (Test-Path -LiteralPath $ApplicationLicense -PathType Leaf)) {
+    throw "The Apache-2.0 application license is required: $ApplicationLicense"
+}
+$ApplicationLicenseSha256 = (Get-FileHash -LiteralPath $ApplicationLicense -Algorithm SHA256).Hash.ToLowerInvariant()
 if ([bool]$CorrespondingSourceUrl -ne [bool]$CorrespondingSourceSha256) {
     throw "CorrespondingSourceUrl and CorrespondingSourceSha256 must be provided together."
 }
@@ -113,6 +118,8 @@ try {
     $LegalInfo = [ordered]@{
         schema_version = 1
         application_version = $Version
+        application_license = "Apache-2.0"
+        application_license_sha256 = $ApplicationLicenseSha256
         ffmpeg_effective_license = "GPL-covered (FFTW3 statically incorporated through Chromaprint)"
         corresponding_source_url = $(if ($CorrespondingSourceUrl) { $CorrespondingSourceUrl } else { $null })
         corresponding_source_sha256 = $(if ($CorrespondingSourceSha256) { $CorrespondingSourceSha256 } else { $null })
@@ -124,6 +131,7 @@ try {
     & uv.exe run --with "pyinstaller==6.16.0" pyinstaller --noconfirm --clean `
         (Join-Path $PSScriptRoot "splicr.spec")
     if ($LASTEXITCODE -ne 0) { throw "PyInstaller build failed" }
+    Copy-Item -LiteralPath $ApplicationLicense -Destination (Join-Path $Portable "LICENSE.txt") -Force
 
     $SmokeData = Join-Path $env:TEMP "splicr-package-smoke-$PID"
     try {

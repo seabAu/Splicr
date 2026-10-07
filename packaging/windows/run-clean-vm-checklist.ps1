@@ -239,6 +239,7 @@ $ReinstallPort = $null
 $PortablePort = $null
 $StartedAt = [DateTime]::UtcNow
 $UpgradeEvidence = $null
+$ApplicationLicenseSha256 = $null
 $RepresentativeStateManifest = Join-Path `
     ([IO.Path]::GetTempPath()) `
     ("SPLICR-upgrade-state-" + [Guid]::NewGuid().ToString("N") + ".json")
@@ -297,6 +298,11 @@ try {
         "Installer did not create the per-user Start-menu shortcut."
     Assert-Condition $AutomatedChecks.uninstall_registration_created `
         "Installer did not create the per-user Windows uninstall registration."
+    $InstalledApplicationLicense = Join-Path $InstallDir "LICENSE.txt"
+    Assert-Condition (Test-Path -LiteralPath $InstalledApplicationLicense -PathType Leaf) `
+        "Candidate installer did not include the application license."
+    $ApplicationLicenseSha256 = Get-Sha256 $InstalledApplicationLicense
+    $AutomatedChecks.application_license = $true
 
     if ($PreviousInstaller) {
         $CandidateExecutable = Join-Path $InstallDir "SPLICR Studio.exe"
@@ -435,6 +441,12 @@ try {
     Assert-Condition ($PortableExecutables.Count -eq 1) `
         "Portable archive must contain exactly one SPLICR Studio.exe."
     $PortableAppRoot = $PortableExecutables[0].Directory.FullName
+    $PortableApplicationLicense = Join-Path $PortableAppRoot "LICENSE.txt"
+    Assert-Condition (Test-Path -LiteralPath $PortableApplicationLicense -PathType Leaf) `
+        "Portable candidate did not include the application license."
+    Assert-Condition ((Get-Sha256 $PortableApplicationLicense) -eq $ApplicationLicenseSha256) `
+        "Portable and installed application licenses do not match."
+    $AutomatedChecks.portable_application_license_matches_installer = $true
     $PortableBefore = Get-TreeManifest $PortableAppRoot
 
     Write-Host "Launching the extracted portable candidate from $PortableRunRoot..."
@@ -499,6 +511,10 @@ finally {
         automated_checks = $AutomatedChecks
         operator_checks = $script:OperatorChecks
         previous_package = $UpgradeEvidence
+        application_license = [ordered]@{
+            identifier = "Apache-2.0"
+            sha256 = $ApplicationLicenseSha256
+        }
         failure = $Failure
         passed = ($null -eq $Failure -and $AllAutomatedPassed -and $AllOperatorPassed)
     }

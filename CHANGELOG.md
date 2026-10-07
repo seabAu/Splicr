@@ -36,6 +36,8 @@ public release tags begin; the current section describes the unreleased Narrator
 - A guided clean-Windows acceptance harness with separately hash-bound fresh and previous-installer
   upgrade scenarios, human-visible lifecycle/media prompts, Windows Settings uninstall/reinstall,
   and portable launch/immutability evidence.
+- An explicit Apache-2.0 application license in Python package metadata, Windows package payloads,
+  package acceptance, and the in-app About/legal document list.
 
 ### Changed
 
@@ -109,8 +111,6 @@ public release tags begin; the current section describes the unreleased Narrator
 - The current third-party OpenH264 build is not covered by Cisco's binary-module royalty arrangement,
   and AAC has a separate patent pool. Public H.264/AAC binary distribution therefore requires an
   explicit licensing decision or removal/replacement of those codecs.
-- The application itself still needs an explicitly selected and committed license included in both
-  package formats before public distribution.
 
 ### Rollback
 

@@ -1218,6 +1218,16 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   is hosted clean-runner evidence plus human-visible browser, Start-menu, credentials, and Windows
   Settings verification. The build now rejects using its mutable FFmpeg vendor destination as the
   input directory, preventing source-destination self-deletion before copying.
+
+- **2026-10-06:** Adopted Apache-2.0 for the SPLICR Studio application and verified it end to end.
+  The source tree and Python package metadata identify the license; the fixed About/legal API and UI
+  expose its exact text; and the `0.1.0-dev.20` portable and installed packages contain the same
+  root `LICENSE.txt` at SHA-256
+  `c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4`. All 28 schema-v2 package
+  checks passed, including a dev.19-to-dev.20 representative-state upgrade. Portable SHA-256:
+  `f5a7ff63426907cfbbacca1ac1d71e69e3b92fe57283e05db23e1bde5b7ccd52`; installer SHA-256:
+  `9256e14c647d94ab146734c6ed03e10f4f9d20267543464beca2ed2f61ab1ec4`. Hosted CI, the human Edge
+  seam verdict, and the two disposable clean-Windows scenarios remain open release evidence.
 - **2026-10-06:** Added a guided clean-VM acceptance harness for the remaining interactive Windows
   gate. It refuses elevated and previously used environments, binds the run to installer and
   portable hashes, checks per-user installation, Start-menu launch, instance reuse, private-service

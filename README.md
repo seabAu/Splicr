@@ -483,6 +483,13 @@ The isolated-worker test suite uses a fake subprocess. A manual 2026-09-28 smoke
 preserved Narrator Kokoro environment also completed through the production job pipeline and
 produced mono 16-bit 24 kHz WAV output; model/network-dependent smoke tests remain opt-in.
 
+## License
+
+SPLICR Studio's application source is licensed under the
+[Apache License 2.0](LICENSE.txt). Packaged builds also contain separately licensed third-party
+components; review the bundled third-party notices and FFmpeg legal/source records before
+redistribution.
+
 ## Provider references
 
 - [Gemini TTS guide](https://ai.google.dev/gemini-api/docs/speech-generation)

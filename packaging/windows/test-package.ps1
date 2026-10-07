@@ -139,6 +139,11 @@ function Stop-ProcessesUnder([string]$Root) {
 }
 
 $ArtifactsDir = (Resolve-Path -LiteralPath $ArtifactsDir).Path
+$RepositoryRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..\..")).Path
+$ApplicationLicenseSource = Join-Path $RepositoryRoot "LICENSE.txt"
+Assert-Condition (Test-Path -LiteralPath $ApplicationLicenseSource -PathType Leaf) `
+    "Repository application license is missing: $ApplicationLicenseSource"
+$ApplicationLicenseSha256 = Get-Sha256 $ApplicationLicenseSource
 $PortableName = "SPLICR-Studio-$Version-Windows-x64-portable.zip"
 $InstallerName = "SPLICR-Studio-$Version-Windows-x64-setup.exe"
 $ChecksumsName = "SPLICR-Studio-$Version-SHA256SUMS.txt"
@@ -212,6 +217,11 @@ try {
     Assert-Condition ($PortableExecutables.Count -eq 1) `
         "Portable archive must contain exactly one SPLICR Studio.exe"
     $PortableAppRoot = $PortableExecutables[0].Directory.FullName
+    $PortableApplicationLicense = Join-Path $PortableAppRoot "LICENSE.txt"
+    Assert-Condition (Test-Path -LiteralPath $PortableApplicationLicense -PathType Leaf) `
+        "Portable package does not contain the application license"
+    Assert-Condition ((Get-Sha256 $PortableApplicationLicense) -eq $ApplicationLicenseSha256) `
+        "Portable application license does not match the repository license"
     $PortableBefore = Get-TreeManifest $PortableAppRoot
     $PortableLocalAppData = Join-Path $RunRoot "portable-localappdata"
     New-Item -ItemType Directory -Path $PortableLocalAppData | Out-Null
@@ -304,6 +314,7 @@ try {
     ) "Per-user uninstall registration points outside the candidate installation"
     foreach ($RequiredPayload in @(
         $InstalledExecutable,
+        (Join-Path $InstallDir "LICENSE.txt"),
         (Join-Path $InternalDir "BUILD_INFO.txt"),
         (Join-Path $InternalDir "LEGAL_INFO.json"),
         (Join-Path $InternalDir "THIRD_PARTY_NOTICES.md"),
@@ -315,11 +326,18 @@ try {
         Assert-Condition (Test-Path -LiteralPath $RequiredPayload -PathType Leaf) `
             "Installed package is missing: $RequiredPayload"
     }
+    Assert-Condition (
+        (Get-Sha256 (Join-Path $InstallDir "LICENSE.txt")) -eq $ApplicationLicenseSha256
+    ) "Installed application license does not match the repository license"
     $LegalInfo = Get-Content -LiteralPath (Join-Path $InternalDir "LEGAL_INFO.json") -Raw |
         ConvertFrom-Json
     Assert-Condition ($LegalInfo.schema_version -eq 1) "Packaged legal metadata schema is unsupported"
     Assert-Condition ($LegalInfo.application_version -eq $Version) `
         "Packaged legal metadata version does not match the package version"
+    Assert-Condition ($LegalInfo.application_license -eq "Apache-2.0") `
+        "Packaged legal metadata does not identify the Apache-2.0 application license"
+    Assert-Condition ($LegalInfo.application_license_sha256 -eq $ApplicationLicenseSha256) `
+        "Packaged legal metadata does not match the application license"
     $HasSourceUrl = -not [string]::IsNullOrWhiteSpace($LegalInfo.corresponding_source_url)
     $HasSourceSha = -not [string]::IsNullOrWhiteSpace($LegalInfo.corresponding_source_sha256)
     Assert-Condition ($HasSourceUrl -eq $HasSourceSha) `
@@ -565,6 +583,7 @@ try {
     $FfmpegFirstLine = ($FfmpegVersion -split "`r?`n")[0]
     $Checks = [ordered]@{
         checksum_manifest = $true
+        application_license = $true
         portable_package_smoke = $true
         portable_tree_unchanged = $true
         portable_per_user_data = $true
@@ -616,6 +635,11 @@ try {
             source_sha256 = $SourceShaLine.Substring("SHA-256:".Length).Trim()
             shared_dll_count = $FfmpegDlls.Count
             dependency_licenses = $ValidatedDependencyLicenses
+        }
+        application_license = [ordered]@{
+            identifier = "Apache-2.0"
+            file = "LICENSE.txt"
+            sha256 = $ApplicationLicenseSha256
         }
         representative_state = $RepresentativeState
         representative_state_origin = if ($RepresentativeStateSeededByPrevious) {

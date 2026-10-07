@@ -72,11 +72,16 @@ test("About and legal exposes attribution and fails closed without published sou
 
   const dialog = page.getByRole("dialog", { name: "SPLICR Studio & legal" });
   await expect(dialog).toBeVisible();
+  await expect(dialog.getByText(/Version .* · Apache-2.0/)).toBeVisible();
   await expect(dialog.getByRole("heading", { name: "FFmpeg attribution" })).toBeVisible();
   await expect(dialog.getByText("Internal build: source archive not published")).toBeVisible();
   await expect(dialog.getByRole("link", { name: "Third-party notices" })).toHaveAttribute(
     "href",
     "/v1/studio/legal/documents/third-party-notices",
+  );
+  await expect(dialog.getByRole("link", { name: "SPLICR Studio Apache-2.0 license" })).toHaveAttribute(
+    "href",
+    "/v1/studio/legal/documents/application-license",
   );
   await dialog.getByRole("button", { name: "Close about and legal information" }).click();
   await expect(dialog).toBeHidden();
