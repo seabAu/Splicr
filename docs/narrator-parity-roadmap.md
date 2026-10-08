@@ -1234,7 +1234,8 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   shutdown, Windows Settings uninstall, reinstall, preserved data, portable launch, and portable-tree
   immutability, and emits credential-free schema-v2 JSON evidence. Distinct fresh and previous-
   installer upgrade runs cannot overwrite each other's evidence. Non-destructive `-ValidateOnly`
-  preflight passed for fresh dev.19 and for a dev.18-to-dev.19 upgrade, binding all three package
+  preflight most recently passed for fresh dev.20 and for a dev.19-to-dev.20 upgrade, binding all
+  three package
   hashes. Both actual scenarios still require reverted disposable standard-user Windows snapshots
   and human observations.
 - **2026-10-06:** Reconciled the publishable changelog/release-note draft with current evidence. It
