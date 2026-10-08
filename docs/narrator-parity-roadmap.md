@@ -1248,3 +1248,10 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   intentional replacements; no `partial` or `gap` entries remain. The focused manifest/source test
   passes. The still-open audible-seam and clean-Windows items are acceptance evidence, while the
   later feature ideas remain explicitly deferred rather than parity requirements.
+- **2026-10-08:** Made the live Edge seam evidence objectively reproducible in addition to the
+  retained listening clips. The live test now records the exact sample jump, nearby 99th-percentile
+  natural derivative, 50 ms RMS/peak windows, and clipping status at both splice boundaries, and a
+  deterministic ramp fixture covers the analyzer. On the retained revised clip, the opening splice
+  has a zero-sample jump and the closing splice jumps 24 units versus a nearby p99 derivative of 505
+  (ratio `0.047525`); neither window approaches signed-16-bit full scale. This supports click/pop
+  continuity but deliberately does not replace the pending human naturalness verdict.

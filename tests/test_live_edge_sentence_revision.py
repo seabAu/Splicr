@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+from array import array
 import hashlib
 import json
+import math
 import os
 import shutil
+import sys
 import wave
 from pathlib import Path
 
@@ -15,6 +18,87 @@ from splicr.config import Settings
 from splicr.domain import JobStatus
 from splicr.providers.edge import EDGE_DEFAULT_VOICE, EDGE_MODEL
 from splicr.studio.timeline import build_job_timeline
+
+
+def _pcm_seam_metrics(
+    path: Path,
+    seam_seconds: list[float],
+    *,
+    window_ms: float = 50.0,
+) -> list[dict[str, float | int]]:
+    with wave.open(str(path), "rb") as recording:
+        assert recording.getnchannels() == 1
+        assert recording.getsampwidth() == 2
+        sample_rate = recording.getframerate()
+        samples = array("h")
+        samples.frombytes(recording.readframes(recording.getnframes()))
+    if sys.byteorder == "big":
+        samples.byteswap()
+
+    window_frames = max(1, round(sample_rate * window_ms / 1_000.0))
+    metrics: list[dict[str, float | int]] = []
+    for seconds in seam_seconds:
+        frame = round(seconds * sample_rate)
+        if not 0 < frame < len(samples):
+            raise AssertionError(f"seam frame {frame} is outside {path.name}")
+        before = samples[max(0, frame - window_frames) : frame]
+        after = samples[frame : min(len(samples), frame + window_frames)]
+        local = samples[
+            max(0, frame - window_frames) : min(len(samples), frame + window_frames)
+        ]
+        derivatives = sorted(
+            abs(right - left) for left, right in zip(local, local[1:], strict=False)
+        )
+        percentile_index = max(0, math.ceil(0.99 * len(derivatives)) - 1)
+        derivative_p99 = derivatives[percentile_index]
+        jump = abs(samples[frame] - samples[frame - 1])
+        rms_before = math.sqrt(sum(sample * sample for sample in before) / len(before))
+        rms_after = math.sqrt(sum(sample * sample for sample in after) / len(after))
+        metrics.append(
+            {
+                "seconds": seconds,
+                "frame": frame,
+                "sample_jump_abs": jump,
+                "local_derivative_p99": derivative_p99,
+                "jump_to_local_p99_ratio": jump / max(derivative_p99, 1),
+                "rms_before": rms_before,
+                "rms_after": rms_after,
+                "rms_delta_db": 20.0
+                * math.log10(max(rms_after, 1.0) / max(rms_before, 1.0)),
+                "peak_before": max(map(abs, before)),
+                "peak_after": max(map(abs, after)),
+            }
+        )
+    return metrics
+
+
+def test_pcm_seam_metrics_quantify_boundary_continuity(tmp_path: Path) -> None:
+    output = tmp_path / "ramp.wav"
+    samples = array("h", range(-1_200, 1_200))
+    if sys.byteorder == "big":
+        samples.byteswap()
+    with wave.open(str(output), "wb") as recording:
+        recording.setnchannels(1)
+        recording.setsampwidth(2)
+        recording.setframerate(24_000)
+        recording.writeframes(samples.tobytes())
+
+    metrics = _pcm_seam_metrics(output, [0.05], window_ms=25.0)
+
+    assert metrics == [
+        {
+            "seconds": 0.05,
+            "frame": 1_200,
+            "sample_jump_abs": 1,
+            "local_derivative_p99": 1,
+            "jump_to_local_p99_ratio": 1.0,
+            "rms_before": pytest.approx(346.84314418288085),
+            "rms_after": pytest.approx(345.97711870392044),
+            "rms_delta_db": pytest.approx(-0.02171473917485587),
+            "peak_before": 600,
+            "peak_after": 599,
+        }
+    ]
 
 
 @pytest.mark.live_engine
@@ -144,7 +228,25 @@ def test_live_edge_sentence_revision_retains_audible_artifacts(tmp_path: Path) -
     original_start = float(revision["original_start"])
     original_end = float(revision["original_end"])
     duration_delta = float(revision["duration_delta"])
+    revised_seams = [original_start, original_end + duration_delta]
+    objective_seam_analysis = _pcm_seam_metrics(retained_revision, revised_seams)
+    assert all(
+        metric["jump_to_local_p99_ratio"] <= 1.0 for metric in objective_seam_analysis
+    )
+    assert all(
+        max(metric["peak_before"], metric["peak_after"]) < 32_768
+        for metric in objective_seam_analysis
+    )
     manifest["artifacts"] = artifacts
+    manifest["objective_seam_analysis"] = {
+        "window_ms": 50.0,
+        "boundaries": objective_seam_analysis,
+        "criteria": [
+            "The exact splice sample jump does not exceed the nearby 99th-percentile natural derivative.",
+            "Neither 50 ms boundary window reaches signed-16-bit full scale.",
+            "These metrics support but do not replace the required human audible review.",
+        ],
+    }
     manifest["listening"] = {
         "source_focus_seconds": [max(0.0, original_start - 0.75), original_end + 0.75],
         "revised_focus_seconds": [
