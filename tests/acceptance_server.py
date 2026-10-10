@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import atexit
+from dataclasses import replace
 import json
 import os
 import tempfile
@@ -50,7 +51,12 @@ class AcceptanceRecordingProvider(RecordingProvider):
             await asyncio.sleep(0.2)
         if options.variables.get("acceptance_fail"):
             raise ProviderError("acceptance batch failure", retryable=False, status_code=400)
-        return await super().synthesize(text, options)
+        result = await super().synthesize(text, options)
+        # The ordinary recording fake deliberately returns only four PCM frames. Media
+        # export journeys need a full second, without slowing unrelated pipeline tests.
+        if options.variables.get("acceptance_media"):
+            return replace(result, pcm=result.pcm * 6_000)
+        return result
 
 
 class AcceptanceVoiceDesignRunner:
@@ -201,6 +207,14 @@ def application():
                 value_type=ControlValueType.BOOLEAN,
                 label="Acceptance failure",
                 description="Deterministic browser-test provider failure.",
+                group="Acceptance",
+                default=False,
+            ),
+            ControlDefinition(
+                key="acceptance_media",
+                value_type=ControlValueType.BOOLEAN,
+                label="Acceptance media fixture",
+                description="Produce one second of deterministic PCM for media export tests.",
                 group="Acceptance",
                 default=False,
             ),

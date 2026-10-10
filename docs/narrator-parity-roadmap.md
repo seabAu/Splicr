@@ -511,17 +511,11 @@ sequence, cancellation cleanup, deterministic archives, API validation, and the 
 
 ## Deferred ideas from the Narrator handover
 
-These are preserved so they are not forgotten, but they are not current parity blockers:
-
-- [ ] Per-word audio surgery. Word-timing inspection and pronunciation correction have higher value
-  and lower artifact risk.
-- [ ] Delete/reorder individual sentences and assign a different voice per sentence in Timeline.
-- [ ] Drag audiogram center/pivot directly in preview.
-- [ ] Per-band gradients and frequency-range-specific audiogram response.
-- [ ] Intro/outro automatic loudness matching.
-- [ ] Formula-driven TTS parameters. Generation parameters operate per request, not per audio frame,
-  so this needs a separate product design rather than copying audiogram expressions.
-- [ ] Public information/demo/download site after local Studio parity and release hardening.
+These are not parity blockers. On 2026-10-10 the user authorized post-merge expansion; the recovered
+ideas, stale-note dispositions, implementation ordering, branch policy, and acceptance checklists now
+live in [studio-expansion-roadmap.md](studio-expansion-roadmap.md). That document distinguishes the
+existing intro/outro normalization feature from future narration-relative matching and keeps
+per-word audio surgery an explicitly parked experiment.
 
 ## Verification matrix
 

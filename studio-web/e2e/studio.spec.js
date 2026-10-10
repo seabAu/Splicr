@@ -95,6 +95,7 @@ test("Audiogram manages still backgrounds and previews alpha output", async ({ p
       text: "A short browser audiogram source.",
       provider: "fake",
       project_name: "Audiogram browser proof",
+      variables: { acceptance_media: true },
     },
   });
   expect(created.ok()).toBeTruthy();
@@ -127,11 +128,55 @@ test("Audiogram manages still backgrounds and previews alpha output", async ({ p
   await page.getByText("Geometry, layers, and animation").click();
   await page.getByLabel("Geometry").selectOption("polar");
   await page.getByLabel("Layer mode").selectOption("both");
+  await expect(page.getByLabel("Live audiogram composition preview")).toHaveAttribute("data-geometry", "polar");
+  const center = page.getByRole("button", { name: "Move audiogram center", exact: true });
+  await expect(center).toBeVisible();
+  await center.focus();
+  await center.press("ArrowRight");
+  await expect(page.getByLabel("Center X", { exact: true })).toHaveValue("0.51");
+  await center.press("Shift+ArrowDown");
+  await expect(page.getByLabel("Center Y", { exact: true })).toHaveValue("0.55");
+  const canvas = await page.locator(".audiogram-canvas-shell").boundingBox();
+  const centerBox = await center.boundingBox();
+  await page.mouse.move(centerBox.x + centerBox.width / 2, centerBox.y + centerBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(canvas.x + canvas.width * 0.7, canvas.y + canvas.height * 0.35, { steps: 8 });
+  await page.mouse.up();
+  await expect.poll(async () => Number(await page.getByLabel("Center X", { exact: true }).inputValue())).toBeCloseTo(0.7, 2);
+  await expect.poll(async () => Number(await page.getByLabel("Center Y", { exact: true }).inputValue())).toBeCloseTo(0.35, 2);
+  await page.getByRole("button", { name: "Move pivot", exact: true }).click();
+  const pivot = page.getByRole("button", { name: "Move audiogram pivot", exact: true });
+  await pivot.focus();
+  await pivot.press("ArrowLeft");
+  await expect(page.getByLabel("Pivot X", { exact: true })).toHaveValue("0.49");
+  await expect.poll(async () => Number(await page.getByLabel("Live audiogram composition preview").getAttribute("data-center-x"))).toBeCloseTo(0.7, 2);
+  await expect.poll(async () => Number(await page.getByLabel("Live audiogram composition preview").getAttribute("data-center-y"))).toBeCloseTo(0.35, 2);
+  const compositionScreenshot = test.info().outputPath("audiogram-direct-positioning.png");
+  await page.locator(".audiogram-stage").screenshot({ path: compositionScreenshot });
+  await test.info().attach("audiogram-direct-positioning", {
+    path: compositionScreenshot,
+    contentType: "image/png",
+  });
+  await page.getByRole("button", { name: "Move center", exact: true }).click();
   await page.getByLabel("Formula field").selectOption("rotation");
   await page.getByLabel("Formula expression").fill("15 * sin(t * 2)");
+  await expect(center).toHaveAttribute("aria-disabled", "true");
+  await expect(page.getByText(/Formula-controlled position/)).toBeVisible();
+  await center.press("ArrowLeft");
+  await expect(page.getByLabel("Formula expression")).toHaveValue("15 * sin(t * 2)");
   await page.getByLabel("Search expression variables and functions").fill("treble");
   await expect(page.getByRole("button", { name: /treble/ })).toBeVisible();
-  await expect(page.locator(".audiogram-canvas-shell svg circle")).toBeVisible();
+  await page.getByLabel("Formula expression").fill("0");
+  const submitted = page.waitForResponse((response) => response.url().endsWith("/v1/studio/audiograms/jobs") && response.request().method() === "POST");
+  await page.getByRole("button", { name: "Render full video", exact: true }).click();
+  const rendered = await (await submitted).json();
+  expect(rendered.spec.center_x).toBeCloseTo(0.7, 2);
+  expect(rendered.spec.center_y).toBeCloseTo(0.35, 2);
+  expect(rendered.spec.pivot_x).toBe(0.49);
+  await expect(page.locator(".audiogram-job-card.status-completed")).toBeVisible({ timeout: 20_000 });
+  const persisted = await (await page.request.get(`/v1/studio/audiograms/jobs/${rendered.id}`)).json();
+  expect(persisted.spec).toEqual(rendered.spec);
+  expect(persisted.output_url).toBeTruthy();
   expect(runtimeErrors).toEqual([]);
 });
 

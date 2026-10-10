@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 
 import { api } from "./api.js";
+import { AudiogramPositionHandle } from "./AudiogramPositionControls.jsx";
+import { positionLocked } from "./audiogramPosition.js";
 
 const TERMINAL = new Set(["completed", "failed", "cancelled"]);
 const FORMULA_FIELDS = [
@@ -81,7 +83,7 @@ function smoothSamples(values, amount) {
   });
 }
 
-function LiveCanvas({ spec, waveform, layout, background }) {
+function LiveCanvas({ spec, waveform, layout, background, positionTarget, onPositionChange }) {
   if (!layout) return <div className="audiogram-canvas-shell audiogram-canvas-loading" />;
   const width = 1000;
   const height = Math.round((width * layout.canvas_height) / layout.canvas_width);
@@ -137,7 +139,7 @@ function LiveCanvas({ spec, waveform, layout, background }) {
           }}
         />
       )}
-      <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" aria-label="Live audiogram composition preview">
+      <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" aria-label="Live audiogram composition preview" data-geometry={layout.geometry} data-center-x={layout.center_x / layout.canvas_width} data-center-y={layout.center_y / layout.canvas_height}>
         {layout.background_mode === "solid" && <rect width={width} height={height} fill={spec.background_color} />}
         <g transform={rotation} opacity={layout.opacity} style={{ filter: blur }}>
           {layout.show_bars && (isPolar ? polarPoints.map(([x, y, angle, value], index) => {
@@ -172,10 +174,8 @@ function LiveCanvas({ spec, waveform, layout, background }) {
             <path d={line} fill="none" stroke={spec.foreground_color} strokeWidth={strokeWidth} strokeLinejoin="round" />
           )}
         </g>
-        {(layout.rotation !== 0 || layout.animated) && (
-          <circle cx={layout.pivot_x * scaleX} cy={layout.pivot_y * scaleY} r="5" fill="#F4A259" opacity="0.9" />
-        )}
       </svg>
+      <AudiogramPositionHandle spec={spec} layout={layout} target={positionTarget} onChange={onPositionChange} />
       <span><Waves size={14} /> Live layout preview</span>
     </div>
   );
@@ -237,6 +237,7 @@ export function AudiogramWorkspace({ onNavigate }) {
   const [error, setError] = useState("");
   const [formulaField, setFormulaField] = useState("rotation");
   const [referenceQuery, setReferenceQuery] = useState("");
+  const [positionTarget, setPositionTarget] = useState("center");
 
   const load = async () => {
     const [nextCapabilities, nextSources, nextBackgrounds, nextJobs] = await Promise.all([
@@ -283,12 +284,13 @@ export function AudiogramWorkspace({ onNavigate }) {
 
   useEffect(() => {
     if (!sourceId || !spec) return undefined;
+    let cancelled = false;
     const timer = window.setTimeout(() => {
       api.estimateAudiogram({ source_job_id: sourceId, kind: "export", spec })
-        .then(setEstimate)
-        .catch(() => setEstimate(null));
+        .then((value) => { if (!cancelled) setEstimate(value); })
+        .catch(() => { if (!cancelled) setEstimate(null); });
     }, 250);
-    return () => window.clearTimeout(timer);
+    return () => { cancelled = true; window.clearTimeout(timer); };
   }, [sourceId, spec]);
 
   const source = sources.find((item) => item.job_id === sourceId) || null;
@@ -390,7 +392,21 @@ export function AudiogramWorkspace({ onNavigate }) {
                 waveform={waveform}
                 layout={resolvedLayout}
                 background={background}
+                positionTarget={positionTarget}
+                onPositionChange={(patch) => setSpec((current) => ({ ...current, ...patch }))}
               />
+              <div className="audiogram-position-toolbar" role="group" aria-label="Preview positioning">
+                {["center", "pivot"].map((target) => (
+                  <button className="secondary-button" type="button" key={target} aria-pressed={positionTarget === target} onClick={() => setPositionTarget(target)}>
+                    Move {target}
+                  </button>
+                ))}
+                <p id="audiogram-position-help">
+                  {positionLocked(spec, positionTarget)
+                    ? "Formula-controlled position. Edit the relevant animation formulas to enable direct movement."
+                    : "Drag the handle or use arrow keys · Shift moves 5% · values also appear under Advanced."}
+                </p>
+              </div>
               <div className="audiogram-render-bar">
                 <div>
                   <Sparkles size={16} />

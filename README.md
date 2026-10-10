@@ -164,6 +164,10 @@ implementation program and living checklist are in
 clean-machine and live-environment evidence matrix in
 [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md).
 
+Post-merge feature work and recovered Narrator ideas use the living
+[`Studio expansion checklist`](docs/studio-expansion-roadmap.md). `classic` preserves the original
+pre-merger SPLICR; merged development stays on `codex/narrator-integration` until ready for `main`.
+
 To reuse existing Narrator engine environments on Windows, add their interpreters to `.env` before
 starting SPLICR:
 
