@@ -134,21 +134,21 @@ human-readable work queue, including broader capabilities that were not render-s
 
 | Capability | Current state | Destination | Milestone |
 | --- | --- | --- | --- |
-| Typed engine/model parameters | Gap | Narrate advanced controls | 1 |
-| Qwen voice-design take and deterministic seed | Covered; live-model acceptance pending | Narrate / Voice Studio | 2 |
+| Typed engine/model parameters | Covered; typed contract, persistence, and browser acceptance verified | Narrate advanced controls | 1 |
+| Qwen voice-design take and deterministic seed | Covered; real-model advanced-control and forced-resume acceptance verified | Narrate / Voice Studio | 2 |
 | Optional precise speed | Covered for Kokoro | Narrate advanced controls | 2 |
 | Parts/token/character chunk planning | Covered | Narrate advanced controls | 2 |
-| Edge TTS engine | Covered; live-service acceptance pending | Narrate / Components | 3 |
+| Edge TTS engine | Covered; live-service canonical PCM and word timing verified | Narrate / Components | 3 |
 | Export filename | Covered | Narrate / Library | 4 |
 | Checkpoint/chunk export | Covered | Timeline / Library | 4 |
 | SRT/VTT export and burned captions | Covered | Publish / Audiogram | 4 |
 | Intro/outro assets and crossfade | Covered | Timeline / Publish | 5 |
 | Sentence-level regeneration and splice | Covered; audible live-engine seam check pending | Timeline | 5 |
 | Multi-document durable queue | Covered | Narrate / Library | 6 |
-| Audio transcription and guessed chapters | Covered; live-model acceptance pending | Convert / Publish | 7 |
+| Audio transcription and guessed chapters | Covered; real faster-whisper CPU/int8 acceptance verified | Convert / Publish | 7 |
 | Still-image audiogram background | Covered | Audiogram | 8 |
-| Polar/transparent/formula audiograms | Covered; release-level visual acceptance pending | Audiogram | 8 |
-| Real provider/model/installer/crash acceptance | Partial | Test/release infrastructure | 9 |
+| Polar/transparent/formula audiograms | Covered; real alpha-frame/formula rendering and browser controls verified; clean-VM visual/media observation pending | Audiogram | 8 |
+| Real provider/model/installer/crash acceptance | Provider/model/crash checks verified; genuine clean-VM fresh/upgrade acceptance pending | Test/release infrastructure | 9 |
 
 ## Milestone 1 — typed advanced-engine control foundation
 
@@ -1085,6 +1085,10 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
 
 ## Change log
 
+- **2026-10-12:** Reconciled the human-readable capability ledger with the canonical inventory and
+  detailed milestone evidence. Removed stale typed-control, Qwen, Edge, and transcription gap/live-
+  acceptance labels. Kept human Edge seam approval and genuine clean-Windows visual/install/upgrade
+  acceptance explicitly open; automated media/browser coverage does not satisfy those requirements.
 - **2026-10-12:** Pushed integration commit `bac339d` without changing `main`/`classic` or publishing
   binaries. Hosted browser run `38270503251` found the upstream media archive had been removed
   (404); no browser tests ran. Isolated browser-only provisioning now uses a retained month-end
