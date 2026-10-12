@@ -38,6 +38,8 @@ public release tags begin; the current section describes the unreleased Narrator
   and portable launch/immutability evidence.
 - An explicit Apache-2.0 application license in Python package metadata, Windows package payloads,
   package acceptance, and the in-app About/legal document list.
+- Direct audiogram center/pivot positioning in the preview, keyboard nudges, formula-overwrite
+  protection, and a living post-merge expansion checklist recovered from the Narrator handover.
 
 ### Changed
 

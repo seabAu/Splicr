@@ -1030,19 +1030,27 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
 ## Current work pointer
 
 - **Active milestone:** Milestone 9 — real-world acceptance and release hardening, including the
-  remaining Milestones 2/3/5/7 live-environment evidence.
-- **Next implementation slice:** finish the human Edge seam audition and clean-Windows interactive
-  matrix, then complete public hosting and attribution for the
-  validated FFmpeg corresponding-source candidate in
-  `docs/FFMPEG_DISTRIBUTION.md`, while preserving the remaining credential and clean-VM checks in
-  `docs/RELEASE_CHECKLIST.md`. All 92 source locators now have reviewed dispositions or validated
-  aliases, and the current artifacts pass both the PowerShell 7 lifecycle harness and exact-commit
-  hosted-browser acceptance. The Gemini and Deepgram live contracts now pass; the clean-VM matrix,
-  FFmpeg corresponding-source publication/attribution, application-license packaging, malware
-  evidence, and audible sentence-seam acceptance remain. Release-terms review found no current
-  anti-reverse-engineering prohibition; codec-patent review is complete but keeps public H.264/AAC
-  binary release blocked pending explicit legal/licensing guidance or codec removal/replacement.
-  The unsigned development-candidate disposition is recorded.
+  human sentence-seam acceptance from Milestone 5. All 36 canonical capability entries are covered
+  or documented intentional replacements; remaining parity gaps are acceptance evidence, not
+  missing controls. Post-parity feature work is tracked separately in `studio-expansion-roadmap.md`.
+- **Current deterministic evidence (2026-10-12):** integration commit `9359905` passes the complete
+  Python suite (572 passed, seven intentional live skips), 13 frontend unit tests, all seven
+  Chromium journeys, and Ruff. This supersedes the 2026-10-10 disk-space-blocked full-suite attempt.
+- **Next acceptance steps:** obtain the human Edge seam verdict, then run both fresh and upgrade
+  scenarios on genuinely clean disposable Windows snapshots. Retained full and focus WAV hashes
+  were revalidated on 2026-10-12; a passing objective discontinuity test is not a human verdict.
+  Workstation package results do not complete the clean-VM item.
+- **Latest internal candidate:** `0.1.0-dev.21`, built from the current integration code, passed all
+  28 schema-v2 package checks on 2026-10-12. The retained dev.20 executable seeded the seven
+  representative entities and three hash-bound files before upgrade; dev.21 preserved and reopened
+  them. Portable SHA-256: `b399b9cc79b8e80d2d85e9276c91bca3a9b11b93cc1730f030d36ceb30290d81`;
+  installer SHA-256: `47daa189832e683bebb2df034fb8991c8408608e3f15d87fbcabbdeaf0baefc1`.
+  Both guided clean-VM input preflights pass, but actual fresh/upgrade scenarios remain unrun.
+- **Public release remains separate and blocked:** complete hosted CI for the release commit,
+  final corresponding-source publication/attribution, malware scanning, and the explicit H.264/AAC
+  licensing or codec-removal decision before public binary distribution. Apache-2.0 application
+  licensing and its package/API/UI verification are complete, not pending. The unsigned internal
+  candidate disposition remains recorded in `docs/RELEASE_CHECKLIST.md`.
 - **Correspondence-build routing:** a fresh context at
   `/mnt/d/splicr-ffmpeg-rebuild-podman` revalidated and copied all 85 authenticated dependency
   archives plus the exact FFmpeg source (`9da21157f8f6c033c1445a6e69a0650d2bee8a7b669bd1eecb23d79c7fd1baf5`).
@@ -1063,11 +1071,22 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   plus source/checkpoint/output media, then semantically reopening and hash-verifying them after
   uninstall/reinstall. Older-schema migration and interactive Windows shell behavior still require
   the genuine clean environment.
-- **Known unrelated worktree item:** `LICENSE.txt` is untracked and not part of this roadmap unless
-  deliberately adopted later.
+- **Branch routing:** `classic` preserves the original pre-merger app at `f0f6570`; `main` remains
+  unchanged while merged development continues on `codex/narrator-integration`. Reconcile the
+  `main`-triggered hosted deployment with the download/demo website direction before promotion.
 
 ## Change log
 
+- **2026-10-12:** Revalidated current integration commit `9359905` after disk headroom was restored:
+  572 Python tests pass with seven intentional live skips, 13 frontend unit tests pass, all seven
+  Chromium journeys pass, and Ruff passes. Built internal Windows candidate `0.1.0-dev.21` and
+  validated both fresh and dev.20-to-dev.21 clean-VM harness inputs. Revalidated retained original,
+  revised, and focus Edge WAV hashes without making another provider request. The human seam verdict,
+  actual disposable clean-VM runs, and public-release gates remain open. Updated the current work
+  pointer to remove stale application-license and live-provider gaps. The subsequent automated
+  dev.20-to-dev.21 workstation package run passed all 28 checks, including prior-package
+  representative-state preservation/reopening, native lifecycle, exact installed/portable payload,
+  bundled-media execution, application/third-party licenses, and reinstall/uninstall cleanup.
 - **2026-09-29:** Created the living roadmap from the Narrator handover, render-schema parity audit,
   merged Studio architecture, and browser acceptance baseline. Added previously undercounted Edge
   TTS and audio-transcription gaps and preserved non-blocking future ideas.

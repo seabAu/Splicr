@@ -161,3 +161,6 @@ Do not reopen these from early “not yet” annotations later contradicted by t
   only this turn's `pytest-234`/`pytest-235` temporary outputs (about 3.85 GB); preserved application
   data, installed engines/models, and prior release evidence. Full-suite rerun needs additional disk
   headroom. No model/provider quota was consumed by this work.
+- 2026-10-12: C: has sufficient headroom again. The complete Python suite now passes on `9359905`
+  (572 passed, seven intentional live skips), superseding the disk-space-blocked attempt above.
+  All 13 frontend unit tests, all seven Chromium journeys, and Ruff also pass.
