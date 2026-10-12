@@ -1036,6 +1036,9 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
 - **Current deterministic evidence (2026-10-12):** integration commit `9359905` passes the complete
   Python suite (572 passed, seven intentional live skips), 13 frontend unit tests, all seven
   Chromium journeys, and Ruff. This supersedes the 2026-10-10 disk-space-blocked full-suite attempt.
+  Hosted run [`38271186833`](https://github.com/seabAu/Splicr/actions/runs/38271186833) subsequently
+  passes all seven browser journeys on `663d805` in 46.7 seconds after isolated CI provisioning
+  was repaired; its four new provisioning regressions and full Ruff check pass locally.
 - **Next acceptance steps:** obtain the human Edge seam verdict, then run both fresh and upgrade
   scenarios on genuinely clean disposable Windows snapshots. Retained full and focus WAV hashes
   were revalidated on 2026-10-12; a passing objective discontinuity test is not a human verdict.
@@ -1087,6 +1090,9 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   (404); no browser tests ran. Isolated browser-only provisioning now uses a retained month-end
   archive, with checksum/path/tool validation and four passing regressions. The shipping media
   pin and its compliance evidence remain unchanged; fresh packaging acquisition is an explicit gate.
+  Corrected hosted run [`38271186833`](https://github.com/seabAu/Splicr/actions/runs/38271186833)
+  passes the build and all seven Chromium journeys on `663d805` in 46.7 seconds. No production
+  deployment, tag, release, or media-binary upload occurred.
 - **2026-10-12:** Revalidated current integration commit `9359905` after disk headroom was restored:
   572 Python tests pass with seven intentional live skips, 13 frontend unit tests pass, all seven
   Chromium journeys pass, and Ruff passes. Built internal Windows candidate `0.1.0-dev.21` and
