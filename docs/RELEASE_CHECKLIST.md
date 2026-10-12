@@ -48,6 +48,9 @@ npm --prefix studio-web run test:e2e
   failure diagnostics to retain.
 - [x] Real FFmpeg/FFprobe smoke tests ran rather than being skipped. The focused audiogram,
   conversion, and finishing set passed all 42 tests on 2026-09-29.
+- [ ] Restore fresh-runner acquisition of the exact reviewed shipping FFmpeg archive. The upstream
+  September 24 daily release returned 404 on 2026-10-12. Retained local inputs remain valid;
+  browser-only September 30 tools do not close this packaging gate.
 
 ## 3. Run deliberate live checks
 

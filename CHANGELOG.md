@@ -36,6 +36,9 @@ public release tags begin; the current section describes the unreleased Narrator
 - A guided clean-Windows acceptance harness with separately hash-bound fresh and previous-installer
   upgrade scenarios, human-visible lifecycle/media prompts, Windows Settings uninstall/reinstall,
   and portable launch/immutability evidence.
+- Isolated checksum-pinned browser-CI media provisioning, so upstream removal of the reviewed
+  shipping archive cannot silently swap desktop media dependencies. Fresh packaging acquisition
+  of that reviewed archive remains a separate release gate.
 - An explicit Apache-2.0 application license in Python package metadata, Windows package payloads,
   package acceptance, and the in-app About/legal document list.
 - Direct audiogram center/pivot positioning in the preview, keyboard nudges, formula-overwrite

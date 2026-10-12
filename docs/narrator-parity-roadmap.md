@@ -1051,6 +1051,11 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   licensing or codec-removal decision before public binary distribution. Apache-2.0 application
   licensing and its package/API/UI verification are complete, not pending. The unsigned internal
   candidate disposition remains recorded in `docs/RELEASE_CHECKLIST.md`.
+- **Fresh packaging acquisition:** the reviewed September 24 BtbN daily archive is now removed
+  upstream (404 on 2026-10-12). Cached exact inputs still support verified local builds. An approved
+  durable source for that archive, or a fully reviewed replacement, is required before fresh hosted
+  packaging. Browser CI uses a separate checksum-pinned September 30 month-end test payload; this
+  does not replace shipping media or close installer/clean-VM acceptance.
 - **Correspondence-build routing:** a fresh context at
   `/mnt/d/splicr-ffmpeg-rebuild-podman` revalidated and copied all 85 authenticated dependency
   archives plus the exact FFmpeg source (`9da21157f8f6c033c1445a6e69a0650d2bee8a7b669bd1eecb23d79c7fd1baf5`).
@@ -1077,6 +1082,11 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
 
 ## Change log
 
+- **2026-10-12:** Pushed integration commit `bac339d` without changing `main`/`classic` or publishing
+  binaries. Hosted browser run `38270503251` found the upstream media archive had been removed
+  (404); no browser tests ran. Isolated browser-only provisioning now uses a retained month-end
+  archive, with checksum/path/tool validation and four passing regressions. The shipping media
+  pin and its compliance evidence remain unchanged; fresh packaging acquisition is an explicit gate.
 - **2026-10-12:** Revalidated current integration commit `9359905` after disk headroom was restored:
   572 Python tests pass with seven intentional live skips, 13 frontend unit tests pass, all seven
   Chromium journeys pass, and Ruff passes. Built internal Windows candidate `0.1.0-dev.21` and

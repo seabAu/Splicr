@@ -19,11 +19,23 @@ Requirements:
 - Windows x64
 - Python 3.11+ and `uv`
 - Node.js/npm
-- Network access for the pinned, checksum-verified upstream `lgpl-shared` FFmpeg asset
-  (recommended), or a reviewed FFmpeg/FFprobe directory supplied explicitly with `-FfmpegBin`.
+- A retained checksum-verified copy of the pinned upstream `lgpl-shared` FFmpeg asset,
+  or a reviewed FFmpeg/FFprobe directory supplied explicitly with `-FfmpegBin`.
   The current pinned asset is effectively GPL-covered because its static Chromaprint includes
   FFTW3; the upstream variant name is not a license determination.
 - Inno Setup 6, unless only the portable ZIP is needed
+
+**Upstream availability (2026-10-12):** BtbN removed the pinned September 24 daily release;
+its original download URL now returns 404. Cached, hash-verified input still supports local
+builds, but fresh package runners need a durable approved source for that exact archive.
+Do not change the shipping pin or use browser-only media as a substitute: the reviewed source,
+dependency notices, and correspondence evidence apply to the September 24 payload.
+
+Browser acceptance separately uses `fetch_browser_media.py` with the retained September 30
+month-end archive and upstream SHA-256 `7157177b8a6cb2174c1650ba8c71b363f2c78cba5330f88c4c02cf5b2b880646`.
+It checks the download digest, extraction paths, and both tool executables. This test-only
+directory lives under the runner's temporary directory, is never uploaded or fed into packaging,
+and does not satisfy exact shipping-media or installer acceptance.
 
 ```powershell
 $ffmpegBin = uv run python .\packaging\windows\fetch_ffmpeg_release.py
