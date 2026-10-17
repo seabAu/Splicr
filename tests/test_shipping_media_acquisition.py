@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import importlib
+import json
 from pathlib import Path
 
 import pytest
@@ -92,3 +93,14 @@ def test_explicit_cli_input_overrides_environment(fetcher, monkeypatch):
         fetcher.sys, "argv", ["fetch_ffmpeg_release.py", "--archive-file", "actual.zip"]
     )
     assert fetcher.parse_args().archive_file == Path("actual.zip")
+
+
+def test_hash_pinned_patch_has_checkout_stable_lf_bytes():
+    root = Path(__file__).parents[1]
+    assert "*.patch text eol=lf" in (root / ".gitattributes").read_text(encoding="utf-8")
+    packaging = root / "packaging" / "windows"
+    manifest = json.loads((packaging / "ffmpeg-offline-build-inputs.json").read_text())
+    patch = next(record for record in manifest["inputs"] if record["kind"] == "patch")
+    payload = (packaging / "ffmpeg-build-patches" / patch["filename"]).read_bytes()
+    assert b"\r\n" not in payload
+    assert hashlib.sha256(payload).hexdigest() == patch["sha256"]

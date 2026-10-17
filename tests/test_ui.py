@@ -78,9 +78,9 @@ def test_root_serves_accessible_studio_without_shadowing_api_routes(tmp_path) ->
     assert 'id="job-activity-detail"' in root.text
     assert 'id="job-activity-excerpt"' in root.text
     assert 'id="submission-privacy"' in root.text
-    assert "sent to\n            the selected external API resource" in root.text
+    assert "sent to the selected external API resource" in " ".join(root.text.split())
     assert "saved locally in plaintext" in root.text
-    assert "not\n            purged automatically" in root.text
+    assert "not purged automatically" in " ".join(root.text.split())
     assert "Local-first" not in root.text
     assert '<script src="/assets/app.js" defer></script>' in root.text
     assert '<a class="quiet-link" href="/studio/">New Studio</a>' in root.text

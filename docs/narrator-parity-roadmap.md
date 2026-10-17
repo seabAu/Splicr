@@ -1092,6 +1092,13 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
 
 ## Change log
 
+- **2026-10-17:** The first private dev.22 run `39043978693` cleared exact-media acquisition and
+  the real portable/installer acceptance harness, with zero retained artifacts, but failed the
+  subsequent source audit because Windows converted a hash-pinned patch to CRLF. Log review also
+  exposed two masked Python failures (media provision order and LF-only HTML whitespace). Added
+  LF checkout policy for patch files, provisioned reviewed tools before regressions, made native
+  test failures fatal, and corrected whitespace-only UI assertions. All 43 focused regressions,
+  offline dependency/source-graph helper tests, and Ruff pass locally. Corrected hosted run pending.
 - **2026-10-17:** Added explicit `--archive-file` / `SPLICR_FFMPEG_ARCHIVE_FILE` support for the
   exact reviewed FFmpeg archive, without changing its pinned bytes or provenance. Verified the
   retained 76,974,101-byte archive against SHA-256 `735bae484ba2c3342bfb34df477b9c6b0f43f9819f4d2fde011be293ee1b6517`.
