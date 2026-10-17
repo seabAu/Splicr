@@ -1056,7 +1056,18 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   current single-user development blocker. Existing automated evidence does not claim either
   manual device acceptance or pristine-machine acceptance. Retained full and focus WAV hashes
   were revalidated on 2026-10-12; a passing objective discontinuity test is not a human verdict.
-- **Latest retained local candidate:** `0.1.0-dev.21`, built from the integration code, passed all
+- **Latest retained internal candidate (2026-10-17):** `0.1.0-dev.23`, source `ce57aac` mirrored
+  byte-for-byte as private snapshot `236b92e`, passed
+  [private run `39075098182`](https://github.com/seabAu/Splicr-CI/actions/runs/39075098182):
+  597 Python tests passed, seven intentional live skips, Ruff, package acceptance (all 25 applicable
+  schema-v2 checks), and source-audit generation/validation. At the user's explicit request, the
+  private artifact was retained for 30 days and downloaded to ignored `dist/dev.23/`; installer,
+  portable ZIP, and source-audit ZIP checksums were independently verified locally. Installer:
+  120,386,344 bytes, SHA-256 `8d028ac0aba9e9e4b664520f64c0ba6262e2515be62bc1fd84fe0f64b5507925`.
+  This unsigned build is for the user's own other-Windows-device testing, not public release.
+  No local sandbox/VM/container was used. Manual device acceptance remains pending; the hosted
+  run did not supply a previous-version installer and does not claim prior-version upgrade.
+- **Prior retained local candidate:** `0.1.0-dev.21`, built from the integration code, passed all
   28 schema-v2 package checks on 2026-10-12. The retained dev.20 executable seeded the seven
   representative entities and three hash-bound files before upgrade; dev.21 preserved and reopened
   them. Portable SHA-256: `b399b9cc79b8e80d2d85e9276c91bca3a9b11b93cc1730f030d36ceb30290d81`;

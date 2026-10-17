@@ -314,6 +314,21 @@ clean-VM evidence.
 
 ## Evidence record
 
+On 2026-10-17 the user explicitly requested a retained private internal installer for testing on
+another ordinary Windows device. This is not authorization for public release or completion of
+the public-distribution gates above. Dev.23 was built from source `ce57aac` / identical private
+snapshot `236b92e` in [run `39075098182`](https://github.com/seabAu/Splicr-CI/actions/runs/39075098182).
+All 597 Python tests passed (seven intentional live skips), Ruff passed, all 25 applicable schema-v2
+package checks passed, and source-audit validation passed. The private artifact is retained until
+2026-11-16 and was downloaded to ignored `dist/dev.23/`. Local SHA-256 verification passed for:
+
+- Installer (120,386,344 bytes): `8d028ac0aba9e9e4b664520f64c0ba6262e2515be62bc1fd84fe0f64b5507925`.
+- Portable ZIP (185,630,669 bytes): `a7db0a456ba8ab0c6fb070f8cc41cb7bb780ecf73b1e5aa0f4fb4fecb388aa84`.
+- Source-audit ZIP: `761bea1d9656af0322907552977e6d79692c16db25f752c674de861b9b566cb8`.
+
+No local sandbox/VM/container was used. No previous-installer argument was supplied to this run;
+manual device acceptance and prior-version upgrade are not claimed by this evidence.
+
 Rows through `0.1.0-dev.15` preserve the package evidence recorded at the time. Any wording there
 that calls the upstream asset or configuration “LGPL” is superseded by the dev.16 Chromaprint/FFTW
 finding: the same media DLLs are GPL-covered through statically incorporated FFTW3.
