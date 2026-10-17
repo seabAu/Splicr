@@ -45,6 +45,9 @@ publication into the local cache. Missing/wrong supplied files fail rather than 
 another build or download. Dependency licenses still come from their existing revision-pinned
 manifest. The user-approved private `Splicr-CI` source/input mirror can provide that archive to a
 fresh runner without putting binaries in the public source repository or retaining installers.
+The successful dev.22 run `39045114567` used this route. Its source snapshot matches public commit
+`fffb210` exactly; update and verify that snapshot before testing a newer public commit. A new public
+push alone does not update the separate private source/input mirror.
 
 Browser acceptance separately uses `fetch_browser_media.py` with the retained September 30
 month-end archive and upstream SHA-256 `7157177b8a6cb2174c1650ba8c71b363f2c78cba5330f88c4c02cf5b2b880646`.

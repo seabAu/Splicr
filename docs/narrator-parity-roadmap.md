@@ -1039,11 +1039,17 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   Hosted run [`38271186833`](https://github.com/seabAu/Splicr/actions/runs/38271186833) subsequently
   passes all seven browser journeys on `663d805` in 46.7 seconds after isolated CI provisioning
   was repaired; its four new provisioning regressions and full Ruff check pass locally.
+- **Current hosted package evidence (2026-10-17):** public source `fffb210` / identical private
+  source snapshot `c5b2262` passed [private run `39045114567`](https://github.com/seabAu/Splicr-CI/actions/runs/39045114567):
+  597 Python tests passed, seven deliberate live skips, Ruff, exact reviewed-media acquisition,
+  dev.22 installer/portable build and real acceptance, and primary-source audit generation/validation.
+  The upload step was skipped and the artifact API confirms zero retained artifacts. Public browser
+  run [`39045074156`](https://github.com/seabAu/Splicr/actions/runs/39045074156) also passed `fffb210`.
 - **Next acceptance steps:** obtain the human Edge seam verdict, then run both fresh and upgrade
   scenarios on genuinely clean disposable Windows snapshots. Retained full and focus WAV hashes
   were revalidated on 2026-10-12; a passing objective discontinuity test is not a human verdict.
   Workstation package results do not complete the clean-VM item.
-- **Latest internal candidate:** `0.1.0-dev.21`, built from the current integration code, passed all
+- **Latest retained local candidate:** `0.1.0-dev.21`, built from the integration code, passed all
   28 schema-v2 package checks on 2026-10-12. The retained dev.20 executable seeded the seven
   representative entities and three hash-bound files before upgrade; dev.21 preserved and reopened
   them. Portable SHA-256: `b399b9cc79b8e80d2d85e9276c91bca3a9b11b93cc1730f030d36ceb30290d81`;
@@ -1058,7 +1064,9 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   upstream (404 on 2026-10-12). The cached exact archive still matches SHA-256 `735bae48…`.
   The fetcher now supports a strictly hash-validated offline input; the user approved a private
   `Splicr-CI` source/input mirror for fresh hosted acceptance without public binary publication.
-  The first such package run is pending. Browser CI uses a separate checksum-pinned September 30
+  Corrected private run `39045114567` passed full package acceptance with that exact input. Its
+  ephemeral dev.22 binaries and acceptance JSON were intentionally not retained. Browser CI uses a
+  separate checksum-pinned September 30
   month-end test payload; this
   does not replace shipping media or close installer/clean-VM acceptance.
 - **No local Sandbox:** the user reports repeated hypervisor-related bluescreens after previously
@@ -1092,18 +1100,26 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
 
 ## Change log
 
+- **2026-10-17:** Corrected private run `39045114567` passed source-plan checks, reviewed offline-media
+  acquisition, all 597 Python regressions (seven intended live skips), Ruff, the dev.22 build,
+  actual portable/installer acceptance, and source-audit generation/validation. It tested public
+  `fffb210` via source-identical private snapshot `c5b2262`; source Git-object comparison found no
+  differences. Artifact retention was disabled and the API reports zero artifacts. Closed only the
+  fresh-runner acquisition gate; no interactive clean-desktop, human Edge, or public-release gate
+  was inferred from CI. Final ephemeral artifact hashes are recorded in `RELEASE_CHECKLIST.md`.
 - **2026-10-17:** The first private dev.22 run `39043978693` cleared exact-media acquisition and
   the real portable/installer acceptance harness, with zero retained artifacts, but failed the
   subsequent source audit because Windows converted a hash-pinned patch to CRLF. Log review also
   exposed two masked Python failures (media provision order and LF-only HTML whitespace). Added
   LF checkout policy for patch files, provisioned reviewed tools before regressions, made native
   test failures fatal, and corrected whitespace-only UI assertions. All 43 focused regressions,
-  offline dependency/source-graph helper tests, and Ruff pass locally. Corrected hosted run pending.
+  offline dependency/source-graph helper tests, and Ruff pass locally. The corrected hosted run
+  subsequently passed as recorded above.
 - **2026-10-17:** Added explicit `--archive-file` / `SPLICR_FFMPEG_ARCHIVE_FILE` support for the
   exact reviewed FFmpeg archive, without changing its pinned bytes or provenance. Verified the
   retained 76,974,101-byte archive against SHA-256 `735bae484ba2c3342bfb34df477b9c6b0f43f9819f4d2fde011be293ee1b6517`.
   Nineteen focused acquisition/workflow/browser-media checks pass. The user approved a private
-  `Splicr-CI` repository for non-publishing hosted acceptance; its first package run remains pending.
+  `Splicr-CI` repository for non-publishing hosted acceptance; final results are recorded above.
 - **2026-10-17:** Preserved the user's local-Sandbox stability constraint. Made hosted package
   runs non-retaining by default, including tag runs, with explicit manual binary-retention opt-in.
   Added a fail-closed shipping-media acquisition guard so a failed download cannot silently invoke

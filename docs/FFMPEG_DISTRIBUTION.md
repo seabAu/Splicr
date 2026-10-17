@@ -15,11 +15,13 @@ item below has evidence.
 - BtbN recipe commit: `20ad148c3b69a862b061eb7e6cc7b61d896bcfef`
 - OpenH264 recipe commit: `8b2d28faade10d74d99ac80e199aef664c9c5a3b`
 
-**Acquisition gate (2026-10-12):** the upstream daily release has been removed and its binary
-asset URL returns 404. Retained local inputs remain checksum-bound to the identity above.
-Fresh packaging CI requires an approved durable location for that exact reviewed archive, or
-an explicitly reviewed replacement with refreshed source/license/correspondence evidence.
-Browser CI's separate September 30 test-only tools are not a shipping-payload replacement.
+**Acquisition routing (updated 2026-10-17):** the upstream daily release has been removed and its
+binary asset URL returns 404. The user-approved private `Splicr-CI` source/input snapshot now
+provides the exact retained archive to fresh hosted runners through `--archive-file` /
+`SPLICR_FFMPEG_ARCHIVE_FILE`, with the unchanged SHA-256 enforced before and after copying. No public
+binary mirror or replacement build was introduced. Browser CI's separate September 30 test-only
+tools are not a shipping-payload replacement. Private test delivery does not close public-source
+publication, attribution, codec, or other release gates.
 
 The machine-readable lock is
 [`ffmpeg-source-lock.json`](../packaging/windows/ffmpeg-source-lock.json). The packaged

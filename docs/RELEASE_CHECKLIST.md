@@ -48,9 +48,12 @@ npm --prefix studio-web run test:e2e
   failure diagnostics to retain.
 - [x] Real FFmpeg/FFprobe smoke tests ran rather than being skipped. The focused audiogram,
   conversion, and finishing set passed all 42 tests on 2026-09-29.
-- [ ] Restore fresh-runner acquisition of the exact reviewed shipping FFmpeg archive. The upstream
-  September 24 daily release returned 404 on 2026-10-12. Retained local inputs remain valid;
-  browser-only September 30 tools do not close this packaging gate.
+- [x] Restore fresh-runner acquisition of the exact reviewed shipping FFmpeg archive for private CI.
+  On 2026-10-17 the user-approved private `Splicr-CI` snapshot supplied the original 76,974,101-byte
+  archive with SHA-256 `735bae484ba2c3342bfb34df477b9c6b0f43f9819f4d2fde011be293ee1b6517`;
+  both hosted runs `39043978693` and `39045114567` acquired it and its pinned notices successfully.
+  The original upstream URL remains removed; no public mirror or replacement build was used.
+  This closes acquisition only, not full package, interactive, or public-distribution acceptance.
 
 ## 3. Run deliberate live checks
 
@@ -368,5 +371,5 @@ finding: the same media DLLs are GPL-covered through statically incorporated FFT
 | 2026-10-12 | Internal `0.1.0-dev.21` from dev.20 | Windows 10.0.19045 development workstation | Current package lifecycle and previous-package state preservation | All 28 schema-v2 checks pass; `representative_state_origin` is `previous_package`. The dev.20 executable seeded the completed job, media, Library project, immutable plan/take/artifact, voice profile, and Studio profile. Dev.21 upgraded, preserved their hashes, and semantically reopened them. Portable/installed payload equality, portable immutability, real native lifecycle/health/Studio/instance reuse/shutdown, bundled conversion/audiogram/OpenH264-AAC execution, application/dependency license metadata, shell registration, reinstall, and both uninstalls pass. Artifact hashes match the preceding row. The acceptance record is retained as `dist/SPLICR-Studio-0.1.0-dev.21-Windows-x64-ACCEPTANCE.json`, tested at `2026-10-12T15:24:24.4379539Z`. No SPLICR uninstall registration, Start-menu shortcut, or packaged process remains after the test. This is not clean-VM or human-observation evidence. |
 | Pending | Pending | Clean Windows x64 VM | Fresh install / upgrade / uninstall / portable | Record artifact hashes, Windows version, install paths, and observations here. |
 | 2026-10-12 | `663d805` | GitHub Actions `windows-2025` | Current integration browser acceptance | Run [`38271186833`](https://github.com/seabAu/Splicr/actions/runs/38271186833) passed the production build and all seven Chromium journeys in 46.7 seconds. Browser-only FFmpeg/FFprobe came from the separately checksum-pinned September 30 month-end archive; this is not shipping-media/package/clean-VM evidence. The preceding run `38270503251` on `bac339d` failed before browser tests because the reviewed September 24 shipping archive URL returned 404. No media binaries were uploaded and no production deployment ran. |
-| Pending | Pending | GitHub Actions `windows-2025` | Package workflow | Link the successful package run and approved retained artifacts when available. |
+| 2026-10-17 | Public `fffb210` / private source-identical `c5b2262` / ephemeral dev.22 | GitHub Actions `windows-2025` in private `Splicr-CI` | Non-publishing package workflow | Run [`39045114567`](https://github.com/seabAu/Splicr-CI/actions/runs/39045114567) passed the source plan, exact reviewed offline FFmpeg acquisition, 597 Python regressions with seven intentional live skips, Ruff, package build, actual portable/installer acceptance, and primary-source audit generation/validation. All 395 public source Git blobs match the private snapshot. Installer: 120,395,858 bytes, SHA-256 `8b1e589fe7ef9a8c4e7211b86186bbb4e6f6156d6bc48e2349c36d5d5671bf34`; portable: 185,631,411 bytes, SHA-256 `36b357877e0fb444b64a93e0e75c926f7ad2e6701a85f55b4d28b9a91a0aeca3`. Those values come from the successful checksum preflight. The upload step was skipped; the API confirms zero retained artifacts, so neither the binaries nor the runner-local acceptance JSON are available to download. This is automated Windows Server runner evidence, not interactive consumer-Windows or public-release acceptance. The first run `39043978693` is not counted as an overall pass: audit-byte drift and masked regressions were found and fixed before this successful run. |
 
