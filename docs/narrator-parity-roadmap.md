@@ -454,8 +454,13 @@ sequence, cancellation cleanup, deterministic archives, API validation, and the 
   cleans an over-limit upload, and range-reads converted output. On 2026-09-29 a sparse 3.9 GB
   canonical WAV was range-read at its beginning, midpoint, and end in 1 KB responses, proving the
   application does not materialize a multi-gigabyte playback body in browser/server memory.
-- [ ] Test clean Windows installer install, upgrade with existing data/jobs/profiles, uninstall with
-  intentional user-data policy, and portable ZIP execution in a clean VM. The reusable PowerShell
+- [ ] Complete manual development acceptance on a representative ordinary Windows laptop/desktop:
+  install, launch/use the UI, play audio, restart with preserved jobs/profiles, and exercise upgrade,
+  uninstall/data preservation and portable execution where applicable. On 2026-10-17 the user
+  explicitly deferred pristine-machine testing to future public-release hardening; a clean VM is
+  not required for current single-user development. This manual check is not yet performed.
+  Use manual checks on an ordinary machine, not the destructive disposable-machine lifecycle
+  harnesses. The reusable PowerShell
   artifact harness now automates the non-interactive subset on a disposable Windows machine and is
   required before workflow upload. Its optional dev.4-to-dev.5 preflight passed both frozen smokes,
   byte-identical external-data preservation, and exact upgraded-payload comparison. The next
@@ -1045,10 +1050,12 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   dev.22 installer/portable build and real acceptance, and primary-source audit generation/validation.
   The upload step was skipped and the artifact API confirms zero retained artifacts. Public browser
   run [`39045074156`](https://github.com/seabAu/Splicr/actions/runs/39045074156) also passed `fffb210`.
-- **Next acceptance steps:** obtain the human Edge seam verdict, then run both fresh and upgrade
-  scenarios on genuinely clean disposable Windows snapshots. Retained full and focus WAV hashes
+- **Next development acceptance steps (user decision, 2026-10-17):** obtain the human Edge seam
+  verdict and manually exercise the packaged app on an ordinary representative Windows device.
+  Pristine-machine fresh/upgrade scenarios are deferred to the public release checklist, not a
+  current single-user development blocker. Existing automated evidence does not claim either
+  manual device acceptance or pristine-machine acceptance. Retained full and focus WAV hashes
   were revalidated on 2026-10-12; a passing objective discontinuity test is not a human verdict.
-  Workstation package results do not complete the clean-VM item.
 - **Latest retained local candidate:** `0.1.0-dev.21`, built from the integration code, passed all
   28 schema-v2 package checks on 2026-10-12. The retained dev.20 executable seeded the seven
   representative entities and three hash-bound files before upgrade; dev.21 preserved and reopened
@@ -1069,10 +1076,11 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   separate checksum-pinned September 30
   month-end test payload; this
   does not replace shipping media or close installer/clean-VM acceptance.
-- **No local Sandbox:** the user reports repeated hypervisor-related bluescreens after previously
-  enabling Windows Sandbox and prefers to avoid it. Do not enable Sandbox or another local
-  hypervisor without a fresh informed choice. Use a separate/remote Windows desktop for the
-  remaining interactive acceptance. Hosted package CI now defaults to build/test-only (no binary
+- **No local Sandbox/virtualization for acceptance:** on 2026-10-17 the user cleaned the reserved
+  storage themselves and explicitly chose to skip sandboxing to preserve space for other projects.
+  Do not recreate local VMs, Sandbox, or container build environments for acceptance. An ordinary
+  spare Windows laptop/desktop is sufficient for development. Hosted package CI defaults to
+  build/test-only (no binary
   retention); retention requires a deliberate manual opt-in after release/compliance review.
 - **Correspondence-build routing:** a fresh context at
   `/mnt/d/splicr-ffmpeg-rebuild-podman` revalidated and copied all 85 authenticated dependency

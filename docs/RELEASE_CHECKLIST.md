@@ -4,6 +4,12 @@ This is the reproducible release gate for the merged local SPLICR Studio applica
 checkboxes and evidence table current; do not infer that a clean-machine or live-provider check
 passed from unit tests alone.
 
+Scope clarification (user decision, 2026-10-17): pristine-machine checks in this document are
+future public-release hardening, not a blocker for current single-user development. An ordinary
+representative Windows laptop/desktop is sufficient for development acceptance. This does not
+mark pristine-machine checks passed or authorize disposable-machine test harnesses on a normal
+working computer. Do not provision local Sandbox/VM/container environments for acceptance.
+
 ## 1. Prepare the release commit
 
 - [ ] Confirm `git status --short` contains only intended release changes.
