@@ -5,6 +5,7 @@ import base64
 import csv
 import hashlib
 import io
+import os
 import re
 import shutil
 import sys
@@ -170,12 +171,24 @@ def download_verified(
             time.sleep(delay_seconds)
 
 
-def fetch_release(destination: Path, manifest_path: Path) -> Path:
-    records = load_manifest(manifest_path)
+def acquire_archive(destination: Path, archive_file: Path | None = None) -> Path:
+    """Acquire only the reviewed archive, including an explicitly supplied offline copy."""
+    if archive_file is not None:
+        if not archive_file.is_file():
+            raise FileNotFoundError("Supplied FFmpeg archive is missing or not a regular file")
+        if sha256_file(archive_file) != ARCHIVE_SHA256:
+            raise ValueError("Supplied FFmpeg archive does not match the reviewed SHA-256")
     destination.mkdir(parents=True, exist_ok=True)
     archive_path = destination / ARCHIVE_NAME
-    extracted_path = destination / Path(ARCHIVE_NAME).stem
-
+    if archive_file is not None and archive_file.resolve() != archive_path.resolve():
+        temporary = archive_path.with_name(f"{archive_path.name}.part")
+        try:
+            shutil.copyfile(archive_file, temporary)
+            if sha256_file(temporary) != ARCHIVE_SHA256:
+                raise ValueError("Copied FFmpeg archive does not match the reviewed SHA-256")
+            temporary.replace(archive_path)
+        finally:
+            temporary.unlink(missing_ok=True)
     if not archive_path.exists() or sha256_file(archive_path) != ARCHIVE_SHA256:
         download_verified(
             url=ARCHIVE_URL,
@@ -188,6 +201,15 @@ def fetch_release(destination: Path, manifest_path: Path) -> Path:
             f"Pinned FFmpeg archive hash mismatch: expected {ARCHIVE_SHA256}, "
             f"received {sha256_file(archive_path)}"
         )
+    return archive_path
+
+
+def fetch_release(
+    destination: Path, manifest_path: Path, archive_file: Path | None = None
+) -> Path:
+    records = load_manifest(manifest_path)
+    archive_path = acquire_archive(destination, archive_file)
+    extracted_path = destination / Path(ARCHIVE_NAME).stem
 
     if extracted_path.exists():
         shutil.rmtree(extracted_path)
@@ -245,6 +267,12 @@ def parse_args() -> argparse.Namespace:
         default=script_dir / "vendor" / "ffmpeg-lgpl",
     )
     parser.add_argument(
+        "--archive-file",
+        type=Path,
+        default=os.environ.get("SPLICR_FFMPEG_ARCHIVE_FILE") or None,
+        help="Offline copy of the exact reviewed archive; SHA-256 remains mandatory",
+    )
+    parser.add_argument(
         "--packaged-license-manifest",
         type=Path,
         default=script_dir / "ffmpeg-packaged-license-files.tsv",
@@ -259,7 +287,7 @@ def main() -> int:
     if args.validate_manifest_only:
         print(f"Validated {len(records)} packaged FFmpeg license manifest records.")
         return 0
-    print(fetch_release(args.destination, args.packaged_license_manifest))
+    print(fetch_release(args.destination, args.packaged_license_manifest, args.archive_file))
     return 0
 
 

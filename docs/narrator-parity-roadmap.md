@@ -1055,9 +1055,11 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   licensing and its package/API/UI verification are complete, not pending. The unsigned internal
   candidate disposition remains recorded in `docs/RELEASE_CHECKLIST.md`.
 - **Fresh packaging acquisition:** the reviewed September 24 BtbN daily archive is now removed
-  upstream (404 on 2026-10-12). Cached exact inputs still support verified local builds. An approved
-  durable source for that archive, or a fully reviewed replacement, is required before fresh hosted
-  packaging. Browser CI uses a separate checksum-pinned September 30 month-end test payload; this
+  upstream (404 on 2026-10-12). The cached exact archive still matches SHA-256 `735bae48…`.
+  The fetcher now supports a strictly hash-validated offline input; the user approved a private
+  `Splicr-CI` source/input mirror for fresh hosted acceptance without public binary publication.
+  The first such package run is pending. Browser CI uses a separate checksum-pinned September 30
+  month-end test payload; this
   does not replace shipping media or close installer/clean-VM acceptance.
 - **No local Sandbox:** the user reports repeated hypervisor-related bluescreens after previously
   enabling Windows Sandbox and prefers to avoid it. Do not enable Sandbox or another local
@@ -1090,6 +1092,11 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
 
 ## Change log
 
+- **2026-10-17:** Added explicit `--archive-file` / `SPLICR_FFMPEG_ARCHIVE_FILE` support for the
+  exact reviewed FFmpeg archive, without changing its pinned bytes or provenance. Verified the
+  retained 76,974,101-byte archive against SHA-256 `735bae484ba2c3342bfb34df477b9c6b0f43f9819f4d2fde011be293ee1b6517`.
+  Nineteen focused acquisition/workflow/browser-media checks pass. The user approved a private
+  `Splicr-CI` repository for non-publishing hosted acceptance; its first package run remains pending.
 - **2026-10-17:** Preserved the user's local-Sandbox stability constraint. Made hosted package
   runs non-retaining by default, including tag runs, with explicit manual binary-retention opt-in.
   Added a fail-closed shipping-media acquisition guard so a failed download cannot silently invoke

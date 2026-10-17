@@ -31,6 +31,21 @@ builds, but fresh package runners need a durable approved source for that exact 
 Do not change the shipping pin or use browser-only media as a substitute: the reviewed source,
 dependency notices, and correspondence evidence apply to the September 24 payload.
 
+The fetcher accepts a retained exact archive without changing its identity:
+
+```powershell
+$ffmpegBin = uv run python .\packaging\windows\fetch_ffmpeg_release.py `
+  --archive-file C:\reviewed-inputs\ffmpeg-n9.0.2-3-ga5923073bf-win64-lgpl-shared-9.0.zip
+```
+
+`SPLICR_FFMPEG_ARCHIVE_FILE` is the equivalent optional environment variable (the CLI flag takes
+precedence). CI reads it from a repository variable with the same name. A supplied file must match
+the existing reviewed SHA-256 before it is copied, and the copy is checked again before atomic
+publication into the local cache. Missing/wrong supplied files fail rather than falling back to
+another build or download. Dependency licenses still come from their existing revision-pinned
+manifest. The user-approved private `Splicr-CI` source/input mirror can provide that archive to a
+fresh runner without putting binaries in the public source repository or retaining installers.
+
 Browser acceptance separately uses `fetch_browser_media.py` with the retained September 30
 month-end archive and upstream SHA-256 `7157177b8a6cb2174c1650ba8c71b363f2c78cba5330f88c4c02cf5b2b880646`.
 It checks the download digest, extraction paths, and both tool executables. This test-only
