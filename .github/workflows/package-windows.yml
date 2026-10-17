@@ -7,6 +7,11 @@ on:
         description: Version label (for example 0.1.0)
         required: true
         default: 0.1.0
+      retain_packages:
+        description: Retain downloadable binaries only after release/compliance review
+        type: boolean
+        required: true
+        default: false
   push:
     tags:
       - "v*"
@@ -105,6 +110,9 @@ jobs:
           .\packaging\windows\test-fetch-ffmpeg-lgpl.ps1
           python .\packaging\windows\test_ffmpeg_cargo_source_closure.py
           $ffmpegBin = python .\packaging\windows\fetch_ffmpeg_release.py
+          if ($LASTEXITCODE -ne 0 -or -not $ffmpegBin) {
+            throw "Reviewed shipping FFmpeg acquisition failed; refusing PATH fallback."
+          }
           .\packaging\windows\build.ps1 `
             -Version "${{ steps.version.outputs.version }}" `
             -FfmpegBin $ffmpegBin
@@ -129,6 +137,7 @@ jobs:
             -Version "${{ steps.version.outputs.version }}"
 
       - name: Upload package artifacts
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.retain_packages }}
         uses: actions/upload-artifact@v4
         with:
           name: SPLICR-Studio-${{ steps.version.outputs.version }}-Windows-x64

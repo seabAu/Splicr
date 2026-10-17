@@ -1059,6 +1059,11 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   durable source for that archive, or a fully reviewed replacement, is required before fresh hosted
   packaging. Browser CI uses a separate checksum-pinned September 30 month-end test payload; this
   does not replace shipping media or close installer/clean-VM acceptance.
+- **No local Sandbox:** the user reports repeated hypervisor-related bluescreens after previously
+  enabling Windows Sandbox and prefers to avoid it. Do not enable Sandbox or another local
+  hypervisor without a fresh informed choice. Use a separate/remote Windows desktop for the
+  remaining interactive acceptance. Hosted package CI now defaults to build/test-only (no binary
+  retention); retention requires a deliberate manual opt-in after release/compliance review.
 - **Correspondence-build routing:** a fresh context at
   `/mnt/d/splicr-ffmpeg-rebuild-podman` revalidated and copied all 85 authenticated dependency
   archives plus the exact FFmpeg source (`9da21157f8f6c033c1445a6e69a0650d2bee8a7b669bd1eecb23d79c7fd1baf5`).
@@ -1085,6 +1090,13 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
 
 ## Change log
 
+- **2026-10-17:** Preserved the user's local-Sandbox stability constraint. Made hosted package
+  runs non-retaining by default, including tag runs, with explicit manual binary-retention opt-in.
+  Added a fail-closed shipping-media acquisition guard so a failed download cannot silently invoke
+  the legacy `PATH` packaging fallback. No cloud resources were created or package workflow run;
+  fresh shipping-media acquisition and human/clean-desktop acceptance remain open. All 12 focused
+  workflow, browser-media provisioning, and canonical-parity checks pass, including actual
+  PowerShell execution of failed/empty/successful acquisition guard cases; YAML parsing and Ruff pass.
 - **2026-10-12:** Reconciled the human-readable capability ledger with the canonical inventory and
   detailed milestone evidence. Removed stale typed-control, Qwen, Edge, and transcription gap/live-
   acceptance labels. Kept human Edge seam approval and genuine clean-Windows visual/install/upgrade

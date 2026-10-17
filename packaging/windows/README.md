@@ -91,6 +91,14 @@ acceptance; the window still owns and cleanly stops the private server.
 
 ## Package acceptance
 
+Hosted package runs are **build/test-only by default**, including tag-triggered runs. They do not
+upload installers, portable ZIPs, or audit archives. Only an explicit manual workflow dispatch
+with the boolean `retain_packages` input enabled can retain downloadable package artifacts, and
+that option must wait for the release/compliance checklist. A build/test-only run still needs the
+exact reviewed shipping-media input; the removed upstream daily archive currently blocks fresh
+runner acquisition. The workflow fails closed on acquisition errors instead of falling back to
+unrelated tools on `PATH`. Browser-only media must not be substituted.
+
 Run the artifact-level harness only on a disposable Windows VM or CI runner. It installs and
 uninstalls the real package and therefore writes the normal per-user uninstall registration and
 Start menu entry while it runs. The harness requires PowerShell 7 (`pwsh`):

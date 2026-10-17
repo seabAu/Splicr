@@ -125,7 +125,7 @@ Get-Content .\dist\SPLICR-Studio-0.1.0-SHA256SUMS.txt
   a real OpenH264/AAC MP4, application removal, and preserved user data. The frozen smoke now also
   runs the production Convert backend from WAV to FLAC and the production Audiogram backend from
   WAV to MP4, probing both through the packaged FFprobe resolution path. The packaging workflow runs
-  this gate before upload and retains its schema-v2 machine-readable acceptance JSON. The
+  this gate before any opted-in upload; build/test-only runs retain no package artifacts. The
   `0.1.0-dev.20` candidate passed the expanded 28-check gate: the portable and installed packages
   contain the exact Apache-2.0 application license and bind its SHA-256 in legal metadata; the
   installed executable also started its
@@ -289,6 +289,9 @@ clean-VM evidence.
 ## 6. Publish and rollback
 
 - [ ] Push a reviewed `vX.Y.Z` tag and confirm the Windows packaging workflow succeeds.
+- [ ] After all release/compliance gates pass, manually dispatch that reviewed tag with
+  `retain_packages=true` to retain downloadable binaries. Manual and tag-triggered runs default
+  to non-retaining build/test-only execution; a tag alone does not publish package artifacts.
 - [ ] Download the GitHub artifact, verify checksums again, and attach the approved files to the
   release.
 - [ ] Publish concise install, upgrade, known-limit, and data-location notes. The publishable draft
