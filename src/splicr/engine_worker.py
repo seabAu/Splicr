@@ -977,12 +977,29 @@ def run_tool(operation: str) -> int:
     return 0
 
 
+def _configure_managed_environment() -> None:
+    """Use only our explicit managed marker; leave external environments unchanged."""
+    marker = Path(sys.prefix) / "splicr-managed.json"
+    if not marker.is_file():
+        return
+    data = json.loads(marker.read_text("utf-8"))
+    cache = Path(data["model_cache"])
+    os.environ.setdefault("HF_HOME", str(cache))
+    if data.get("engine_id") == "kokoro":
+        loader = importlib.import_module("espeakng_loader")
+        wrapper = getattr(importlib.import_module("phonemizer.backend.espeak.wrapper"), "EspeakWrapper")
+        wrapper.set_library(loader.get_library_path())
+        wrapper.set_data_path(loader.get_data_path())
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="SPLICR isolated local-engine worker")
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--engine")
     mode.add_argument("--tool")
     args = parser.parse_args()
+    with contextlib.redirect_stdout(sys.stderr):
+        _configure_managed_environment()
     if args.tool:
         raise SystemExit(run_tool(args.tool))
     raise SystemExit(run(args.engine))

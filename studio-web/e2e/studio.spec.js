@@ -65,6 +65,53 @@ test("every Studio workspace renders without browser errors", async ({ page }) =
   expect(runtimeErrors).toEqual([]);
 });
 
+test("Components guides managed setup, cancellation, reload recovery, and retry", async ({ page }) => {
+  const errors = captureRuntimeErrors(page);
+  let job = null;
+  const catalog = () => ({ supported: true, root: "C:\\Users\\Tester\\SPLICR\\managed-engines",
+    free_bytes: 50 * 1024 ** 3, nvidia_gpu: null,
+    recipes: [{ id: "edge", packages: ["edge-tts==7.2.8"], space_gb: 1, note: "Edge uses the online speech service." }],
+    jobs: job ? [job] : [] });
+  await page.route("**/v1/studio/components/setup", (route) => route.fulfill({ json: catalog() }));
+  await page.route("**/v1/studio/components/engines/edge/install", async (route) => {
+    expect(route.request().postDataJSON()).toEqual({ accelerator: "cpu", consent: true });
+    job = { id: "browser-setup", engine_id: "edge", accelerator: "cpu", status: "running",
+      stage: "Installing engine packages", logs: ["Downloaded reviewed runtime"], error: null,
+      download_bytes: 10, download_total: 20 };
+    await route.fulfill({ status: 202, json: job });
+  });
+  await page.route("**/v1/studio/components/setup/browser-setup/cancel", async (route) => {
+    job = { ...job, status: "cancelled", stage: "Setup stopped — cached downloads retained" };
+    await route.fulfill({ json: job });
+  });
+  await page.route("**/v1/studio/components/setup/browser-setup/retry", async (route) => {
+    expect(route.request().postDataJSON()).toEqual({ consent: true });
+    job = { ...job, status: "completed", stage: "Installed and verified — restart SPLICR to activate" };
+    await route.fulfill({ status: 202, json: job });
+  });
+  const open = () => page.getByRole("navigation", { name: "Studio workspaces" }).getByRole("button", { name: "Components", exact: true }).click();
+  await open();
+  await page.getByRole("button", { name: "Install Edge TTS", exact: true }).click();
+  let dialog = page.getByRole("dialog", { name: "Install Edge TTS" });
+  await expect(dialog.getByRole("button", { name: "Install engine", exact: true })).toBeDisabled();
+  await expect(dialog.getByText(/No drivers, system packages/)).toBeVisible();
+  await dialog.getByRole("checkbox").check();
+  await page.screenshot({ path: "../.test-runs/managed-engine-setup-wizard.png", fullPage: true });
+  await dialog.getByRole("button", { name: "Install engine", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("Installing engine packages");
+  await page.reload();
+  await open();
+  await expect(page.getByRole("status")).toContainText("Installing engine packages");
+  await page.getByRole("button", { name: "Cancel setup" }).click();
+  await expect(page.getByText("Setup stopped — cached downloads retained")).toBeVisible();
+  await page.getByRole("button", { name: "Review and retry" }).click();
+  dialog = page.getByRole("dialog", { name: "Install Edge TTS" });
+  await dialog.getByRole("checkbox").check();
+  await dialog.getByRole("button", { name: "Install engine", exact: true }).click();
+  await expect(page.getByText("Installed and verified — restart SPLICR to activate")).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
 test("About and legal exposes attribution and fails closed without published source", async ({ page }) => {
   const runtimeErrors = captureRuntimeErrors(page);
 

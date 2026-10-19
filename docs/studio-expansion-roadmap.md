@@ -137,6 +137,23 @@ modes intentionally create boundaries. Do not remove those boundaries to solve a
 - [ ] Retire/migrate hosted synthesis deployment deliberately, preserving existing server projects,
   logs, user data, and a rollback path. Do not expose local filesystem/model management publicly.
 
+## Guided local-engine installation — user priority 2026-10-19
+
+- [x] Implement explicit Windows-x64 managed setup in Components alongside existing interpreter
+  configuration: private Python bootstrap, isolated CPU/NVIDIA recipes, disk preflight, consent,
+  live stages/download bytes, bounded redacted logs, cancel/retry, restart recovery and automatic
+  next-restart configuration. Focused mocked backend and browser wizard tests pass locally.
+- [x] Verify pinned bootstrap rejection, no arbitrary ZIP extraction/commands, loopback/same-origin
+  access, environment-variable locks, and preservation of externally configured environments.
+- [ ] Complete actual hosted Windows setup/import acceptance for all five CPU recipes using the
+  manual workflow. No local Sandbox/VM/container or local heavyweight engine install is required.
+- [ ] Verify newly managed model first-use downloads, real narration/transcription, and NVIDIA
+  acceleration on representative hardware. Existing externally managed-engine evidence is not this
+  new installer path's evidence. A fresh packaged installer is still needed after validation.
+- [ ] Follow-up polish: managed-cache storage relocation/usage/explicit removal, optional guided model
+  prefetch with model-specific terms and accurate sizes, one-click safe idle restart, and a reviewed
+  complete transitive wheel lock. Do not silently install GPU drivers or prefetch all models.
+
 ## Historical gaps already closed or replaced
 
 Do not reopen these from early “not yet” annotations later contradicted by the handover itself:
@@ -150,6 +167,13 @@ Do not reopen these from early “not yet” annotations later contradicted by t
 | Audio8 version milestone ambiguity | Studio packaging/release version policy replaces the old ad-hoc request |
 
 ## Verification record
+
+- 2026-10-19: guided managed-engine setup passes the complete clean-configuration Python suite
+  (613 passed, seven deliberate live skips), all 13 frontend unit tests, all eight Chromium journeys,
+  Vite build and Ruff. The new browser journey covers consent gating, live setup status, reload,
+  cancellation and explicit retry; the modal screenshot was visually reviewed. The initial run
+  with developer `.env` enabled and concurrent browser work had four failures, all cleared by
+  isolated reruns and the clean full rerun. Actual hosted install recipes remain a separate gate.
 
 - 2026-10-10: five new positioning unit tests plus eight existing frontend tests pass (13 total);
   Vite production build and Ruff pass. All seven Chromium journeys pass; the final focused Audiogram

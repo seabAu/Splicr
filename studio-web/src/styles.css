@@ -1105,3 +1105,17 @@ button:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important
   .publishing-actions > * { width: 100%; justify-content: center; }
   .publishing-requirement { text-align: left; }
 }
+/* Managed component setup: compact status first, detailed logs on demand. */
+.managed-setup { padding: 1.4rem; margin-bottom: 1.4rem; }
+.managed-setup > p { color: var(--text-muted, #aba9a3); max-width: 78ch; line-height: 1.6; }
+.managed-setup-options { display: flex; flex-wrap: wrap; gap: .6rem; margin: 1rem 0; }
+.managed-setup-jobs { display: grid; gap: .8rem; margin-top: 1.2rem; }
+.managed-setup-job { border: 1px solid var(--border, #343638); border-radius: 12px; padding: 1rem; min-width: 0; }
+.managed-setup-job-heading { display: flex; justify-content: space-between; align-items: center; gap: .75rem; }
+.managed-setup-job p { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; line-height: 1.5; }
+.managed-setup-job progress { width: 100%; accent-color: #f4ad60; }
+.managed-setup-job details { margin-top: .8rem; }
+.managed-setup-job summary { cursor: pointer; }
+.managed-setup-log { max-height: 18rem; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: .75rem; line-height: 1.5; padding: .8rem; background: #101214; border-radius: 8px; }
+.managed-setup-consent { display: flex; align-items: flex-start; gap: .65rem; line-height: 1.5; margin: 1rem 0; }
+.managed-setup-consent input { margin-top: .3rem; flex-shrink: 0; }

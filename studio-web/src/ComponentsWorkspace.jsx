@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 
 import { api } from "./api.js";
+import { EngineSetupPanel } from "./EngineSetupPanel.jsx";
 
 function StateBadge({ state }) {
   const label = state === "restart_required" ? "Restart needed" : state;
@@ -144,7 +145,7 @@ export function ComponentsWorkspace() {
   return (
     <main className="components-workspace">
       <header className="workspace-header components-header">
-        <div><p className="eyebrow">Local capabilities</p><h1>Components</h1><p>See what is ready, what each piece unlocks, and connect isolated engine environments.</p></div>
+        <div><p className="eyebrow">Local capabilities</p><h1>Components</h1><p>Install local engines with guided setup, or connect environments you already manage.</p></div>
         <button className="secondary-button" type="button" onClick={load}><RefreshCw size={15} /> Refresh detection</button>
       </header>
       {error && <p className="inline-error">{error}</p>}
@@ -152,6 +153,7 @@ export function ComponentsWorkspace() {
         <section className="surface components-loading"><LoaderCircle className="spin" size={28} /><span>Inspecting local tools…</span></section>
       ) : (
         <>
+          <EngineSetupPanel engines={catalog.engines} onInstalled={load} />
           {catalog.restart_required && (
             <section className="component-restart-banner"><RotateCcw size={19} /><div><strong>Restart SPLICR to activate the saved engine change.</strong><span>Active jobs keep their current provider registry until then.</span></div></section>
           )}

@@ -103,6 +103,14 @@ export const api = {
   batchAction: (id, action) =>
     request(`/v1/studio/batches/${encodeURIComponent(id)}/${action}`, { method: "POST" }),
   components: () => request("/v1/studio/components"),
+  engineSetup: () => request("/v1/studio/components/setup"),
+  installEngine: (id, accelerator, consent) => request(`/v1/studio/components/engines/${encodeURIComponent(id)}/install`, {
+    method: "POST", body: JSON.stringify({ accelerator, consent }),
+  }),
+  retryEngineSetup: (id) => request(`/v1/studio/components/setup/${encodeURIComponent(id)}/retry`, {
+    method: "POST", body: JSON.stringify({ consent: true }),
+  }),
+  cancelEngineSetup: (id) => request(`/v1/studio/components/setup/${encodeURIComponent(id)}/cancel`, { method: "POST" }),
   legalInfo: () => request("/v1/studio/legal"),
   configureEngineComponent: (id, pythonPath) =>
     request(`/v1/studio/components/engines/${encodeURIComponent(id)}`, {

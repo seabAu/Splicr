@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any, Literal
 from uuid import uuid4
 
-from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile, status
+from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -147,6 +147,7 @@ from .studio.components import (
     ComponentConfigurationLockedError,
     ComponentManager,
 )
+from .studio.engine_setup import EngineSetupManager, SetupError
 from .studio.conversion import (
     AudioOutputFormat,
     ConversionError,
@@ -2135,6 +2136,17 @@ class EngineComponentPayload(BaseModel):
         return value.strip()
 
 
+class EngineSetupPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    accelerator: Literal["cpu", "cuda"] = "cpu"
+    consent: bool = False
+
+
+class EngineSetupRetryPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    consent: bool = False
+
+
 class PronunciationEntryResponse(BaseModel):
     word: str
     ipa: str
@@ -2712,6 +2724,7 @@ def create_app(
 ) -> FastAPI:
     base_settings = settings or Settings.from_env()
     components = ComponentManager(base_settings)
+    engine_setup = EngineSetupManager(components)
     legal = legal_assets or LegalAssets()
     resolved_settings = components.apply(base_settings)
     synthesis = service or create_service(resolved_settings)
@@ -2880,6 +2893,7 @@ def create_app(
             finally:
                 await dialogue_scripts.stop()
         finally:
+            await engine_setup.close()
             await synthesis.stop()
 
     application = FastAPI(
@@ -2901,6 +2915,7 @@ def create_app(
     application.state.publishing_service = publishing
     application.state.voice_design_service = voice_designs
     application.state.component_manager = components
+    application.state.engine_setup_manager = engine_setup
     application.state.legal_assets = legal
     application.state.error_event_store = synthesis.store
     application.state.studio_store = studio
@@ -3751,6 +3766,44 @@ def create_app(
         response.headers["Cache-Control"] = "no-store"
         return await asyncio.to_thread(components.status, resolved_settings)
 
+    def require_local_setup(request: Request) -> None:
+        # Provisioning executes third-party code: never expose it through a hosted/rebound origin.
+        if request.url.hostname not in {"localhost", "127.0.0.1", "::1"}:
+            raise HTTPException(status_code=403, detail="Engine setup is available on the local desktop only")
+        origin = request.headers.get("origin")
+        if origin and origin.rstrip("/") != str(request.base_url).rstrip("/"):
+            raise HTTPException(status_code=403, detail="Cross-origin engine setup is not allowed")
+
+    @application.get("/v1/studio/components/setup", tags=["studio"])
+    async def engine_setup_status(request: Request, response: Response) -> dict[str, Any]:
+        require_local_setup(request)
+        response.headers["Cache-Control"] = "no-store"
+        return await asyncio.to_thread(engine_setup.catalog)
+
+    @application.post("/v1/studio/components/engines/{engine_id}/install", status_code=202, tags=["studio"])
+    async def install_engine(engine_id: str, payload: EngineSetupPayload, request: Request) -> dict[str, Any]:
+        require_local_setup(request)
+        try:
+            return engine_setup.start(engine_id, payload.accelerator, payload.consent)
+        except SetupError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+
+    @application.post("/v1/studio/components/setup/{job_id}/retry", status_code=202, tags=["studio"])
+    async def retry_engine_setup(job_id: str, payload: EngineSetupRetryPayload, request: Request) -> dict[str, Any]:
+        require_local_setup(request)
+        try:
+            return engine_setup.retry(job_id, payload.consent)
+        except SetupError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+
+    @application.post("/v1/studio/components/setup/{job_id}/cancel", tags=["studio"])
+    async def cancel_engine_setup(job_id: str, request: Request) -> dict[str, Any]:
+        require_local_setup(request)
+        try:
+            return await engine_setup.cancel(job_id)
+        except SetupError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+
     @application.get("/v1/studio/legal", tags=["studio"])
     async def legal_info(response: Response) -> dict[str, Any]:
         response.headers["Cache-Control"] = "no-store"
@@ -3779,6 +3832,8 @@ def create_app(
         engine_id: str,
         request: EngineComponentPayload,
     ) -> dict[str, Any]:
+        if engine_setup.active_for(engine_id):
+            raise HTTPException(status_code=409, detail="Wait for engine setup or cancel it before changing its path")
         try:
             await asyncio.to_thread(components.save_engine, engine_id, request.python_path)
         except ComponentConfigurationLockedError as error:
@@ -3789,6 +3844,8 @@ def create_app(
 
     @application.delete("/v1/studio/components/engines/{engine_id}", tags=["studio"])
     async def clear_engine_component(engine_id: str) -> dict[str, Any]:
+        if engine_setup.active_for(engine_id):
+            raise HTTPException(status_code=409, detail="Wait for engine setup or cancel it before clearing its path")
         try:
             await asyncio.to_thread(components.clear_engine, engine_id)
         except ComponentConfigurationLockedError as error:

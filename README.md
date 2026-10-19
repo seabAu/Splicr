@@ -115,7 +115,17 @@ Qwen3-TTS, Audio8, and Edge TTS environments. Edge voice discovery is an explici
 so it never blocks Studio startup. Saved engine changes activate after restart so an in-flight job
 never has its provider registry changed underneath it. Explicit `SPLICR_*_PYTHON` environment
 variables remain authoritative and appear read-only in the UI. SPLICR does not copy those
-environments or download their model weights.
+external environments or download their model weights implicitly. On Windows x64, Components also
+offers explicit **Install engine** setup: it downloads a checksum-pinned private uv tool, provisions
+private Python 3.12.14, installs an isolated Edge/Kokoro/Qwen3/Audio8/faster-whisper environment,
+verifies imports, and saves its interpreter for the next restart. No administrator rights, terminal,
+or system Python installation are needed. CPU/NVIDIA choices, planning-space estimates, consent,
+bounded logs, cancellation, and durable retry are exposed in the UI. Model weights still download
+on first use, not during package setup. Audio8's remote model-code execution is disclosed explicitly.
+Managed files live under `data/studio/managed-engines`; existing user environments are never edited
+or removed. Cancel/retry keeps partial managed environments and caches. Restarted setup is marked
+interrupted and waits for explicit retry rather than silently restarting downloads. Package setup
+verification is not a successful narration or a GPU/audio-quality acceptance result.
 The Publish workspace turns completed Takes into durable local delivery artifacts. Channel metadata
 and episodes persist in SQLite, transcript and chapter exports join the Take artifact history, and
 republishing a Take updates its stable episode instead of creating a duplicate. The configured

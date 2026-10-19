@@ -1,0 +1,40 @@
+name: Managed engine setup acceptance
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-managed-setup:
+    runs-on: windows-2025
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Install app test dependencies
+        shell: pwsh
+        run: |
+          python -m pip install "uv==0.11.26"
+          if ($LASTEXITCODE -ne 0) { throw "uv installation failed" }
+          uv sync --frozen --extra dev
+          if ($LASTEXITCODE -ne 0) { throw "App dependency installation failed" }
+      - name: Exercise actual managed Python and all CPU engine recipes
+        shell: pwsh
+        run: |
+          # The manager bootstraps its own verified uv and private Python 3.12;
+          # setup-python above only runs SPLICR's controller. No user Python is used by engines.
+          uv run python -m tests.run_managed_setup_acceptance `
+            --root "$env:RUNNER_TEMP\splicr-managed-setup"
+          if ($LASTEXITCODE -ne 0) { throw "Managed engine acceptance failed" }
+      - name: Retain setup diagnostics only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: managed-engine-setup-diagnostics
+          path: ${{ runner.temp }}/splicr-managed-setup/studio/managed-engines/setup-jobs.json
+          if-no-files-found: ignore
+          retention-days: 14
