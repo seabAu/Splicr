@@ -314,6 +314,19 @@ clean-VM evidence.
 
 ## Evidence record
 
+Internal dev.24 (2026-10-19) adds guided Components provisioning. Source `8005e7e` / private snapshot
+`9105a16` passed [package run `39272357691`](https://github.com/seabAu/Splicr-CI/actions/runs/39272357691):
+614 Python tests, seven deliberate live skips, Ruff, all 25 applicable package checks and source
+audit validation. All five real Windows CPU install/import recipes separately pass run `39272300592`;
+this does not prove first-use model rendering or NVIDIA compatibility. Public browser run
+`39273611042` passes all eight journeys. No prior-installer argument was supplied to package CI.
+The private artifact expires 2026-11-18 and was downloaded to ignored `dist/dev.24/`; all local
+manifest checks pass. This is the user's own internal test build, not a public release.
+
+- Installer (120,411,726 bytes): `a844519db7867935652eda03831cca399e9c5ebfc2d044032af8a3709efe0de8`.
+- Portable ZIP (185,649,010 bytes): `441206ef956f1ed0ffe82afb6143fde6bf534c33d61d41c1d522959a4f4bf70d`.
+- Source audit ZIP: `1b18afa4a97ade4e95f4b5d6891308d70b2e28eed24f93f8e7d7d6d8551bfd60`.
+
 On 2026-10-17 the user explicitly requested a retained private internal installer for testing on
 another ordinary Windows device. This is not authorization for public release or completion of
 the public-distribution gates above. Dev.23 was built from source `ce57aac` / identical private

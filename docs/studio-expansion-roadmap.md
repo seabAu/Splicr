@@ -153,7 +153,7 @@ modes intentionally create boundaries. Do not remove those boundaries to solve a
   not TTS model first-use, audible quality, or NVIDIA-driver compatibility.
 - [ ] Verify newly managed model first-use downloads, real narration/transcription, and NVIDIA
   acceleration on representative hardware. Existing externally managed-engine evidence is not this
-  new installer path's evidence. A fresh packaged installer is still needed after validation.
+  new installer path's evidence. The verified dev.24 installer now contains this setup flow.
 - [ ] Follow-up polish: managed-cache storage relocation/usage/explicit removal, optional guided model
   prefetch with model-specific terms and accurate sizes, one-click safe idle restart, and a reviewed
   complete transitive wheel lock. Do not silently install GPU drivers or prefetch all models.
@@ -184,6 +184,12 @@ Do not reopen these from early “not yet” annotations later contradicted by t
   first-use language packages, and the Windows USERNAME requirement. Runtime bootstrap is now uv
   `0.12.5`, SHA-256 `4c4d49d8738847d9b71ba319e49a5688c93eac0fe6204b1df24e98528dddf39a`,
   with private Python `3.12.14`. Focused setup safety tests pass after each correction (17 tests).
+- 2026-10-19: [private dev.24 package run `39272357691`](https://github.com/seabAu/Splicr-CI/actions/runs/39272357691)
+  passed 614 Python tests (seven live skips), Ruff, all 25 applicable packaged checks and source
+  audit validation on source `8005e7e` / identical private snapshot `9105a16`. Installer and portable
+  downloads are retained privately for the user's own testing, not public release. Local manifests
+  verified after download to ignored `dist/dev.24/`. Public hosted browser run `39273611042` also
+  passed all eight journeys on documentation follow-up `a23eabd`.
 
 - 2026-10-10: five new positioning unit tests plus eight existing frontend tests pass (13 total);
   Vite production build and Ruff pass. All seven Chromium journeys pass; the final focused Audiogram

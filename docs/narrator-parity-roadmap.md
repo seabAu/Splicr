@@ -1056,7 +1056,16 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   current single-user development blocker. Existing automated evidence does not claim either
   manual device acceptance or pristine-machine acceptance. Retained full and focus WAV hashes
   were revalidated on 2026-10-12; a passing objective discontinuity test is not a human verdict.
-- **Latest retained internal candidate (2026-10-17):** `0.1.0-dev.23`, source `ce57aac` mirrored
+- **Latest retained internal candidate (2026-10-19):** `0.1.0-dev.24` adds explicit managed engine
+  setup in Components (see `studio-expansion-roadmap.md`). Source `8005e7e` / identical private
+  snapshot `9105a16` passed [package run `39272357691`](https://github.com/seabAu/Splicr-CI/actions/runs/39272357691):
+  614 Python tests, seven intentional live skips, Ruff, all 25 applicable package checks and source
+  audit validation. Separate real CPU setup/import acceptance passes for all five engine recipes.
+  Downloaded to ignored `dist/dev.24/` and locally checksum-verified. Installer: 120,411,726 bytes,
+  SHA-256 `a844519db7867935652eda03831cca399e9c5ebfc2d044032af8a3709efe0de8`.
+  Unsigned private internal use only; new managed first-use model/audio and NVIDIA checks remain
+  manual hardware evidence. No prior-version upgrade or public-release acceptance is claimed.
+- **Prior retained internal candidate (2026-10-17):** `0.1.0-dev.23`, source `ce57aac` mirrored
   byte-for-byte as private snapshot `236b92e`, passed
   [private run `39075098182`](https://github.com/seabAu/Splicr-CI/actions/runs/39075098182):
   597 Python tests passed, seven intentional live skips, Ruff, package acceptance (all 25 applicable
