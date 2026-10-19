@@ -308,6 +308,7 @@ class EngineSetupManager:
             "PATH",
             "PATHEXT",
             "USERPROFILE",
+            "USERNAME",
             "LOCALAPPDATA",
             "APPDATA",
             "PROGRAMFILES",
@@ -461,6 +462,8 @@ class EngineSetupManager:
                     "; EspeakWrapper.set_data_path(espeakng_loader.get_data_path())"
                     "; from phonemizer import phonemize; assert phonemize('Hello', language='en-us')"
                 )
+            if engine == "audio8":
+                imports += "; from transformers import AutoModel, AutoProcessor"
             await self._run(job, [str(python), "-I", "-c", imports], "Verifying installed engine")
             await self._run(
                 job,

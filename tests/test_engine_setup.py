@@ -180,6 +180,7 @@ def test_restart_recovers_incomplete_setup_without_downloading(manager):
 
 
 def test_environment_does_not_inherit_secrets_or_package_injection(manager, monkeypatch):
+    monkeypatch.setenv("USERNAME", "WindowsTestUser")
     for key in (
         "GEMINI_API_KEY",
         "PYTHONPATH",
@@ -193,6 +194,7 @@ def test_environment_does_not_inherit_secrets_or_package_injection(manager, monk
     assert all("sensitive-or-untrusted" != value for value in environment.values())
     assert environment["UV_PYTHON_INSTALL_DIR"] == str(manager.root / "python")
     assert environment["UV_CACHE_DIR"] == str(manager.root / "cache")
+    assert environment["USERNAME"] == "WindowsTestUser"
 
 
 def _archive(content=b"reviewed executable"):
