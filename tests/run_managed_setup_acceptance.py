@@ -17,20 +17,31 @@ from splicr.studio.engine_setup import EngineSetupManager, RECIPES
 
 async def check(root: Path, engines: list[str]) -> None:
     manager = EngineSetupManager(ComponentManager(Settings(data_dir=root)))
+    failures = []
     try:
         for engine in engines:
             job = manager.start(engine, "cpu", True)
             print(f"Installing {engine} in a runner-private environment", flush=True)
+            last_stage = None
+            while not manager.task.done():
+                stage = manager.get(job["id"])["stage"]
+                if stage != last_stage:
+                    print(f"{engine}: {stage}", flush=True)
+                    last_stage = stage
+                await asyncio.sleep(1)
             await manager.task
             result = manager.get(job["id"])
             print(json.dumps(result, indent=2), flush=True)
             if result["status"] != "completed":
-                raise RuntimeError(f"{engine} setup failed: {result['error']}")
+                failures.append(f"{engine}: {result['error']}")
+                continue
             configured = manager.components.apply(Settings(data_dir=root))
             assert Path(result["python_path"]).is_file()
             if engine == "edge":
                 assert configured.edge_python == Path(result["python_path"])
             print(f"MANAGED SETUP PASSED: {engine}", flush=True)
+        if failures:
+            raise RuntimeError("Managed setup failures: " + "; ".join(failures))
     finally:
         await manager.close()
 
