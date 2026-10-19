@@ -22,12 +22,12 @@ import httpx
 from ..diagnostics import sanitize_diagnostic
 from .components import ComponentManager
 
-UV_VERSION = "0.11.26"
+UV_VERSION = "0.12.5"
 UV_URL = (
     f"https://github.com/astral-sh/uv/releases/download/{UV_VERSION}/uv-x86_64-pc-windows-msvc.zip"
 )
-UV_SHA256 = "4e1278ede866be6c0bf32d2f466cc6de7a9fb399ecf20c9ce2d186e52424be47"
-UV_BYTES = 24_928_660
+UV_SHA256 = "4c4d49d8738847d9b71ba319e49a5688c93eac0fe6204b1df24e98528dddf39a"
+UV_BYTES = 20_329_591
 PYTHON_VERSION = "3.12.14"
 ACTIVE = {"queued", "running", "cancelling"}
 RECIPES = {

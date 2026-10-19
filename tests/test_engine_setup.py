@@ -25,6 +25,14 @@ from splicr.studio.engine_setup import EngineSetupManager, SetupError
 from .fakes import RecordingProvider
 
 
+def test_bootstrap_pin_supports_reviewed_python_patch():
+    # uv 0.11.26's embedded catalog cannot install 3.12.14 on a fresh machine.
+    assert module.UV_VERSION == "0.12.5"
+    assert module.PYTHON_VERSION == "3.12.14"
+    assert module.UV_BYTES == 20_329_591
+    assert len(module.UV_SHA256) == 64
+
+
 @pytest.fixture
 def manager(tmp_path, monkeypatch):
     for engine in ("EDGE", "KOKORO", "QWEN3", "AUDIO8", "WHISPER"):
