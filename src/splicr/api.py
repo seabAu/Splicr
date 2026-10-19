@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import inspect
+import ipaddress
 import json
 import logging
 import mimetypes
@@ -3768,6 +3769,12 @@ def create_app(
 
     def require_local_setup(request: Request) -> None:
         # Provisioning executes third-party code: never expose it through a hosted/rebound origin.
+        try:
+            local_peer = bool(request.client and ipaddress.ip_address(request.client.host).is_loopback)
+        except ValueError:
+            local_peer = False
+        if not local_peer:
+            raise HTTPException(status_code=403, detail="Engine setup requires a loopback connection")
         if request.url.hostname not in {"localhost", "127.0.0.1", "::1"}:
             raise HTTPException(status_code=403, detail="Engine setup is available on the local desktop only")
         origin = request.headers.get("origin")

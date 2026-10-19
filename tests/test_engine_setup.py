@@ -273,7 +273,9 @@ def test_setup_api_requires_loopback_same_origin_and_explicit_consent(tmp_path, 
     app = create_app(settings=settings, service=service)
     setup = app.state.engine_setup_manager
     monkeypatch.setattr(setup, "supported", lambda: True)
-    with TestClient(app, base_url="http://localhost") as client:
+    remote = TestClient(app, base_url="http://localhost", client=("192.0.2.2", 50000))
+    assert remote.get("/v1/studio/components/setup").status_code == 403
+    with TestClient(app, base_url="http://localhost", client=("127.0.0.1", 50000)) as client:
         assert client.get("/v1/studio/components/setup").status_code == 200
         assert client.post("/v1/studio/components/engines/edge/install", json={}).status_code == 409
         assert (

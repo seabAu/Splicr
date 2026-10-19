@@ -14,6 +14,9 @@ public release tags begin; the current section describes the unreleased Narrator
 - Provider-neutral remote resources for Gemini, Deepgram, Inworld, and configurable REST TTS APIs,
   with write-only vault-backed credentials and revision-frozen request templates.
 - Isolated local-engine adapters for Kokoro, Qwen3-TTS, Audio8, Edge TTS, and faster-whisper.
+- Explicit Components-based Windows x64 engine setup with private Python, isolated CPU/NVIDIA
+  recipes, download consent, disk preflight, import/native-library checks, live logs, cancellation,
+  durable retry and next-restart activation; connecting existing environments remains supported.
 - Markdown, Word, OpenDocument, text, and JSON import; semantic/heading/newline planning; numeric
   citation removal; chunk preview; structured progress; partial export; and detailed error recovery.
 - Voice design/cloning, sentence-level non-destructive revision, subtitles/chapters, audio
