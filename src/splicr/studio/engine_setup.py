@@ -406,8 +406,6 @@ class EngineSetupManager:
                 str(python),
                 "--link-mode",
                 "copy",
-                "--exclude-newer",
-                "2026-10-20",
             ]
             for native in (
                 "torch",
@@ -434,13 +432,22 @@ class EngineSetupManager:
                         *pip,
                         "--default-index",
                         f"https://download.pytorch.org/whl/{channel}",
+                        "--no-deps",
                         *torch,
                     ],
                     "Installing PyTorch runtime",
                 )
             await self._run(
                 job,
-                [*pip, "--default-index", "https://pypi.org/simple", *recipe["packages"], *torch],
+                [
+                    *pip,
+                    "--default-index",
+                    "https://pypi.org/simple",
+                    "--exclude-newer",
+                    "2026-10-20",
+                    *recipe["packages"],
+                    *torch,
+                ],
                 "Installing engine packages",
             )
             imports = "; ".join(f"import {name}" for name in recipe["imports"])

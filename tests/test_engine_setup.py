@@ -106,6 +106,13 @@ def test_setup_uses_private_paths_verifies_then_connects(manager, monkeypatch, e
             command for command, _ in commands if "https://download.pytorch.org/whl/cpu" in command
         )
         assert "torch==2.11.0" in torch
+        assert "--no-deps" in torch
+        assert "--exclude-newer" not in torch
+        packages = next(
+            command for command, stage in commands if stage == "Installing engine packages"
+        )
+        assert "https://pypi.org/simple" in packages
+        assert "--exclude-newer" in packages
 
 
 def test_failed_setup_is_durable_and_retry_reuses_same_environment(manager, monkeypatch):
