@@ -96,6 +96,8 @@ def test_setup_uses_private_paths_verifies_then_connects(manager, monkeypatch, e
     assert Path(job["python_path"]).is_relative_to(manager.root / "environments")
     assert commands[0][0][commands[0][0].index("--python") + 1] == "3.12.14"
     assert "--managed-python" in commands[0][0]
+    assert "--seed" in commands[0][0]
+    assert "import pip" in commands[-2][0][-1]
     assert not any("--system" in command or "--clear" in command for command, _ in commands)
     assert "Verifying" in commands[-2][1]
     assert commands[-1][0][4] == "freeze"

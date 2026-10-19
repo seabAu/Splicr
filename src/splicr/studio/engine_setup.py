@@ -392,6 +392,7 @@ class EngineSetupManager:
                     PYTHON_VERSION,
                     "--managed-python",
                     "--allow-existing",
+                    "--seed",
                     str(environment),
                 ],
                 "Installing private Python and environment",
@@ -450,7 +451,7 @@ class EngineSetupManager:
                 ],
                 "Installing engine packages",
             )
-            imports = "; ".join(f"import {name}" for name in recipe["imports"])
+            imports = "import pip; " + "; ".join(f"import {name}" for name in recipe["imports"])
             if job["accelerator"] == "cuda":
                 imports += "; import torch; assert torch.cuda.is_available(), 'NVIDIA runtime unavailable; use CPU setup'"
             if engine == "kokoro":
