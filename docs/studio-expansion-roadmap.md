@@ -145,8 +145,12 @@ modes intentionally create boundaries. Do not remove those boundaries to solve a
   next-restart configuration. Focused mocked backend and browser wizard tests pass locally.
 - [x] Verify pinned bootstrap rejection, no arbitrary ZIP extraction/commands, loopback/same-origin
   access, environment-variable locks, and preservation of externally configured environments.
-- [ ] Complete actual hosted Windows setup/import acceptance for all five CPU recipes using the
-  manual workflow. No local Sandbox/VM/container or local heavyweight engine install is required.
+- [x] Complete actual hosted Windows setup/import acceptance for all five CPU recipes using the
+  manual workflow. Run `39272300592` passed on source `8005e7e` / identical private snapshot
+  `9105a16` on 2026-10-19: Edge, Kokoro (including private eSpeak phonemization), Qwen3, Audio8
+  (including AutoModel/AutoProcessor and Torchaudio), and faster-whisper. No local Sandbox/VM/
+  container or local heavyweight engine install was used. This proves package provisioning/imports,
+  not TTS model first-use, audible quality, or NVIDIA-driver compatibility.
 - [ ] Verify newly managed model first-use downloads, real narration/transcription, and NVIDIA
   acceleration on representative hardware. Existing externally managed-engine evidence is not this
   new installer path's evidence. A fresh packaged installer is still needed after validation.
@@ -173,7 +177,13 @@ Do not reopen these from early “not yet” annotations later contradicted by t
   Vite build and Ruff. The new browser journey covers consent gating, live setup status, reload,
   cancellation and explicit retry; the modal screenshot was visually reviewed. The initial run
   with developer `.env` enabled and concurrent browser work had four failures, all cleared by
-  isolated reruns and the clean full rerun. Actual hosted install recipes remain a separate gate.
+  isolated reruns and the clean full rerun. Hosted installation was verified separately below.
+- 2026-10-19: [managed setup run `39272300592`](https://github.com/seabAu/Splicr-CI/actions/runs/39272300592)
+  passed all five real Windows CPU recipes in 3m21s. Fresh-runner testing found and fixed the
+  bootstrap/Python catalog pairing, PyTorch-index dependency resolution, missing private pip for
+  first-use language packages, and the Windows USERNAME requirement. Runtime bootstrap is now uv
+  `0.12.5`, SHA-256 `4c4d49d8738847d9b71ba319e49a5688c93eac0fe6204b1df24e98528dddf39a`,
+  with private Python `3.12.14`. Focused setup safety tests pass after each correction (17 tests).
 
 - 2026-10-10: five new positioning unit tests plus eight existing frontend tests pass (13 total);
   Vite production build and Ruff pass. All seven Chromium journeys pass; the final focused Audiogram

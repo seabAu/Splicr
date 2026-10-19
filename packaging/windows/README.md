@@ -12,6 +12,22 @@ component settings, generated media, and external model environments untouched. 
 application also leaves that data in place so a reinstall can resume it. The app never copies or
 deletes the Kokoro, Qwen3-TTS, or Audio8 environments configured in Components.
 
+## Install optional engines from the packaged app
+
+In builds containing guided setup, open **Components → Install engine**, choose CPU or an available
+NVIDIA option, review storage/download notices, and confirm. SPLICR provisions private Python and
+an isolated environment without terminal commands or administrator rights. Existing environments
+can still be connected with **Configure** and are never upgraded or deleted by managed setup.
+
+Progress, logs, cancel and retry remain in Components after closing/reopening that workspace.
+Interrupted setup waits for explicit retry after an app restart. Successful setup activates on the
+next full desktop-app restart; save unsaved drafts/profiles before restarting. Model weights
+download on first use, so start with a short sample. Edge still requires internet for narration.
+Kokoro includes a private eSpeak library rather than installing a system MSI. Qwen/Audio8 CPU mode
+can be slow; NVIDIA drivers must already be installed and compatible. No driver installation or
+local Sandbox/VM/container is performed. Managed caches and environments are preserved with user
+data across application uninstall/reinstall; cancelling setup does not erase cached downloads.
+
 ## Build locally
 
 Requirements:
