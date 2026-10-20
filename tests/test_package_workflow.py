@@ -6,10 +6,36 @@ import subprocess
 import pytest
 
 
-WORKFLOW = (
-    Path(__file__).parents[1] / ".github" / "workflows" / "package-windows.yml"
-).read_text(encoding="utf-8")
+WORKFLOW = (Path(__file__).parents[1] / ".github" / "workflows" / "package-windows.yml").read_text(
+    encoding="utf-8"
+)
 RETENTION_GUARD = "${{ github.event_name == 'workflow_dispatch' && inputs.retain_packages }}"
+
+
+def test_libplacebo_official_mirror_preserves_reviewed_revision_and_content_pins():
+    manifest = Path(__file__).parents[1] / "packaging/windows/ffmpeg-packaged-license-files.tsv"
+    records = {
+        fields[0]: fields
+        for line in manifest.read_text("utf-8").splitlines()
+        if line and not line.startswith("#")
+        for fields in [line.split("\t")]
+    }
+    expected = {
+        "LICENSE.txt": "b3aa400aca6d2ba1f0bd03bd98d03d1fe7489a3bbb26969d72016360af8a5c9d",
+        "filters.c": "706c8fcafd9e8b671e9129a28f6789723425b74dfd218329ea6efb01d2430dd0",
+        "hash.h": "2a19455f05179e1146b8f1bbfdc8c485c293b77568cec38e3588eca39a2f1ba9",
+        "deinterlacing.h": "c3a21191792421f6cc707c24735c4a120a2135fd36e6e58c1b895def4244efb0",
+        "film_grain.h": "a6df80b759aaf45bd445fce1db3bcb26fc4fdc5e52c672d294bab709eaec24ab",
+        "dithering.c": "72b2d4accb92132d673a3429c7d92b822547da4500cab305df880a3215039e65",
+        "film_grain_av1.c": "d0acee2090ad38777e12f2472bc3e970339b3aeb7eb20ac919cd12575dde3b69",
+    }
+    revision = "e2972fdd09adacd383656738d7d280f0cd84a761"
+    for name, digest in expected.items():
+        record = records[f"ffmpeg/LIBPLACEBO-{name}"]
+        assert record[1].startswith(
+            f"https://raw.githubusercontent.com/haasn/libplacebo/{revision}/"
+        )
+        assert record[2:4] == [revision, digest]
 
 
 def _media_failure_guard():
