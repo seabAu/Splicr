@@ -47,6 +47,8 @@ def test_real_kokoro_import_preview_forced_resume_and_playback(tmp_path: Path) -
     )
     data_dir = tmp_path / "data"
     evidence: dict[str, object] = {"schema_version": 1, "engine": "kokoro", "voice": "af_heart"}
+    retry_errors: list[dict[str, object]] = []
+    evidence["retry_errors_before_first_checkpoint"] = retry_errors
     if os.getenv("SPLICR_EXPECT_COLD_MANAGED_KOKORO") == "1":
         marker = json.loads((kokoro_python.parents[1] / "splicr-managed.json").read_text("utf-8"))
         assert marker["engine_id"] == "kokoro"
@@ -98,6 +100,15 @@ def test_real_kokoro_import_preview_forced_resume_and_playback(tmp_path: Path) -
             )
             for _ in range(int(first_checkpoint_timeout / 0.05)):
                 chunks = first_service.store.chunks_for_job(submitted.id)
+                for chunk in chunks:
+                    if chunk.error:
+                        detail = {
+                            "index": chunk.index,
+                            "attempts": chunk.attempts,
+                            "error": chunk.error,
+                        }
+                        if detail not in retry_errors:
+                            retry_errors.append(detail)
                 completed = [chunk for chunk in chunks if chunk.status is ChunkStatus.COMPLETED]
                 if completed:
                     break

@@ -21,10 +21,11 @@ import sys
 import traceback
 import wave
 from pathlib import Path
-from typing import Any, Mapping, Protocol
+from typing import Any, Mapping, Protocol, TextIO
 
 
 PROTOCOL_VERSION = 1
+_PROTOCOL_STDOUT: TextIO | None = None
 PACE_SPEEDS = {
     "very_slow": 0.70,
     "slow": 0.85,
@@ -670,6 +671,7 @@ def _emit(message: Mapping[str, Any]) -> None:
     print(
         json.dumps(message, ensure_ascii=False, allow_nan=False, separators=(",", ":")),
         flush=True,
+        file=_PROTOCOL_STDOUT or sys.stdout,
     )
 
 
@@ -972,8 +974,7 @@ def run_tool(operation: str) -> int:
             "error_type": error.__class__.__name__,
             "message": str(error) or error.__class__.__name__,
         }
-    sys.stdout.write(json.dumps(result, ensure_ascii=False, allow_nan=False))
-    sys.stdout.flush()
+    _emit(result)
     return 0
 
 
@@ -992,17 +993,66 @@ def _configure_managed_environment() -> None:
         wrapper.set_data_path(loader.get_data_path())
 
 
+def _set_child_stdout(file_descriptor: int) -> None:
+    if os.name != "nt":
+        return
+    import ctypes
+    import msvcrt
+    from ctypes import wintypes
+
+    setter = ctypes.WinDLL("kernel32", use_last_error=True).SetStdHandle
+    setter.argtypes = [wintypes.DWORD, wintypes.HANDLE]
+    setter.restype = wintypes.BOOL
+    if not setter(wintypes.DWORD(-11), wintypes.HANDLE(msvcrt.get_osfhandle(file_descriptor))):
+        raise ctypes.WinError(ctypes.get_last_error())
+
+
+@contextlib.contextmanager
+def _isolated_protocol_stdout():
+    """Reserve the original pipe for JSON, including across nested installers/native writes.
+
+    redirect_stdout alone changes Python's stream, not inherited OS handles. Keep a private,
+    non-inheritable duplicate for protocol messages and redirect both fd 1 and Windows' standard
+    output handle. Third-party subprocesses such as spaCy's first-use pip download then inherit
+    stderr rather than injecting progress lines into the JSON protocol.
+    """
+    global _PROTOCOL_STDOUT
+    try:
+        stdout_fd, stderr_fd = sys.stdout.fileno(), sys.stderr.fileno()
+    except (AttributeError, OSError, ValueError):
+        # In-process tests/embedders may provide StringIO. Real worker CLI pipes have descriptors.
+        yield
+        return
+    original_stdout, original_protocol = sys.stdout, _PROTOCOL_STDOUT
+    original_stdout.flush()
+    channel = os.fdopen(os.dup(stdout_fd), "w", encoding="utf-8", buffering=1)
+    try:
+        os.dup2(stderr_fd, stdout_fd)
+        _set_child_stdout(stderr_fd)
+        sys.stdout = sys.stderr
+        _PROTOCOL_STDOUT = channel
+        yield
+    finally:
+        channel.flush()
+        os.dup2(channel.fileno(), stdout_fd)
+        _set_child_stdout(stdout_fd)
+        sys.stdout = original_stdout
+        _PROTOCOL_STDOUT = original_protocol
+        channel.close()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="SPLICR isolated local-engine worker")
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--engine")
     mode.add_argument("--tool")
     args = parser.parse_args()
-    with contextlib.redirect_stdout(sys.stderr):
-        _configure_managed_environment()
-    if args.tool:
-        raise SystemExit(run_tool(args.tool))
-    raise SystemExit(run(args.engine))
+    with _isolated_protocol_stdout():
+        with contextlib.redirect_stdout(sys.stderr):
+            _configure_managed_environment()
+        if args.tool:
+            raise SystemExit(run_tool(args.tool))
+        raise SystemExit(run(args.engine))
 
 
 if __name__ == "__main__":
