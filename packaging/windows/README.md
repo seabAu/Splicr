@@ -28,6 +28,47 @@ can be slow; NVIDIA drivers must already be installed and compatible. No driver 
 local Sandbox/VM/container is performed. Managed caches and environments are preserved with user
 data across application uninstall/reinstall; cancelling setup does not erase cached downloads.
 
+## Manual acceptance on your ordinary Windows machine
+
+This is the development check for an existing laptop/desktop, not a pristine-machine certification.
+Back up important SPLICR data first. **Do not run `test-package.ps1` or
+`run-clean-vm-checklist.ps1` on your working computer**: those automated lifecycle harnesses are
+for disposable machines and deliberately install/uninstall packages and manipulate test state.
+
+- [ ] Install the internal EXE as your normal Windows user and launch it from the Start menu.
+  Confirm the lifecycle window and Studio UI open without installing system Python, Node, or FFmpeg.
+- [ ] In Components, install Kokoro with the CPU recipe. Review the consent/storage notices,
+  confirm progress/logs remain visible after leaving and reopening Components, and wait for success.
+  Fully quit and relaunch the desktop app to activate it; refreshing the browser is not a restart.
+  Confirm Components reports the managed engine as available.
+- [ ] Render a short, non-sensitive Markdown document with several paragraphs and at least three
+  previewed chunks. First-use model downloads can take longer than subsequent requests. Check that
+  chunk count, processed characters, and percentage advance without cancelling or refreshing.
+  Play the completed audio, seek within it, and check that headings/paragraphs are spoken in order.
+- [ ] Save a profile with distinctive supported voice/chunk settings. Reload it and check both document
+  text and settings. Do not include API credentials in screenshots or your test report.
+- [ ] Start a longer job, wait for at least one completed chunk, then pause it. Note the completed
+  count, fully quit SPLICR, relaunch, and resume the same job. Confirm completed chunks remain and
+  progress continues forward to a playable final result. **Cancel is not pause.** This checks normal
+  restart/resume; it does not claim an OS-crash or power-loss test.
+- [ ] If you use other engines, set them up individually through Components, restart, and render
+  a short sample with each. For faster-whisper, enable **Advanced recognition → Word timings**,
+  transcribe a short known recording, and check its words/timings. Record CPU or NVIDIA mode;
+  do not infer GPU support from CPU success. Qwen/Audio8
+  model downloads are large and CPU rendering can be slow. Install no GPU drivers as part of this test.
+- [ ] Export one short audiogram and one converted audio file. Open both in an ordinary media
+  player and check picture/audio, duration, and seeking rather than only checking that files exist.
+- [ ] Where applicable, back up data, install the newer EXE over the older version, and verify saved
+  jobs/profiles. For a manual uninstall/reinstall check, leave user data in place and confirm it
+  reappears afterward. Do not delete `%LOCALAPPDATA%\SPLICR Studio\data`.
+- [ ] If testing the portable ZIP, first quit the installed app, extract to a writable folder, and
+  launch the portable EXE. Confirm playback and saved state; an already-running installed instance
+  can otherwise be reused and hide which executable you actually tested.
+
+Report the build version, Windows version, engine/preset and CPU/GPU mode, which items passed,
+and any exact error code/message. Distinguish **not tested** from **failed**. These boxes are an
+operator worksheet, not evidence that the checks have already passed. Send only redacted logs.
+
 ## Build locally
 
 Requirements:

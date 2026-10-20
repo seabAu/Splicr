@@ -461,6 +461,8 @@ sequence, cancellation cleanup, deterministic archives, API validation, and the 
   uninstall/data preservation and portable execution where applicable. On 2026-10-17 the user
   explicitly deferred pristine-machine testing to future public-release hardening; a clean VM is
   not required for current single-user development. This manual check is not yet performed.
+  The operator worksheet is in `packaging/windows/README.md`, **Manual acceptance on your ordinary
+  Windows machine**; report results rather than marking this gate from the automated CI result.
   Use manual checks on an ordinary machine, not the destructive disposable-machine lifecycle
   harnesses. The reusable PowerShell
   artifact harness now automates the non-interactive subset on a disposable Windows machine and is
@@ -1051,8 +1053,9 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   source snapshot `736e880` passed [private run `39513710296`](https://github.com/seabAu/Splicr-CI/actions/runs/39513710296):
   617 Python tests passed, seven deliberate live skips, Ruff, exact reviewed-media acquisition,
   dev.25 installer/portable build and real acceptance, and primary-source audit generation/validation.
-  Retained private artifact `12306947330` is 387,521,560 bytes and expires 2026-11-19. Local download
-  to ignored `dist/dev.25/` is in progress; independent local checksum verification is not yet claimed.
+  Retained private artifact `12306947330` is 387,521,560 bytes and expires 2026-11-19. Download to
+  ignored `dist/dev.25/` completed; all three local hashes match both manifests, and the acceptance
+  JSON binds the exact installer/portable identities with all 25 applicable checks true.
 - **Next development acceptance step (user decision, 2026-10-17):** manually exercise the packaged
   app on an ordinary representative Windows device. The user passed the Edge seam listening check
   on 2026-10-20; that is no longer an open acceptance gate.
@@ -1062,7 +1065,11 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   were revalidated on 2026-10-20 alongside the user's explicit passing listening verdict.
 - **Latest retained internal candidate (2026-10-20):** `0.1.0-dev.25` includes the local engine/tool
   stdout protocol fix and commit-identical pinned libplacebo notice mirror. The completed private
-  build/acceptance evidence is linked above. No prior-installer argument was supplied; no real
+  build/acceptance evidence is linked above. Installer: 120,474,426 bytes, SHA-256
+  `6a2df976a26be244f48a97a85f38ba596b2e35a4448944b7d8cf7a5df151eeb8`.
+  Portable: 185,718,907 bytes, SHA-256
+  `8bd49ebb820fcb45eba201e8f842e876912d77904e489f328b20b1ce7ab28a1e`.
+  No prior-installer argument was supplied; no real
   prior-version upgrade, ordinary-device manual acceptance, or public-release acceptance is claimed.
 - **Prior retained internal candidate (2026-10-19):** `0.1.0-dev.24` adds explicit managed engine
   setup in Components (see `studio-expansion-roadmap.md`). Source `8005e7e` / identical private

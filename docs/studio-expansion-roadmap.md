@@ -183,8 +183,9 @@ Do not reopen these from early “not yet” annotations later contradicted by t
   deliberate live skips, Ruff, installer/portable acceptance and source-audit validation. The first
   dev.25 attempt correctly rejected unexpected content from the original libplacebo raw host;
   switching seven URLs to its official mirror preserves the exact revision and all content hashes.
-  The retained private artifact expires 2026-11-19; the local transfer is still in progress, so local
-  checksum revalidation is not yet claimed. Public browser run `39513844155` passes all eight journeys.
+  The retained private artifact expires 2026-11-19. Local transfer to ignored `dist/dev.25/` completed;
+  both manifests match all three file hashes, and the acceptance JSON binds the exact package
+  identities with all 25 applicable checks true. Public browser run `39513844155` passes all eight journeys.
 - 2026-10-20: a new opt-in managed Kokoro cold-model test initially passed with two first-chunk
   attempts. A model-free regression demonstrated nested installer stdout corrupting the JSON-line
   worker pipe despite Python-level redirection. `23d9e07` reserves a non-inheritable protocol handle

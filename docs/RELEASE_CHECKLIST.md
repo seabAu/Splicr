@@ -329,8 +329,13 @@ seven deliberate live skips, Ruff, packaged acceptance, and source-audit validat
 nested-installer stdout isolation fix and the official commit-identical libplacebo notice mirror;
 all seven content pins remain unchanged. Public browser run `39513844155` passes all eight journeys.
 Private artifact `12306947330` is 387,521,560 bytes, retained until 2026-11-19. Its local transfer to
-ignored `dist/dev.25/` is in progress; independent local checksum verification is still pending.
+ignored `dist/dev.25/` completed. Both checksum manifests match all three local files; the acceptance
+JSON binds the exact installer/portable identities and reports all 25 applicable checks true.
 No prior-installer argument was supplied, and this is not public-release or manual-device approval.
+
+- Installer (120,474,426 bytes): `6a2df976a26be244f48a97a85f38ba596b2e35a4448944b7d8cf7a5df151eeb8`.
+- Portable ZIP (185,718,907 bytes): `8bd49ebb820fcb45eba201e8f842e876912d77904e489f328b20b1ce7ab28a1e`.
+- Source audit ZIP (82,242,387 bytes): `f30f2fbf2409d2dce29a1aa7e22c5956ebefeb82568186845df4ef2f35c5b66c`.
 
 Internal dev.24 (2026-10-19) adds guided Components provisioning. Source `8005e7e` / private snapshot
 `9105a16` passed [package run `39272357691`](https://github.com/seabAu/Splicr-CI/actions/runs/39272357691):
