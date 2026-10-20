@@ -153,7 +153,13 @@ modes intentionally create boundaries. Do not remove those boundaries to solve a
   not TTS model first-use, audible quality, or NVIDIA-driver compatibility.
 - [ ] Verify newly managed model first-use downloads, real narration/transcription, and NVIDIA
   acceleration on representative hardware. Existing externally managed-engine evidence is not this
-  new installer path's evidence. The verified dev.24 installer now contains this setup flow.
+  new installer path's evidence. The dev.24 and dev.25 installers contain this setup flow.
+  - [x] Managed Kokoro CPU cold-cache render/restart/range-playback passes on 2026-10-20 in
+    [run `39512638926`](https://github.com/seabAu/Splicr-CI/actions/runs/39512638926): four chunks,
+    438,600 frames (18.275 seconds), mono PCM16/24 kHz, non-silent RMS, HTTP 206, and unchanged
+    first-checkpoint hash/mtime/attempts after restart. First checkpoint succeeded on attempt 1
+    with no retry errors after the nested-installer stdout fix. JSON evidence is retained outside
+    source control, not generated audio/model weights. This does not prove audible quality or CUDA.
 - [ ] Follow-up polish: managed-cache storage relocation/usage/explicit removal, optional guided model
   prefetch with model-specific terms and accurate sizes, one-click safe idle restart, and a reviewed
   complete transitive wheel lock. Do not silently install GPU drivers or prefetch all models.
@@ -171,6 +177,22 @@ Do not reopen these from early “not yet” annotations later contradicted by t
 | Audio8 version milestone ambiguity | Studio packaging/release version policy replaces the old ad-hoc request |
 
 ## Verification record
+
+- 2026-10-20: private dev.25 [package run `39513710296`](https://github.com/seabAu/Splicr-CI/actions/runs/39513710296)
+  passes on source `1872ba4` / byte-identical private snapshot `736e880`: 617 Python tests, seven
+  deliberate live skips, Ruff, installer/portable acceptance and source-audit validation. The first
+  dev.25 attempt correctly rejected unexpected content from the original libplacebo raw host;
+  switching seven URLs to its official mirror preserves the exact revision and all content hashes.
+  The retained private artifact expires 2026-11-19; the local transfer is still in progress, so local
+  checksum revalidation is not yet claimed. Public browser run `39513844155` passes all eight journeys.
+- 2026-10-20: a new opt-in managed Kokoro cold-model test initially passed with two first-chunk
+  attempts. A model-free regression demonstrated nested installer stdout corrupting the JSON-line
+  worker pipe despite Python-level redirection. `23d9e07` reserves a non-inheritable protocol handle
+  and redirects OS/Windows child stdout to stderr for engine and tool entry points. Both real child/
+  raw-write regressions pass; full local suite: 616 passed, seven live skips; Ruff passes. Corrected
+  managed first-use run `39512638926` passes on private snapshot `29fd941` / source `23d9e07` in 2m42s,
+  first checkpoint on attempt 1, no retry errors, with unchanged completed checkpoint after restart.
+  Evidence JSON SHA-256: `45f0388e4363fca722010a17ccc4da22f776f2a36c88b83c2abba3bba0402cb0`.
 
 - 2026-10-19: guided managed-engine setup passes the complete clean-configuration Python suite
   (613 passed, seven deliberate live skips), all 13 frontend unit tests, all eight Chromium journeys,

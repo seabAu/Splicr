@@ -104,10 +104,10 @@ normalized here so the native and unfinished web interfaces do not become compet
 | Schema-driven render settings and the dense native control surface | Typed advanced controls plus focused workspaces; field coverage is machine-checked. |
 | Optional components and engines visible before installation | Components workspace and local-engine onboarding; real install acceptance remains Milestone 9. |
 | Queue/batch render | Completed in Milestone 6 with frozen per-item jobs and Library controls. |
-| Sentence/timeline repair | Milestone 5; automated coverage complete, audible live seam check remains. |
+| Sentence/timeline repair | Milestone 5 complete; automated coverage and human Edge seam check pass. |
 | Audio transcription and guessed chapters | Milestone 7 complete, including real faster-whisper acceptance. |
 | Still backgrounds, polar layouts, transparency, and safe expressions | Milestone 8. |
-| Installer/proper-app hardening | Portable/installer baseline exists; clean-VM install/upgrade evidence remains Milestone 9. |
+| Installer/proper-app hardening | Portable/installer automation passes; ordinary-device manual acceptance remains Milestone 9. Pristine-machine checks are deferred public-release hardening. |
 | Remaining component CSS-to-Tailwind cleanup | Non-blocking UI maintenance; browser behavior and accessibility, not framework purity, are the gate. |
 | Word surgery, richer sentence operations, draggable pivots, gradients, TTS formulas, public site | Preserved under **Deferred ideas** below. |
 
@@ -143,12 +143,12 @@ human-readable work queue, including broader capabilities that were not render-s
 | Checkpoint/chunk export | Covered | Timeline / Library | 4 |
 | SRT/VTT export and burned captions | Covered | Publish / Audiogram | 4 |
 | Intro/outro assets and crossfade | Covered | Timeline / Publish | 5 |
-| Sentence-level regeneration and splice | Covered; audible live-engine seam check pending | Timeline | 5 |
+| Sentence-level regeneration and splice | Covered; audible Edge seam check passed 2026-10-20 | Timeline | 5 |
 | Multi-document durable queue | Covered | Narrate / Library | 6 |
 | Audio transcription and guessed chapters | Covered; real faster-whisper CPU/int8 acceptance verified | Convert / Publish | 7 |
 | Still-image audiogram background | Covered | Audiogram | 8 |
-| Polar/transparent/formula audiograms | Covered; real alpha-frame/formula rendering and browser controls verified; clean-VM visual/media observation pending | Audiogram | 8 |
-| Real provider/model/installer/crash acceptance | Provider/model/crash checks verified; genuine clean-VM fresh/upgrade acceptance pending | Test/release infrastructure | 9 |
+| Polar/transparent/formula audiograms | Covered; real alpha-frame/formula rendering and browser controls verified; ordinary-device visual/media observation pending | Audiogram | 8 |
+| Real provider/model/installer/crash acceptance | Provider/model/crash and hosted-package checks verified; ordinary-device manual acceptance pending; pristine-machine release checks deferred | Test/release infrastructure | 9 |
 
 ## Milestone 1 — typed advanced-engine control foundation
 
@@ -316,7 +316,7 @@ Edge TTS was Narrator's zero-setup online fallback. It is not currently a merged
 - [x] Fall back to chunk-level regeneration when sentence timing is unavailable or unreliable.
 - [x] Verify bytes/audio outside the replaced span remain unchanged where the format permits exact
   comparison.
-- [ ] Perform an audible real-engine seam check with sentence-timed Edge output and retain the
+- [x] Perform an audible real-engine seam check with sentence-timed Edge output and retain the
   generated acceptance artifact outside source control. The reproducible live gate passed on
   2026-09-29 using exact Edge word timings grouped into sentence spans; it retained source/revised
   WAVs plus provenance under ignored `.test-runs/seam-acceptance`. The 30 ms crossfade and +0.16 dB
@@ -325,8 +325,10 @@ Edge TTS was Narrator's zero-setup online fallback. It is not currently a merged
   canonical format, duration, listening focus window, and explicit pass criteria so missing or stale
   artifacts are evident. Source SHA-256: `293a0a70bc33a3777890a3cfdd0f2991b09f369c8bfa330b52e67e6c26dfcbc3`;
   revised SHA-256: `95a1c71bc5f7d1c2cf41db2c7a40d5ada7ef2a632ebec6b07cd42be35abee02c`.
-  Final human listening approval remains pending; audition the revised take from 3.4375 through
-  8.505833 seconds and compare it with the source from 3.4375 through 8.2625 seconds.
+  The user explicitly reported "Passed listening check" on 2026-10-20 after being asked to assess
+  clicks, clipped/repeated sounds and voice/volume continuity. The retained full and focus clip
+  hashes were revalidated that day. The revised focus spans 3.4375 through 8.505833 seconds; the
+  source comparison spans 3.4375 through 8.2625 seconds.
 
 ## Milestone 6 — durable multi-document queue
 
@@ -500,7 +502,8 @@ sequence, cancellation cleanup, deterministic archives, API validation, and the 
   installed dev.17 executable to seed the completed job, media, Library project, plan/take/artifact,
   voice profile, and Studio profile. Dev.18 preserved and semantically reopened that exact state;
   its acceptance evidence records `representative_state_origin: previous_package` and all 22 checks
-  true. Only interactive evidence on a genuinely clean VM remains open for this checklist item.
+  true. For current development, the remaining interactive observations use the ordinary-device
+  check above; genuinely pristine-machine evidence belongs to the separate future release gate.
 - [x] Verify Chromium acceptance in GitHub Actions and retain failure traces/screenshots/video. The
   workflow runs for pull requests, `main`, `codex/**` integration branches, and release tags. Failed
   run `36664605914` published assertion annotations and retained a 19 MB Playwright diagnostics
@@ -1034,29 +1037,34 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
 
 ## Current work pointer
 
-- **Active milestone:** Milestone 9 — real-world acceptance and release hardening, including the
-  human sentence-seam acceptance from Milestone 5. All 36 canonical capability entries are covered
+- **Active milestone:** Milestone 9 — ordinary-device manual acceptance and release hardening.
+  Human sentence-seam acceptance from Milestone 5 passed on 2026-10-20. All 36 canonical entries are covered
   or documented intentional replacements; remaining parity gaps are acceptance evidence, not
   missing controls. Post-parity feature work is tracked separately in `studio-expansion-roadmap.md`.
-- **Current deterministic evidence (2026-10-12):** integration commit `9359905` passes the complete
-  Python suite (572 passed, seven intentional live skips), 13 frontend unit tests, all seven
-  Chromium journeys, and Ruff. This supersedes the 2026-10-10 disk-space-blocked full-suite attempt.
-  Hosted run [`38271186833`](https://github.com/seabAu/Splicr/actions/runs/38271186833) subsequently
-  passes all seven browser journeys on `663d805` in 46.7 seconds after isolated CI provisioning
-  was repaired; its four new provisioning regressions and full Ruff check pass locally.
-- **Current hosted package evidence (2026-10-17):** public source `fffb210` / identical private
-  source snapshot `c5b2262` passed [private run `39045114567`](https://github.com/seabAu/Splicr-CI/actions/runs/39045114567):
-  597 Python tests passed, seven deliberate live skips, Ruff, exact reviewed-media acquisition,
-  dev.22 installer/portable build and real acceptance, and primary-source audit generation/validation.
-  The upload step was skipped and the artifact API confirms zero retained artifacts. Public browser
-  run [`39045074156`](https://github.com/seabAu/Splicr/actions/runs/39045074156) also passed `fffb210`.
-- **Next development acceptance steps (user decision, 2026-10-17):** obtain the human Edge seam
-  verdict and manually exercise the packaged app on an ordinary representative Windows device.
+- **Current deterministic evidence (2026-10-20):** integration commit `23d9e07` passes the complete
+  Python suite (616 passed, seven intentional live skips) and Ruff, including real nested-child/raw
+  stdout isolation regressions for engine and tool workers. Frontend behavior remains covered by
+  the 13 passing unit tests verified on 2026-10-19 and eight Chromium journeys in hosted browser run
+  [`39513844155`](https://github.com/seabAu/Splicr/actions/runs/39513844155) on `1872ba4` (50.1 seconds).
+  This supersedes the 2026-10-10 disk-space-blocked full-suite attempt.
+- **Current hosted package evidence (2026-10-20):** public source `1872ba4` / byte-identical private
+  source snapshot `736e880` passed [private run `39513710296`](https://github.com/seabAu/Splicr-CI/actions/runs/39513710296):
+  617 Python tests passed, seven deliberate live skips, Ruff, exact reviewed-media acquisition,
+  dev.25 installer/portable build and real acceptance, and primary-source audit generation/validation.
+  Retained private artifact `12306947330` is 387,521,560 bytes and expires 2026-11-19. Local download
+  to ignored `dist/dev.25/` is in progress; independent local checksum verification is not yet claimed.
+- **Next development acceptance step (user decision, 2026-10-17):** manually exercise the packaged
+  app on an ordinary representative Windows device. The user passed the Edge seam listening check
+  on 2026-10-20; that is no longer an open acceptance gate.
   Pristine-machine fresh/upgrade scenarios are deferred to the public release checklist, not a
   current single-user development blocker. Existing automated evidence does not claim either
   manual device acceptance or pristine-machine acceptance. Retained full and focus WAV hashes
-  were revalidated on 2026-10-12; a passing objective discontinuity test is not a human verdict.
-- **Latest retained internal candidate (2026-10-19):** `0.1.0-dev.24` adds explicit managed engine
+  were revalidated on 2026-10-20 alongside the user's explicit passing listening verdict.
+- **Latest retained internal candidate (2026-10-20):** `0.1.0-dev.25` includes the local engine/tool
+  stdout protocol fix and commit-identical pinned libplacebo notice mirror. The completed private
+  build/acceptance evidence is linked above. No prior-installer argument was supplied; no real
+  prior-version upgrade, ordinary-device manual acceptance, or public-release acceptance is claimed.
+- **Prior retained internal candidate (2026-10-19):** `0.1.0-dev.24` adds explicit managed engine
   setup in Components (see `studio-expansion-roadmap.md`). Source `8005e7e` / identical private
   snapshot `9105a16` passed [package run `39272357691`](https://github.com/seabAu/Splicr-CI/actions/runs/39272357691):
   614 Python tests, seven intentional live skips, Ruff, all 25 applicable package checks and source
@@ -1115,13 +1123,13 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   credential-bearing, digest-less, and non-HTTPS source metadata fail closed. Internal builds state
   that source is unpublished, while a reviewed public build can expose the exact archive URL and
   SHA-256. Final hosted-archive publication and embedding remain open.
-- **Clean-VM routing:** the current workstation has no Windows Sandbox binary or Hyper-V,
-  VirtualBox, VMware, or QEMU management CLI. The clean-VM matrix must run on a separate disposable
-  Windows environment; local package-harness results are not a substitute. The artifact harness now
+- **Future pristine-machine release routing:** no local VM/Sandbox is authorized. If public-release
+  pristine-machine checks are pursued later, use a separate disposable Windows environment; normal
+  development uses the user's ordinary-device manual acceptance instead. The artifact harness
   reduces that manual surface by using the packaged executable to seed seven real durable entities
   plus source/checkpoint/output media, then semantically reopening and hash-verifying them after
   uninstall/reinstall. Older-schema migration and interactive Windows shell behavior still require
-  the genuine clean environment.
+  representative manual observations, with pristine-machine evidence reserved for public release.
 - **Branch routing:** `classic` preserves the original pre-merger app at `f0f6570`; `main` remains
   unchanged while merged development continues on `codex/narrator-integration`. Reconcile the
   `main`-triggered hosted deployment with the download/demo website direction before promotion.

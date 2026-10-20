@@ -58,6 +58,10 @@ public release tags begin; the current section describes the unreleased Narrator
 
 ### Fixed
 
+- Local-engine/tool JSON responses no longer mix with child-installer or native stdout during
+  first-use model setup; a real cold managed Kokoro render/restart now passes without a retry.
+- Pinned libplacebo package notices use its official commit-identical mirror, retaining every
+  reviewed content hash when the original host returns an unexpected response.
 - Live progress now follows persisted chunk completion instead of updating only after cancellation.
 - Numeric citation removal treats `[123]` and escaped `\[123\]` forms equivalently.
 - Audio8 now follows the current upstream `reference_audio`/`reference_text`, generation-result,
@@ -107,8 +111,8 @@ public release tags begin; the current section describes the unreleased Narrator
   Audio8 uses reviewed Hugging Face custom model code through `trust_remote_code=True`.
 - Sentence revision requires reliable provider or transcription timing; otherwise Studio safely
   falls back to regenerating the whole chunk.
-- The real Edge sentence-revision artifact is retained and hash-verified, but final human audible
-  seam approval remains open.
+- The real Edge sentence-revision full/focus artifacts are retained and hash-verified; the user
+  passed the human audible seam check on 2026-10-20.
 - Human-visible fresh/upgrade/uninstall/portable evidence on reverted clean Windows snapshots, a
   manual scan by the active malware product, and current-commit GitHub Actions evidence remain
   release gates. The development candidate is intentionally unsigned.

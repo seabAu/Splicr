@@ -42,8 +42,8 @@ npm --prefix studio-web exec -- playwright install chromium
 npm --prefix studio-web run test:e2e
 ```
 
-- [x] Python suite passes with only documented opt-in live-environment skips. Verified 2026-10-12
-  on `9359905`: 572 passed, 7 intentional live skips. The earlier disk-space-blocked full run is
+- [x] Python suite passes with only documented opt-in live-environment skips. Verified 2026-10-20
+  on `23d9e07`: 616 passed, 7 intentional live skips. The earlier disk-space-blocked full run is
   superseded by this successful rerun.
 - [x] Frontend unit suite and production build pass. Verified 2026-10-12: 13 unit tests passed and
   Vite 8.3.1 built the committed package assets during the dev.21 build.
@@ -89,6 +89,8 @@ uv run pytest -m live_engine tests/test_transcription_live.py
   the credential directly from SPLICR's vault without exporting it.
 - [x] Edge online-service contract passes. Verified 2026-09-29 with `edge-tts 7.2.8`, model
   `edge-tts`, voice `en-US-AriaNeural`, canonical 24 kHz mono signed-16-bit PCM, and word timings.
+- [x] Human sentence-splice listening check passes. The user approved the retained Edge source/
+  revised full/focus clips on 2026-10-20; the exact artifact hashes were revalidated that day.
 - [x] Configured Kokoro environment passes its applicable end-to-end checks. Verified 2026-09-29
   with Python 3.12.14, Kokoro 0.9.4, and `af_heart`: Markdown import, preview/persisted-plan
   agreement, real render, forced restart, completed-checkpoint preservation, canonical WAV, and
@@ -305,14 +307,30 @@ clean-VM evidence.
   release.
 - [ ] Publish concise install, upgrade, known-limit, and data-location notes. The publishable draft
   in `CHANGELOG.md` now reflects the actual per-user/portable paths, preservation and rollback
-  policy, completed live-provider evidence, effective GPL media classification, clean-VM/malware/
-  seam gates, unsigned status, application-license gap, and H.264/AAC licensing decision. Keep this
+  policy, completed live-provider and human seam evidence, effective GPL media classification,
+  clean-VM/malware gates, unsigned status, Apache-2.0 application terms, and the H.264/AAC licensing
+  decision. Keep this
   item open until that text is attached to the public release.
 - [ ] Keep the previous installer available until the new build passes the post-publish smoke test.
 - [ ] Rollback means reinstalling the previous application package without deleting the shared user
   data directory; document any schema downgrade limitation before release.
 
 ## Evidence record
+
+On 2026-10-20 the user explicitly reported **"Passed listening check"** for the retained Edge
+source/revised sentence-seam clips after being asked to assess clicks, clipped/repeated speech,
+and obvious voice/volume changes. All four full/focus WAV hashes were revalidated against the
+retained manifest. This closes the human Edge seam gate; ordinary-device manual acceptance remains
+open. The dated pending-listening entries below describe their historical state, not a current gate.
+
+Internal dev.25 (2026-10-20), source `1872ba4` / byte-identical private snapshot `736e880`, passes
+[package run `39513710296`](https://github.com/seabAu/Splicr-CI/actions/runs/39513710296): 617 Python tests,
+seven deliberate live skips, Ruff, packaged acceptance, and source-audit validation. It includes the
+nested-installer stdout isolation fix and the official commit-identical libplacebo notice mirror;
+all seven content pins remain unchanged. Public browser run `39513844155` passes all eight journeys.
+Private artifact `12306947330` is 387,521,560 bytes, retained until 2026-11-19. Its local transfer to
+ignored `dist/dev.25/` is in progress; independent local checksum verification is still pending.
+No prior-installer argument was supplied, and this is not public-release or manual-device approval.
 
 Internal dev.24 (2026-10-19) adds guided Components provisioning. Source `8005e7e` / private snapshot
 `9105a16` passed [package run `39272357691`](https://github.com/seabAu/Splicr-CI/actions/runs/39272357691):
