@@ -2,6 +2,15 @@ name: Managed engine setup acceptance
 
 on:
   workflow_dispatch:
+    inputs:
+      exercise:
+        description: Package/import checks, or one cold-model Kokoro render and resume test
+        type: choice
+        required: true
+        default: all_packages
+        options:
+          - all_packages
+          - kokoro_first_use
 
 permissions:
   contents: read
@@ -22,19 +31,43 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "uv installation failed" }
           uv sync --frozen --extra dev
           if ($LASTEXITCODE -ne 0) { throw "App dependency installation failed" }
-      - name: Exercise actual managed Python and all CPU engine recipes
+      - name: Exercise actual managed Python and selected CPU engine recipes
         shell: pwsh
+        env:
+          EXERCISE: ${{ inputs.exercise }}
         run: |
           # The manager bootstraps its own verified uv and private Python 3.12;
           # setup-python above only runs SPLICR's controller. No user Python is used by engines.
+          $engines = if ($env:EXERCISE -eq "kokoro_first_use") { @("kokoro") } else {
+            @("edge", "kokoro", "qwen3", "audio8", "whisper")
+          }
           uv run python -m tests.run_managed_setup_acceptance `
-            --root "$env:RUNNER_TEMP\splicr-managed-setup"
+            --root "$env:RUNNER_TEMP\splicr-managed-setup" --engines $engines
           if ($LASTEXITCODE -ne 0) { throw "Managed engine acceptance failed" }
+      - name: Verify cold Kokoro synthesis, restart checkpoints, and range playback
+        if: ${{ inputs.exercise == 'kokoro_first_use' }}
+        shell: pwsh
+        run: |
+          $root = "$env:RUNNER_TEMP\splicr-managed-setup"
+          $components = Get-Content -Raw -LiteralPath "$root\studio\components.json" | ConvertFrom-Json
+          $env:SPLICR_KOKORO_PYTHON = $components.engines.kokoro.python
+          if (-not (Test-Path -LiteralPath $env:SPLICR_KOKORO_PYTHON -PathType Leaf)) {
+            throw "Managed Kokoro interpreter was not configured"
+          }
+          $env:PYTHON_DOTENV_DISABLED = "1"
+          $env:SPLICR_EXPECT_COLD_MANAGED_KOKORO = "1"
+          $env:HF_HOME = "$root\studio\managed-engines\models"
+          # Only this explicitly selected engine's model/language assets are fetched, on the runner.
+          uv run pytest tests/test_live_kokoro_acceptance.py -m live_engine `
+            -o addopts= -q -s --basetemp "$root\live"
+          if ($LASTEXITCODE -ne 0) { throw "Managed Kokoro first-use/resume acceptance failed" }
       - name: Retain setup diagnostics only
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: managed-engine-setup-diagnostics
-          path: ${{ runner.temp }}/splicr-managed-setup/studio/managed-engines/setup-jobs.json
+          path: |
+            ${{ runner.temp }}/splicr-managed-setup/studio/managed-engines/setup-jobs.json
+            ${{ runner.temp }}/splicr-managed-setup/live/**/kokoro-acceptance.json
           if-no-files-found: ignore
           retention-days: 14
