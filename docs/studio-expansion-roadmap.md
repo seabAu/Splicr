@@ -2,16 +2,69 @@
 
 Status: active living backlog, started 2026-10-10.
 
-## Goal
+## Revised goal — approved scope 2026-10-26
 
-Expand the merged local-first Studio beyond Narrator parity, recovering unfinished ideas from
-`legacy/narrator/HANDOVER.md` without carrying forward stale implementation gaps. Deliver one
-coherent, verified feature at a time, preserving isolated engine environments, pluggable providers,
-immutable render settings, checkpoint recovery, and a calm default UI with progressive disclosure.
+Deliver SPLICR Studio as a coherent, self-contained local-first desktop application by completing
+the first-run setup, Models & Setup management, large-document controls and processing, visual
+chunk audition/editing, contextual pronunciation tools, native desktop window, and safe component/
+application update workflows specified here. Preserve Narrator and classic SPLICR capabilities,
+remote API providers, isolated engine environments, immutable render settings, checkpoint/resume
+behavior, secure credentials, and a calm progressively disclosed UI. Ship a verified internal
+Windows installer and document real ordinary-device acceptance; do not call backend coverage alone
+complete UI/workflow parity.
+
+### Goal-slot text
+
+Make SPLICR Studio a self-contained local-first desktop app following the revised goal, execution
+order, and acceptance checklist in docs/studio-expansion-roadmap.md. Complete guided first-run
+dependency setup, model catalog/download management, high adjustable document limits with scalable
+processing, visual chunk/sequence audition and retakes, contextual pronunciation editing, a native
+desktop window, and safe health/repair/update workflows. Preserve local/remote providers, advanced
+controls, frozen job settings, secure keys, canonical audio, and durable pause/resume. Finish with
+a verified internal Windows installer and ordinary-device acceptance. Do not use local sandboxes,
+silently replace active engine/model versions, or publish binaries/site changes without approval.
+
+### Execution order and completion contract
+
+1. **Models & Setup and onboarding:** make local engines discoverable from Narrate; show unavailable
+   engines with actionable installation guidance. Guide private runtime/engine provisioning and
+   present compatible default model presets with sources, revisions, terms, sizes, disk checks,
+   cache state, download progress, cancellation/retry/resume, activation and explicit removal.
+   Reuse existing setup/voice infrastructure rather than creating a separate incompatible manager.
+2. **Large documents:** separate upload/expanded/text/word budgets; expose persistent limits in the
+   app with high local-desktop defaults and explicit hosted caps. Bound extraction/planning memory
+   and browser rendering. For genuinely large sources, provide source-ordered linked jobs and
+   durable progress/resume/export across the group, not only a larger numeric limit.
+3. **Planning and repair workflows:** support visual boundary inspection, audition of one planned
+   chunk or a selected sequence, unchanged-text retakes, chunk/sentence edits and safe derived-take
+   assembly. Connect word/phoneme inspection and pronunciation overrides to the selected Timeline
+   context, then regenerate the sentence. Do not misrepresent arbitrary phoneme audio surgery as
+   an existing feature; it remains an explicitly separate experiment.
+4. **Native desktop experience:** host the existing React UI in a real desktop window, with a
+   documented shell choice, private loopback service ownership, single-instance behavior, native
+   file interactions, media playback/downloads and graceful shutdown. An external browser may remain
+   an optional fallback, not the default installed experience. Build-only tools are not prerequisites
+   on an end user's machine.
+5. **Health, repair and updates:** check required components at startup and offer clear repair or
+   compatible upgrades. Stage updates separately, require consent, authenticate update metadata and
+   verify artifacts, preserve settings/checkpoints and offer rollback. Freeze versions used by
+   existing jobs. Keep model/runtime updates distinct from app updates; define/test the update feed
+   without silently publishing a public release or altering the portfolio host.
+6. **Acceptance and handoff:** test each workflow through the UI and backend, build a new internal
+   installer, verify package/checksum/lifecycle/data preservation, and exercise real local/remote
+   paths as applicable. Record ordinary-device findings and fix failures. Separate mocked tests,
+   real downloads, real synthesis, audible quality, hardware performance and package acceptance.
+   Each completed item needs named evidence; a green suite does not prove untested user workflows.
+
+The detailed checkboxes under **Laptop review — priority 2026-10-26** are the live implementation
+queue for this goal. Earlier expansion ideas below remain deferred unless required by this contract
+or separately prioritized; do not turn the entire historical wishlist into a completion gate.
 
 Parity and release acceptance remain tracked in [narrator-parity-roadmap.md](narrator-parity-roadmap.md)
-and [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md). This backlog does not waive the human Edge splice
-listening check or clean-machine fresh-install/upgrade checks. No new authentication work is planned.
+and [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md). The human Edge listening check passed 2026-10-20.
+Pristine-machine testing is future public-release hardening, not required for current single-user
+development. Do not provision local Sandbox/VM/container environments. Public website/authcore work,
+automatic GPU driver installation and public binary distribution are outside this revision goal.
 
 ## Branch policy
 

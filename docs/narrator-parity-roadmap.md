@@ -1039,6 +1039,11 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
 
 ## Current work pointer
 
+- **Revision execution plan (2026-10-26):** the user approved replacing the narrow parity-only goal
+  with the explicit desktop/workflow revision contract at the top of `studio-expansion-roadmap.md`.
+  Follow that document's execution order and laptop-review checkboxes; retain this file as the
+  capability/history and parity verification ledger. The old goal must not be marked achieved merely
+  to replace its text; goal-slot editing/activation is a separate product control.
 - **Laptop review (2026-10-26):** dev.25 launches, but the user reports missing/hard-to-find local
   model workflows, the browser-launch shell, and a large-document rejection. The previous inventory
   mapping is not proof of complete, discoverable workflow parity. See the reopened acceptance work
