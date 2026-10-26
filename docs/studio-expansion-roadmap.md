@@ -164,6 +164,49 @@ modes intentionally create boundaries. Do not remove those boundaries to solve a
   prefetch with model-specific terms and accurate sizes, one-click safe idle restart, and a reviewed
   complete transitive wheel lock. Do not silently install GPU drivers or prefetch all models.
 
+## Laptop review — priority 2026-10-26
+
+The user confirms dev.25 launches on the second laptop; this is not a pass for the complete manual
+worksheet. They cannot find expected local-model workflows and report the 4 MB import rejection.
+Treat this as product feedback exposing real gaps, not merely a request to rerun green tests.
+
+- [x] Source fix: give Office ZIP expansion an independent configurable budget (250 MB default,
+  `SPLICR_MAX_EXPANDED_DOCUMENT_BYTES`) instead of `max_source_bytes * 4`. Preserve upload/text
+  safety limits and test an 8 MB embedded asset with short narration plus configured rejection.
+  This is not yet in the dev.25 installer and does not raise the separate narration-text limit.
+- [ ] Add persistent in-app document limits with suitably high local-desktop defaults, readable
+  byte/word/expansion diagnostics and explicit hosted-server caps. Bound memory during upload,
+  extraction, preview and job creation; support sequentially linked jobs for genuinely large books
+  rather than claiming unlimited support from a raised integer or overflowing the browser DOM.
+- [x] Source fix: allow unchanged-text chunk/sentence regeneration in Timeline, not just edited
+  text. Backend creates a new take and reuses other checkpoints; verify the UI button and requests.
+- [ ] Reconcile visual planning and audition workflows end-to-end: audition one planned chunk,
+  a selected sequence, repeat a take without edits, then edit/splice into the resulting document.
+  Existing preview highlights text; Timeline playback/revision currently requires a completed take.
+- [ ] Bring contextual word/phoneme inspection and pronunciation editing into the Timeline flow.
+  Standalone Pronunciation is not the same workflow. Preserve the handover's explicit distinction:
+  word/phoneme inspection and sentence re-rendering existed; arbitrary per-phoneme audio surgery
+  did not and must not be represented as an already implemented legacy feature.
+- [ ] First-run setup and discoverability: expose local-engine setup from Narrate, show unavailable
+  engines with an actionable reason, and explain restart activation. Do not silently download all
+  optional engines/models or require users to hunt through workspaces.
+- [ ] Add a Models/default-model catalog with engine-compatible presets, source/revision, terms,
+  download/disk estimates, install/cache state, progress/cancel/resume/retry and explicit removal.
+  Reuse the existing durable setup-job infrastructure and voice-download UI patterns where useful;
+  preserve gated-repository credentials in the vault and require approval for remote model code.
+- [ ] Startup dependency health checks plus an updater: verify required components, offer repair,
+  check for tested compatible updates and stage replacements with rollback. Freeze engine/model
+  versions for existing jobs; do not auto-install the newest Python/package/model into an active
+  environment. App updater needs an authenticated/signed distribution manifest and a defined feed.
+- [ ] Native desktop window around the existing React/FastAPI application. Evaluate pywebview with
+  WebView2 against Electron; keep loopback-only service ownership, single-instance reuse, shutdown,
+  file dialogs, media playback/downloads and package acceptance. No rewrite of the React UI is needed.
+
+Dependency policy: packaged application runtime and optional engine runtimes are distinct from
+build-time Node/npm/Inno Setup. The latter should not be installed on ordinary users' machines.
+FFmpeg redistribution/download is not categorically prohibited; the selected binary's actual
+license/source/attribution obligations still apply. Do not use downloader indirection as a bypass.
+
 ## Historical gaps already closed or replaced
 
 Do not reopen these from early “not yet” annotations later contradicted by the handover itself:
@@ -177,6 +220,16 @@ Do not reopen these from early “not yet” annotations later contradicted by t
 | Audio8 version milestone ambiguity | Studio packaging/release version policy replaces the old ad-hoc request |
 
 ## Verification record
+
+- 2026-10-26: laptop feedback prompted independent Office expansion limits and unchanged-text
+  Timeline regeneration. Full Python suite: 622 passed, seven deliberate live skips; Ruff passes.
+  All 13 frontend unit tests, Vite build and all eight Chromium journeys pass (45.6 seconds),
+  including the unchanged-chunk regeneration button/request. No new installer has been built;
+  these source changes are not in the user's dev.25 build. The model catalog, first-run wizard,
+  native shell, updater, GUI limit controls and contextual editing items above remain incomplete.
+  Developer runner only: inherited PATH had 22,352 characters of largely stale temporary Spectra
+  entries; filtering those entries in the test process reduced it to 2,406 and restored npm/uv
+  child-shell resolution. No machine/user environment settings were changed.
 
 - 2026-10-20: private dev.25 [package run `39513710296`](https://github.com/seabAu/Splicr-CI/actions/runs/39513710296)
   passes on source `1872ba4` / byte-identical private snapshot `736e880`: 617 Python tests, seven

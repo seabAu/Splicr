@@ -3724,7 +3724,7 @@ def create_app(
                 filename,
                 content,
                 max_upload_bytes=resolved_settings.max_upload_bytes,
-                max_expanded_bytes=resolved_settings.max_source_bytes * 4,
+                max_expanded_bytes=resolved_settings.max_expanded_document_bytes,
             )
         except DocumentImportError as error:
             too_large = "too_large" in error.code.value

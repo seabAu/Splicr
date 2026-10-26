@@ -1039,10 +1039,14 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
 
 ## Current work pointer
 
+- **Laptop review (2026-10-26):** dev.25 launches, but the user reports missing/hard-to-find local
+  model workflows, the browser-launch shell, and a large-document rejection. The previous inventory
+  mapping is not proof of complete, discoverable workflow parity. See the reopened acceptance work
+  below and `studio-expansion-roadmap.md`; do not describe manual testing as the only remaining work.
 - **Active milestone:** Milestone 9 — ordinary-device manual acceptance and release hardening.
-  Human sentence-seam acceptance from Milestone 5 passed on 2026-10-20. All 36 canonical entries are covered
-  or documented intentional replacements; remaining parity gaps are acceptance evidence, not
-  missing controls. Post-parity feature work is tracked separately in `studio-expansion-roadmap.md`.
+  Human sentence-seam acceptance from Milestone 5 passed on 2026-10-20. The 36-entry inventory maps
+  capabilities, but the laptop review reopens workflow/discoverability gaps. Broader desktop work
+  is tracked in `studio-expansion-roadmap.md`.
 - **Current deterministic evidence (2026-10-20):** integration commit `23d9e07` passes the complete
   Python suite (616 passed, seven intentional live skips) and Ruff, including real nested-child/raw
   stdout isolation regressions for engine and tool workers. Frontend behavior remains covered by

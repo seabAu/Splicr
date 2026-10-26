@@ -441,7 +441,8 @@ Production provides a password-manager-compatible sign-in form, signed `HttpOnly
 The important tuning controls are:
 
 - `SPLICR_CHUNK_MAX_BYTES` and `SPLICR_CHUNK_MAX_WORDS`
-- `SPLICR_MAX_UPLOAD_BYTES`, `SPLICR_MAX_AUDIO_UPLOAD_BYTES`, `SPLICR_MAX_SOURCE_BYTES`,
+- `SPLICR_MAX_UPLOAD_BYTES`, `SPLICR_MAX_EXPANDED_DOCUMENT_BYTES`,
+  `SPLICR_MAX_AUDIO_UPLOAD_BYTES`, `SPLICR_MAX_SOURCE_BYTES`,
   `SPLICR_MAX_SOURCE_WORDS`, and `SPLICR_MAX_OUTPUT_PCM_BYTES`
 - `SPLICR_PACING_SECONDS`
 - `SPLICR_DEEPGRAM_PACING_SECONDS` and `SPLICR_INWORLD_PACING_SECONDS`
@@ -463,6 +464,13 @@ default to no artificial interval because their published limits are concurrency
 already calls them sequentially; their provider-specific variables can add a delay if your account
 needs one. All request pacing is separate from the five-step speaking-pace control stored with each
 synthesis job.
+
+Document upload, Office archive expansion, and extracted narration are separate budgets. Defaults
+are 25 MB uploaded, 250 MB expanded Office content, and 1 MB / 100,000 words of narration. The Office
+budget includes embedded images even though only readable document parts are extracted. Raising
+that budget does not remove the text/word limits or change provider chunk sizes. In-app limit
+controls and a scalable very-large-document workflow remain planned; environment overrides are
+currently the configuration mechanism.
 
 Ambient proxy variables are ignored by default so a shell, IDE, or automation harness cannot
 silently redirect provider traffic through a stale proxy. Set `SPLICR_TRUST_ENV_PROXIES=true` only

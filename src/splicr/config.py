@@ -56,6 +56,7 @@ class Settings:
     max_source_bytes: int = 1_000_000
     max_source_words: int = 100_000
     max_upload_bytes: int = 25_000_000
+    max_expanded_document_bytes: int = 250_000_000
     max_audio_upload_bytes: int = 2_000_000_000
     max_output_pcm_bytes: int = 4_000_000_000
     gemini_model: str = "gemini-3.1-flash-tts-preview"
@@ -147,6 +148,9 @@ class Settings:
             max_source_bytes=_int_env("SPLICR_MAX_SOURCE_BYTES", 1_000_000),
             max_source_words=_int_env("SPLICR_MAX_SOURCE_WORDS", 100_000),
             max_upload_bytes=_int_env("SPLICR_MAX_UPLOAD_BYTES", 25_000_000),
+            max_expanded_document_bytes=_int_env(
+                "SPLICR_MAX_EXPANDED_DOCUMENT_BYTES", 250_000_000
+            ),
             max_audio_upload_bytes=_int_env(
                 "SPLICR_MAX_AUDIO_UPLOAD_BYTES", 2_000_000_000
             ),

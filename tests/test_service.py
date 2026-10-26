@@ -81,7 +81,8 @@ def test_service_preserves_chunk_order_and_builds_wav(tmp_path) -> None:
     asyncio.run(scenario())
 
 
-def test_revise_chunk_reuses_unchanged_checkpoints(tmp_path) -> None:
+@pytest.mark.parametrize("replacement", ["changed words", "three four"])
+def test_revise_chunk_reuses_unchanged_checkpoints(tmp_path, replacement) -> None:
     async def scenario() -> None:
         provider = RecordingProvider()
         service = SynthesisService(
@@ -97,14 +98,13 @@ def test_revise_chunk_reuses_unchanged_checkpoints(tmp_path) -> None:
             assert finished.status is JobStatus.COMPLETED
             original_chunks = service.store.chunks_for_job(original.id)
             original_payloads = [
-                service.storage.chunk_path(original.id, index).read_bytes()
-                for index in range(3)
+                service.storage.chunk_path(original.id, index).read_bytes() for index in range(3)
             ]
 
             revised = await service.revise_chunk(
                 source_job_id=original.id,
                 chunk_index=1,
-                text="changed words",
+                text=replacement,
             )
             revised_finished = await _wait_for_terminal(service, revised.id)
 
@@ -113,17 +113,21 @@ def test_revise_chunk_reuses_unchanged_checkpoints(tmp_path) -> None:
                 "one two",
                 "three four",
                 "five six",
-                "changed words",
+                replacement,
             ]
             revised_chunks = service.store.chunks_for_job(revised.id)
             assert [chunk.text for chunk in revised_chunks] == [
                 "one two",
-                "changed words",
+                replacement,
                 "five six",
             ]
             assert service.storage.chunk_path(revised.id, 0).read_bytes() == original_payloads[0]
             assert service.storage.chunk_path(revised.id, 2).read_bytes() == original_payloads[2]
-            assert service.storage.chunk_path(revised.id, 1).read_bytes() != original_payloads[1]
+            if replacement != "three four":
+                assert (
+                    service.storage.chunk_path(revised.id, 1).read_bytes() != original_payloads[1]
+                )
+            assert service.storage.chunk_path(original.id, 1).read_bytes() == original_payloads[1]
             assert service.store.get_job(original.id) == finished
             assert service.store.chunks_for_job(original.id) == original_chunks
         finally:

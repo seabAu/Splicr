@@ -475,6 +475,10 @@ test("a document can be planned, directed, rendered, played, and reopened", asyn
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "Whole chunk" })).toBeVisible();
   await expect(page.getByText(/Reliable sentence timing is unavailable/)).toBeVisible();
+  const regenerate = page.getByRole("button", { name: "Regenerate chunk", exact: true });
+  await expect(regenerate).toBeEnabled();
+  await regenerate.click();
+  await expect(page.locator(".timeline-revision-status.completed")).toBeVisible();
 
   await navigation.getByRole("button", { name: "Publish", exact: true }).click();
   await page.locator("details.publishing-finishing > summary").click();

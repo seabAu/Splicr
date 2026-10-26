@@ -480,12 +480,13 @@ export function TimelineWorkspace({ onNavigate }) {
                   disabled={
                     !selected
                     || !editText.trim()
-                    || editText === (selectedSentence?.text || selected.text)
                     || !!busy
                   }
                 >
                   {busy === "revise" ? <LoaderCircle className="spin" size={16} /> : <Scissors size={16} />}
-                  {editScope === "sentence" ? "Repair sentence in new take" : "Create revised take"}
+                  {editText === (selectedSentence?.text || selected?.text)
+                    ? (editScope === "sentence" ? "Regenerate sentence" : "Regenerate chunk")
+                    : (editScope === "sentence" ? "Repair sentence in new take" : "Create revised take")}
                 </button>
               </div>
               {revisionJob && (

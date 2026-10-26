@@ -3,7 +3,10 @@ from __future__ import annotations
 import asyncio
 import threading
 import time
+from io import BytesIO
+from zipfile import ZIP_DEFLATED, ZipFile
 
+import pytest
 from fastapi.testclient import TestClient
 
 from splicr.api import create_app
@@ -61,6 +64,44 @@ def test_import_and_heading_preview_preserve_document_structure(tmp_path) -> Non
         assert len(chunks) == 3
         assert [chunk["boundary"] for chunk in chunks] == ["h2", "h2", "h2"]
         assert all(chunk["end_char"] > chunk["start_char"] for chunk in chunks)
+
+
+@pytest.mark.parametrize("expansion_limit, expected_status", [(250_000_000, 200), (4_000_000, 413)])
+def test_office_assets_have_an_independent_expansion_budget(
+    tmp_path, expansion_limit, expected_status
+) -> None:
+    output = BytesIO()
+    with ZipFile(output, "w", compression=ZIP_DEFLATED) as archive:
+        archive.writestr(
+            "word/document.xml",
+            '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+            "<w:body><w:p><w:r><w:t>Short narration.</w:t></w:r></w:p></w:body></w:document>",
+        )
+        archive.writestr("word/media/embedded.bin", b"\0" * 8_388_608)
+    settings = _settings(
+        tmp_path, max_source_bytes=1000, max_expanded_document_bytes=expansion_limit
+    )
+    service = SynthesisService(settings=settings, providers=ProviderRegistry([RecordingProvider()]))
+    with TestClient(create_app(settings=settings, service=service)) as client:
+        response = client.post(
+            "/v1/documents/import", files={"file": ("illustrated.docx", output.getvalue())}
+        )
+    assert response.status_code == expected_status
+    if expected_status == 200:
+        assert response.json()["text"] == "Short narration."
+    else:
+        assert response.json()["detail"]["code"] == "expanded_file_too_large"
+
+
+def test_text_budget_is_not_bypassed_by_a_larger_expansion_budget(tmp_path) -> None:
+    settings = _settings(tmp_path, max_source_bytes=4)
+    service = SynthesisService(settings=settings, providers=ProviderRegistry([RecordingProvider()]))
+    with TestClient(create_app(settings=settings, service=service)) as client:
+        response = client.post(
+            "/v1/documents/import", files={"file": ("story.txt", b"Long narration.")}
+        )
+    assert response.status_code == 413
+    assert response.json()["detail"]["code"] == "expanded_text_too_large"
 
 
 def test_preview_exposes_target_metrics_warnings_and_exact_job_manifest(tmp_path) -> None:

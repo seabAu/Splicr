@@ -5,6 +5,18 @@ import pytest
 from splicr.config import Settings
 
 
+def test_office_expansion_budget_is_independent_and_configurable(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("SPLICR_MAX_EXPANDED_DOCUMENT_BYTES", raising=False)
+    monkeypatch.setenv("SPLICR_MAX_SOURCE_BYTES", "1000")
+    assert Settings.from_env().max_expanded_document_bytes == 250_000_000
+    monkeypatch.setenv("SPLICR_MAX_EXPANDED_DOCUMENT_BYTES", "500000000")
+    assert Settings.from_env().max_expanded_document_bytes == 500_000_000
+    monkeypatch.setenv("SPLICR_MAX_EXPANDED_DOCUMENT_BYTES", "0")
+    with pytest.raises(ValueError, match="SPLICR_MAX_EXPANDED_DOCUMENT_BYTES"):
+        Settings.from_env()
+
+
 def test_environment_proxies_are_disabled_by_default(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("SPLICR_TRUST_ENV_PROXIES", raising=False)
