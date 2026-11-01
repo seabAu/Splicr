@@ -49,6 +49,7 @@ import { LegalCenter } from "./LegalCenter.jsx";
 import { PublishingWorkspace } from "./PublishingWorkspace.jsx";
 import { TimelineWorkspace } from "./TimelineWorkspace.jsx";
 import { VoiceStudio } from "./VoiceStudio.jsx";
+import { LocalSetupSummary, SetupGuideDialog } from "./SetupGuide.jsx";
 
 const NAVIGATION = [
   {
@@ -582,7 +583,7 @@ function LibraryWorkspace({ onOpen }) {
   );
 }
 
-function NarrateWorkspace({ active, projectToLoad }) {
+function NarrateWorkspace({ active, projectToLoad, setupStatus, onSetup, onManageEngines, connectionRequest }) {
   const inputRef = useRef(null);
   const [providers, setProviders] = useState([]);
   const [voiceProfiles, setVoiceProfiles] = useState([]);
@@ -596,6 +597,7 @@ function NarrateWorkspace({ active, projectToLoad }) {
   const [projectName, setProjectName] = useState("");
   const [profilesOpen, setProfilesOpen] = useState(false);
   const [resourcesOpen, setResourcesOpen] = useState(false);
+  useEffect(() => { if (connectionRequest > 0) setResourcesOpen(true); }, [connectionRequest]);
   const [advancedControlsValid, setAdvancedControlsValid] = useState(true);
   const [form, setForm] = useState({
     text: "",
@@ -895,6 +897,7 @@ function NarrateWorkspace({ active, projectToLoad }) {
         <div><p className="eyebrow">Create · Narrate</p><h1>Turn a document into a finished voice performance.</h1></div>
         <div className="header-tools">
           <span className="local-pill"><i />Local workspace</span>
+          {setupStatus?.enabled !== false && <button className="secondary-button small" onClick={onSetup}>Setup guide</button>}
           <button className="secondary-button small" onClick={() => setProfilesOpen(true)}>Profiles</button>
           <button className="secondary-button small" onClick={() => setResourcesOpen(true)}><Plus size={15} />Connections</button>
           <a className="icon-button" href="/docs" aria-label="API documentation"><Settings2 size={18} /></a>
@@ -902,6 +905,8 @@ function NarrateWorkspace({ active, projectToLoad }) {
       </header>
 
       {error && <div className="error-toast" role="alert"><span><strong>Something needs attention</strong>{error}</span><button onClick={() => setError("")}><X size={16} /></button></div>}
+
+      <LocalSetupSummary status={setupStatus} onManage={onManageEngines} />
 
       <div className="workspace-grid">
         <div className="composition-stack">
@@ -1061,6 +1066,50 @@ export default function App() {
   const [errorsOpen, setErrorsOpen] = useState(false);
   const [legalOpen, setLegalOpen] = useState(false);
   const [unreadErrors, setUnreadErrors] = useState(0);
+  const [setupStatus, setSetupStatus] = useState(null);
+  const [setupOpen, setSetupOpen] = useState(false);
+  const [setupError, setSetupError] = useState("");
+  const [setupBusy, setSetupBusy] = useState(false);
+  const [setupEngine, setSetupEngine] = useState(null);
+  const [connectionRequest, setConnectionRequest] = useState(0);
+  const setupPromptSeen = useRef(false);
+  const setupConsumed = useCallback(() => setSetupEngine(null), []);
+  const refreshSetup = async () => {
+    try { setSetupStatus(await api.setupGuide()); setSetupError(""); }
+    catch (reason) { setSetupError(reason.message); }
+  };
+  useEffect(() => {
+    if (active !== "narrate") return undefined;
+    let alive = true;
+    api.setupGuide().then((next) => {
+      if (!alive) return;
+      setSetupStatus(next); setSetupError("");
+      if (next.prompt_required && !setupPromptSeen.current) {
+        setupPromptSeen.current = true; setSetupOpen(true);
+      }
+    }).catch((reason) => { if (alive) setSetupError(reason.message); });
+    return () => { alive = false; };
+  }, [active]);
+  const manageEngine = (engineId = null) => {
+    const engine = setupStatus?.engines?.find((item) => item.id === engineId);
+    setSetupEngine(engineId && !engine?.path && !engine?.locked ? engineId : null);
+    setActive("components");
+  };
+  const chooseSetup = async (mode, engineId = null, navigate = true) => {
+    setSetupBusy(true); setSetupError(""); setupPromptSeen.current = true;
+    try {
+      const saved = await api.saveSetupChoice(mode);
+      setSetupStatus((current) => ({ ...current, ...saved, prompt_required: false }));
+      setSetupOpen(false);
+      if (navigate && mode === "local") manageEngine(engineId);
+      if (navigate && mode === "remote") { setActive("narrate"); setConnectionRequest((value) => value + 1); }
+    } catch (reason) { setSetupError(reason.message); }
+    finally { setSetupBusy(false); }
+  };
+  const closeSetup = () => {
+    if (setupStatus?.enabled) void chooseSetup(setupStatus.mode || "later", null, false);
+    else { setupPromptSeen.current = true; setSetupOpen(false); }
+  };
   const openLegal = useCallback(() => setLegalOpen(true), []);
   const closeLegal = useCallback(() => setLegalOpen(false), []);
   const openProject = (project) => {
@@ -1070,7 +1119,7 @@ export default function App() {
   return (
     <Shell active={active} onChange={setActive} collapsed={collapsed} setCollapsed={setCollapsed} onOpenErrors={() => setErrorsOpen(true)} onOpenLegal={openLegal} unreadErrors={unreadErrors}>
       <div hidden={active !== "narrate"}>
-        <NarrateWorkspace active={active === "narrate"} projectToLoad={projectToLoad} />
+        <NarrateWorkspace active={active === "narrate"} projectToLoad={projectToLoad} setupStatus={setupStatus} onSetup={() => setSetupOpen(true)} onManageEngines={manageEngine} connectionRequest={connectionRequest} />
       </div>
       {active === "library" && <LibraryWorkspace onOpen={openProject} />}
       {active === "dialogue" && <DialogueWorkspace active={active === "dialogue"} />}
@@ -1078,12 +1127,13 @@ export default function App() {
       {active === "audiogram" && <AudiogramWorkspace onNavigate={setActive} />}
       {active === "publish" && <PublishingWorkspace />}
       {active === "convert" && <ConversionWorkspace />}
-      {active === "components" && <ComponentsWorkspace />}
+      {active === "components" && <ComponentsWorkspace initialEngine={setupEngine} onSelectionConsumed={setupConsumed} />}
       {active === "pronunciation" && <LanguageWorkspace />}
       {active === "voices" && <VoiceStudio />}
       {active !== "narrate" && active !== "library" && active !== "dialogue" && active !== "timeline" && active !== "audiogram" && active !== "publish" && active !== "convert" && active !== "components" && active !== "pronunciation" && active !== "voices" && <WorkspacePlaceholder workspace={active} />}
       <ErrorCenter open={errorsOpen} onClose={() => setErrorsOpen(false)} onOpen={() => setErrorsOpen(true)} onUnreadChange={setUnreadErrors} />
       <LegalCenter open={legalOpen} onClose={closeLegal} />
+      <SetupGuideDialog open={setupOpen} status={setupStatus} error={setupError} busy={setupBusy} onChoose={chooseSetup} onClose={closeSetup} onRetry={refreshSetup} />
     </Shell>
   );
 }

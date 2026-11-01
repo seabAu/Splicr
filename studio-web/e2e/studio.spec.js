@@ -45,12 +45,88 @@ function toneWav(seconds = 0.2) {
 }
 
 test.beforeEach(async ({ page }) => {
+  await page.request.put("/v1/studio/setup-guide", { data: { mode: "later" } });
   await page.goto("/studio/");
   await expect(
     page.getByRole("heading", {
       name: /Turn a document into a finished voice performance/,
     }),
   ).toBeVisible();
+});
+
+test("Setup guide persists deferral, reviews local installation, and connects an API without starting work", async ({ page }) => {
+  const errors = captureRuntimeErrors(page);
+  const base = await (await page.request.get("/v1/studio/setup-guide")).json();
+  let choice = null;
+  let installations = 0;
+  let renders = 0;
+  let connectionWrites = 0;
+  // The acceptance provider registry has no editable API resource store.
+  await page.route("**/v1/api-resources", (route) => {
+    if (route.request().method() === "GET") return route.fulfill({ json: [] });
+    connectionWrites += 1;
+    return route.abort();
+  });
+  page.on("request", (request) => {
+    if (request.method() === "POST" && request.url().endsWith("/v1/speech/jobs")) renders += 1;
+  });
+  await page.route("**/v1/studio/setup-guide", async (route) => {
+    if (route.request().method() === "PUT") {
+      choice = route.request().postDataJSON().mode;
+      await route.continue();
+    } else {
+      await route.fulfill({ json: { ...base, enabled: true, mode: choice,
+        prompt_required: choice === null, managed_setup_supported: true,
+        engines: base.engines.map((item) => ({ ...item, path: null, active_path: null,
+          available: false, restart_required: false, locked: false, state: "missing" })) } });
+    }
+  });
+  await page.route("**/v1/studio/components/setup", (route) => route.fulfill({ json: {
+    supported: true, root: "C:\\Users\\Tester\\SPLICR\\managed-engines",
+    free_bytes: 50 * 1024 ** 3, nvidia_gpu: null, jobs: [],
+    recipes: [{ id: "kokoro", packages: ["kokoro==0.9.4"], space_gb: 4, note: "Model weights download separately." }],
+  } }));
+  await page.route("**/v1/studio/components/engines/*/install", (route) => {
+    installations += 1;
+    return route.abort();
+  });
+  await page.reload();
+  const guide = page.getByRole("dialog", { name: "Set up your studio" });
+  await expect(guide).toBeVisible();
+  await expect(guide.getByText(/Nothing downloads until/)).toBeVisible();
+  await page.screenshot({ path: "../.test-runs/setup-guide-first-run.png", fullPage: true });
+  await guide.getByRole("button", { name: "Decide later" }).click();
+  await expect(guide).toBeHidden();
+  await page.reload();
+  await expect(guide).toBeHidden();
+  const source = page.getByPlaceholder(/Paste the document you want to hear/);
+  await source.fill("An unsaved narration draft survives setup navigation.");
+  await page.getByRole("button", { name: "Setup guide", exact: true }).click();
+  await guide.getByLabel("Engine to review").selectOption("kokoro");
+  await guide.getByRole("button", { name: "Review local setup" }).click();
+  const install = page.getByRole("dialog", { name: "Install Kokoro", exact: true });
+  await expect(install).toBeVisible();
+  await expect(install.getByRole("button", { name: "Install engine", exact: true })).toBeDisabled();
+  await expect(install.getByRole("checkbox")).not.toBeChecked();
+  await install.getByRole("button", { name: "Not now" }).click();
+  await page.getByRole("navigation", { name: "Studio workspaces" }).getByRole("button", { name: "Narrate", exact: true }).click();
+  await expect(source).toHaveValue("An unsaved narration draft survives setup navigation.");
+  await expect(page.getByRole("region", { name: "Local engine setup" })).toBeVisible();
+  await page.getByRole("button", { name: "Setup guide", exact: true }).click();
+  await guide.getByRole("button", { name: "Set up API connection" }).click();
+  const connections = page.getByRole("dialog", { name: "API resources" });
+  await expect(connections).toBeVisible();
+  await connections.getByRole("button", { name: "Close", exact: true }).click();
+  await page.getByRole("button", { name: "Setup guide", exact: true }).click();
+  await expect(guide).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(guide).toBeHidden();
+  await expect(connections).toBeHidden();
+  expect((await (await page.request.get("/v1/studio/setup-guide")).json()).mode).toBe("remote");
+  expect(installations).toBe(0);
+  expect(renders).toBe(0);
+  expect(connectionWrites).toBe(0);
+  expect(errors).toEqual([]);
 });
 
 test("every Studio workspace renders without browser errors", async ({ page }) => {
@@ -394,13 +470,13 @@ test("a document can be planned, directed, rendered, played, and reopened", asyn
   await advancedSummary.focus();
   await page.keyboard.press("Enter");
   await expect(advancedDisclosure).toHaveAttribute("open", "");
-  await page.getByLabel("Engine").selectOption("alternate-fake");
+  await page.getByRole("combobox", { name: /^Engine/ }).selectOption("alternate-fake");
   await expect(page.getByLabel("Clarity")).toBeVisible();
   await expect(page.getByLabel("Performance variation")).toHaveCount(0);
   await page.getByLabel("Clarity").fill("8");
   await expect(page.getByText("1 customized")).toBeVisible();
 
-  await page.getByLabel("Engine").selectOption("fake");
+  await page.getByRole("combobox", { name: /^Engine/ }).selectOption("fake");
   await expect(page.getByLabel("Performance variation")).toBeVisible();
   await expect(page.getByLabel("Clarity")).toHaveCount(0);
   await expect(page.getByText("Using recommended defaults")).toBeVisible();

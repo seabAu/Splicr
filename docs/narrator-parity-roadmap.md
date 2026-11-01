@@ -460,7 +460,8 @@ sequence, cancellation cleanup, deterministic archives, API validation, and the 
   install, launch/use the UI, play audio, restart with preserved jobs/profiles, and exercise upgrade,
   uninstall/data preservation and portable execution where applicable. On 2026-10-17 the user
   explicitly deferred pristine-machine testing to future public-release hardening; a clean VM is
-  not required for current single-user development. This manual check is not yet performed.
+  not required for current single-user development. Dev.25 launch on the second laptop was confirmed
+  2026-10-26, but import/workflow problems were reported; the complete worksheet has not passed.
   The operator worksheet is in `packaging/windows/README.md`, **Manual acceptance on your ordinary
   Windows machine**; report results rather than marking this gate from the automated CI result.
   Use manual checks on an ordinary machine, not the destructive disposable-machine lifecycle
@@ -1039,6 +1040,10 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
 
 ## Current work pointer
 
+- **Active revised goal (2026-11-01):** the user has applied and activated the desktop/workflow
+  objective. First-run onboarding and Narrate setup discovery are implemented and tested; proceed
+  with the model catalog/download manager in phase 1. The remaining task is not a manual-test-only
+  blocker. Preserve the ordinary-device gate for the eventual revised installer.
 - **Revision execution plan (2026-10-26):** the user approved replacing the narrow parity-only goal
   with the explicit desktop/workflow revision contract at the top of `studio-expansion-roadmap.md`.
   Follow that document's execution order and laptop-review checkboxes; retain this file as the
@@ -1048,16 +1053,16 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   model workflows, the browser-launch shell, and a large-document rejection. The previous inventory
   mapping is not proof of complete, discoverable workflow parity. See the reopened acceptance work
   below and `studio-expansion-roadmap.md`; do not describe manual testing as the only remaining work.
-- **Active milestone:** Milestone 9 — ordinary-device manual acceptance and release hardening.
+- **Active implementation:** revised phase 1 — Models & Setup. Milestone 9 remains the baseline
+  acceptance ledger, not a reason to stop the newly approved implementation work.
   Human sentence-seam acceptance from Milestone 5 passed on 2026-10-20. The 36-entry inventory maps
   capabilities, but the laptop review reopens workflow/discoverability gaps. Broader desktop work
   is tracked in `studio-expansion-roadmap.md`.
-- **Current deterministic evidence (2026-10-20):** integration commit `23d9e07` passes the complete
-  Python suite (616 passed, seven intentional live skips) and Ruff, including real nested-child/raw
-  stdout isolation regressions for engine and tool workers. Frontend behavior remains covered by
-  the 13 passing unit tests verified on 2026-10-19 and eight Chromium journeys in hosted browser run
-  [`39513844155`](https://github.com/seabAu/Splicr/actions/runs/39513844155) on `1872ba4` (50.1 seconds).
-  This supersedes the 2026-10-10 disk-space-blocked full-suite attempt.
+- **Current deterministic evidence (2026-11-01):** the onboarding source passes the complete Python
+  suite (640 passed, seven intentional live skips) and Ruff. All 13 frontend unit tests, Vite build,
+  and nine Chromium journeys pass (49.7 seconds), including persistent setup choices, explicit
+  installation review and no implicit render/connection writes. The setup screenshot was reviewed.
+  This source verification is not a new package or real model-download result.
 - **Current hosted package evidence (2026-10-20):** public source `1872ba4` / byte-identical private
   source snapshot `736e880` passed [private run `39513710296`](https://github.com/seabAu/Splicr-CI/actions/runs/39513710296):
   617 Python tests passed, seven deliberate live skips, Ruff, exact reviewed-media acquisition,
@@ -1065,8 +1070,8 @@ uv run pytest -m live_provider tests/test_live_provider_acceptance.py
   Retained private artifact `12306947330` is 387,521,560 bytes and expires 2026-11-19. Download to
   ignored `dist/dev.25/` completed; all three local hashes match both manifests, and the acceptance
   JSON binds the exact installer/portable identities with all 25 applicable checks true.
-- **Next development acceptance step (user decision, 2026-10-17):** manually exercise the packaged
-  app on an ordinary representative Windows device. The user passed the Edge seam listening check
+- **Remaining device acceptance:** after the approved software revisions and a new internal build,
+  exercise the packaged app on an ordinary representative Windows device. The user passed the Edge seam listening check
   on 2026-10-20; that is no longer an open acceptance gate.
   Pristine-machine fresh/upgrade scenarios are deferred to the public release checklist, not a
   current single-user development blocker. Existing automated evidence does not claim either

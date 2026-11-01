@@ -149,6 +149,7 @@ from .studio.components import (
     ComponentManager,
 )
 from .studio.engine_setup import EngineSetupManager, SetupError
+from .studio.onboarding import SetupGuidePreferences
 from .studio.conversion import (
     AudioOutputFormat,
     ConversionError,
@@ -2148,6 +2149,11 @@ class EngineSetupRetryPayload(BaseModel):
     consent: bool = False
 
 
+class SetupGuidePayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    mode: Literal["local", "remote", "later"]
+
+
 class PronunciationEntryResponse(BaseModel):
     word: str
     ipa: str
@@ -2726,6 +2732,7 @@ def create_app(
     base_settings = settings or Settings.from_env()
     components = ComponentManager(base_settings)
     engine_setup = EngineSetupManager(components)
+    setup_guide = SetupGuidePreferences(base_settings.data_dir)
     legal = legal_assets or LegalAssets()
     resolved_settings = components.apply(base_settings)
     synthesis = service or create_service(resolved_settings)
@@ -3786,6 +3793,30 @@ def create_app(
         require_local_setup(request)
         response.headers["Cache-Control"] = "no-store"
         return await asyncio.to_thread(engine_setup.catalog)
+
+
+    @application.get("/v1/studio/setup-guide", tags=["studio"])
+    async def setup_guide_status(request: Request, response: Response) -> dict[str, Any]:
+        response.headers["Cache-Control"] = "no-store"
+        try:
+            require_local_setup(request)
+        except HTTPException:
+            return {"enabled": False, "prompt_required": False, "engines": []}
+
+        def snapshot() -> dict[str, Any]:
+            catalog = components.status(resolved_settings)
+            return setup_guide.status(
+                engines=catalog["engines"],
+                has_existing_work=bool(synthesis.store.list_jobs(limit=1)),
+                managed_setup_supported=engine_setup.supported(),
+            )
+
+        return await asyncio.to_thread(snapshot)
+
+    @application.put("/v1/studio/setup-guide", tags=["studio"])
+    async def save_setup_guide(payload: SetupGuidePayload, request: Request) -> dict[str, Any]:
+        require_local_setup(request)
+        return await asyncio.to_thread(setup_guide.choose, payload.mode)
 
     @application.post("/v1/studio/components/engines/{engine_id}/install", status_code=202, tags=["studio"])
     async def install_engine(engine_id: str, payload: EngineSetupPayload, request: Request) -> dict[str, Any]:

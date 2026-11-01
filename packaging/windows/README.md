@@ -14,6 +14,12 @@ deletes the Kokoro, Qwen3-TTS, or Audio8 environments configured in Components.
 
 ## Install optional engines from the packaged app
 
+Builds containing the revised setup guide offer local engines, an API connection, or **Decide later**
+on a fresh workspace. Reopen **Setup guide** from Narrate at any time; **Models & setup** and the
+expandable engine overview lead to Components. The choice is stored with local application data,
+not only in the browser. It is not installation consent and does not start downloads or a paid job.
+Existing jobs or configured environments suppress the automatic first-run prompt.
+
 In builds containing guided setup, open **Components → Install engine**, choose CPU or an available
 NVIDIA option, review storage/download notices, and confirm. SPLICR provisions private Python and
 an isolated environment without terminal commands or administrator rights. Existing environments

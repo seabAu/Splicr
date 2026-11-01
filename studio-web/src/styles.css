@@ -929,6 +929,25 @@ button:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important
 }
 
 /* Components workspace */
+.setup-overview { padding: 17px 20px; margin-bottom: 20px; }
+.setup-overview-heading { display: flex; align-items: center; justify-content: space-between; gap: 15px; }
+.setup-overview p { margin: 6px 0; font-size: 12px; line-height: 1.55; color: var(--muted); }
+.setup-overview details { margin-top: 10px; }
+.setup-overview summary { cursor: pointer; font-size: 12px; color: var(--accent); }
+.setup-engine-list { margin-top: 12px; display: grid; gap: 10px; }
+.setup-engine-list article { border-top: 1px solid var(--line); padding-top: 11px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.setup-engine-list article strong { margin-right: 9px; font-size: 13px; }
+.setup-overview .setup-restart-note { color: #b8e1ff; }
+.setup-guide-dialog { width: min(850px, calc(100vw - 32px)); max-height: calc(100vh - 48px); overflow-y: auto; }
+.setup-mode-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 20px 0; }
+.setup-mode-card { padding: 20px; display: flex; flex-direction: column; gap: 13px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.setup-mode-card > svg { color: var(--accent); }
+.setup-mode-card h3 { margin: 0; font-family: Georgia, serif; font-size: 22px; font-weight: 500; }
+.setup-mode-card p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.setup-mode-card .setup-fine-print { font-size: 11px; }
+.setup-mode-card > button { margin-top: auto; }
+.setup-guide-footer { display: flex; justify-content: space-between; gap: 15px; align-items: center; color: var(--muted); font-size: 12px; }
+@media (max-width: 700px) { .setup-mode-grid { grid-template-columns: 1fr; } .setup-overview-heading, .setup-engine-list article { align-items: start; flex-direction: column; } }
 .components-workspace { padding: 28px 32px 72px; max-width: 1680px; margin: 0 auto; }
 .components-header { align-items: end; }
 .components-header > div:first-child { flex: 1; }

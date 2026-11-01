@@ -5,7 +5,7 @@ import { api } from "./api.js";
 const ACTIVE = new Set(["queued", "running", "cancelling"]);
 const gib = (bytes) => `${(bytes / 1024 ** 3).toFixed(1)} GiB`;
 
-export function EngineSetupPanel({ engines, onInstalled }) {
+export function EngineSetupPanel({ engines, onInstalled, initialEngine = null, onSelectionConsumed }) {
   const [catalog, setCatalog] = useState(null);
   const [selected, setSelected] = useState(null);
   const [accelerator, setAccelerator] = useState("cpu");
@@ -14,6 +14,7 @@ export function EngineSetupPanel({ engines, onInstalled }) {
   const [error, setError] = useState("");
   const [pollError, setPollError] = useState("");
   const refreshed = useRef(new Set());
+  const consumed = useRef(null);
 
   useEffect(() => {
     let alive = true;
@@ -57,6 +58,17 @@ export function EngineSetupPanel({ engines, onInstalled }) {
   const label = (id) => engines.find((engine) => engine.id === id)?.label || id;
   const required = recipe ? (recipe.space_gb + (accelerator === "cuda" ? 8 : 0)) * 1024 ** 3 : 0;
   const enoughSpace = catalog && catalog.free_bytes >= required;
+
+  useEffect(() => {
+    if (!initialEngine) { consumed.current = null; return; }
+    if (!catalog || consumed.current === initialEngine) return;
+    consumed.current = initialEngine;
+    if (catalog.supported && !active && catalog.recipes.some((item) => item.id === initialEngine)
+      && !engines.find((engine) => engine.id === initialEngine)?.locked) {
+      setSelected(initialEngine); setAccelerator("cpu"); setConsent(false); setError("");
+    }
+    onSelectionConsumed?.();
+  }, [initialEngine, catalog, active, engines, onSelectionConsumed]);
 
   return <section className="components-section managed-setup surface">
     <div className="section-heading"><div><p className="eyebrow">Guided setup</p><h2>Install engines without the terminal</h2></div><Download size={22} /></div>

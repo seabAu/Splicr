@@ -103,6 +103,10 @@ export const api = {
   batchAction: (id, action) =>
     request(`/v1/studio/batches/${encodeURIComponent(id)}/${action}`, { method: "POST" }),
   components: () => request("/v1/studio/components"),
+  setupGuide: () => request("/v1/studio/setup-guide"),
+  saveSetupChoice: (mode) => request("/v1/studio/setup-guide", {
+    method: "PUT", body: JSON.stringify({ mode }),
+  }),
   engineSetup: () => request("/v1/studio/components/setup"),
   installEngine: (id, accelerator, consent) => request(`/v1/studio/components/engines/${encodeURIComponent(id)}/install`, {
     method: "POST", body: JSON.stringify({ accelerator, consent }),

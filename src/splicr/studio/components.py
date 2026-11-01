@@ -264,7 +264,7 @@ class ComponentManager:
                 if restart_required
                 else "Interpreter is active; engine packages are verified when a job starts."
                 if available
-                else "Choose the Python executable inside an existing engine environment."
+                else "Use guided setup to install this engine, or connect an environment you already manage."
             ),
             "unlocks": definition["unlocks"],
             "locked": locked,

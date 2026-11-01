@@ -86,7 +86,7 @@ function EngineDialog({ engine, busy, error, onClose, onSave }) {
   );
 }
 
-export function ComponentsWorkspace() {
+export function ComponentsWorkspace({ initialEngine = null, onSelectionConsumed }) {
   const [catalog, setCatalog] = useState(null);
   const [editing, setEditing] = useState(null);
   const [busy, setBusy] = useState("");
@@ -153,7 +153,7 @@ export function ComponentsWorkspace() {
         <section className="surface components-loading"><LoaderCircle className="spin" size={28} /><span>Inspecting local tools…</span></section>
       ) : (
         <>
-          <EngineSetupPanel engines={catalog.engines} onInstalled={load} />
+          <EngineSetupPanel engines={catalog.engines} onInstalled={load} initialEngine={initialEngine} onSelectionConsumed={onSelectionConsumed} />
           {catalog.restart_required && (
             <section className="component-restart-banner"><RotateCcw size={19} /><div><strong>Restart SPLICR to activate the saved engine change.</strong><span>Active jobs keep their current provider registry until then.</span></div></section>
           )}

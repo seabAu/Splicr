@@ -240,9 +240,14 @@ Treat this as product feedback exposing real gaps, not merely a request to rerun
   Standalone Pronunciation is not the same workflow. Preserve the handover's explicit distinction:
   word/phoneme inspection and sentence re-rendering existed; arbitrary per-phoneme audio surgery
   did not and must not be represented as an already implemented legacy feature.
-- [ ] First-run setup and discoverability: expose local-engine setup from Narrate, show unavailable
+- [x] First-run setup and discoverability: expose local-engine setup from Narrate, show unavailable
   engines with an actionable reason, and explain restart activation. Do not silently download all
   optional engines/models or require users to hunt through workspaces.
+  Source implementation verified 2026-11-01: first-run guide with persistent local/API/later choice,
+  Narrate engine overview and direct setup review, explicit separate install consent, existing-work
+  suppression, and full restart guidance. New backend persistence/origin tests and browser journey
+  cover the flow; the nine-journey browser suite passes. This is not a model-download catalog or a
+  new installer, and choosing a route does not mean an engine/model is installed or verified.
 - [ ] Add a Models/default-model catalog with engine-compatible presets, source/revision, terms,
   download/disk estimates, install/cache state, progress/cancel/resume/retry and explicit removal.
   Reuse the existing durable setup-job infrastructure and voice-download UI patterns where useful;
@@ -273,6 +278,17 @@ Do not reopen these from early “not yet” annotations later contradicted by t
 | Audio8 version milestone ambiguity | Studio packaging/release version policy replaces the old ad-hoc request |
 
 ## Verification record
+
+- 2026-11-01: guided first-run onboarding and Narrate setup entry points implemented. Focused
+  onboarding/component tests: 22 passed. Frontend: 13 unit tests, Vite build and nine Chromium
+  journeys pass (49.7 seconds). Screenshot reviewed. Browser setup/Connections/download catalog
+  calls are controlled fixtures; no real engine/model install or paid API request was performed.
+  Initial browser run exposed a broad engine-field test selector and a missing Connections fixture
+  for the fake registry; the corrected complete rerun passes without suppressing console errors.
+  The final complete backend regression suite passes (640 passed, seven intentional live skips;
+  Ruff passes), including bounded-read and deeply nested/corrupt preference recovery. No new
+  installer yet. This is the onboarding/discovery slice of phase 1; model catalog,
+  model download jobs and cache management remain the next implementation work.
 
 - 2026-10-26: laptop feedback prompted independent Office expansion limits and unchanged-text
   Timeline regeneration. Full Python suite: 622 passed, seven deliberate live skips; Ruff passes.
