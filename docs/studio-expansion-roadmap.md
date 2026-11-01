@@ -289,6 +289,8 @@ Do not reopen these from early “not yet” annotations later contradicted by t
   Ruff passes), including bounded-read and deeply nested/corrupt preference recovery. No new
   installer yet. This is the onboarding/discovery slice of phase 1; model catalog,
   model download jobs and cache management remain the next implementation work.
+  Hosted browser run [41336476211](https://github.com/seabAu/Splicr/actions/runs/41336476211)
+  passes all nine journeys (52.0 seconds) on source `18bcc34`.
 
 - 2026-10-26: laptop feedback prompted independent Office expansion limits and unchanged-text
   Timeline regeneration. Full Python suite: 622 passed, seven deliberate live skips; Ruff passes.
